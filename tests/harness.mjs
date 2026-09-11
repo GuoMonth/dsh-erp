@@ -63,12 +63,22 @@ export async function exercise(plugin) {
     assert.equal(denied.isError, true)
     const storage = await host.run('erp_storage_status')
     assert.equal(storage.isError, false, JSON.stringify(storage))
-    assert.equal(storage.value.schemaVersion, 2)
+    assert.equal(storage.value.schemaVersion, 3)
     assert.equal(storage.value.journalMode, 'wal')
     const scope = { site: 'fixture', account: 'reader' }
     const saved = await host.ctx.erp.storage.call('observe', { id: 'packaged-observation', scope,
       url: 'https://example.invalid/erp', title: 'Fixture', text: 'Packaged storage worker',
       locale: 'en', context: 'test', observedAt: '2026-09-11T00:00:00.000Z' })
+    const base = { name: 'Fixture', aliases: ['测试'], description: 'Packaged evidence interpretation', expectedVersion: 0,
+      stage: 'observed', flags: [], lifecycle: 'active', evidence: [{ observationId: saved.id, quote: 'Packaged storage worker' }], dependencies: [] }
+    const knowledge = await host.run('erp_knowledge_record', { scope, records: [
+      { ...base, id: 'menu-1', kind: 'menu' }, { ...base, id: 'domain-1', kind: 'domain', stage: 'interpreted' },
+      { ...base, id: 'link-1', kind: 'relation', stage: 'interpreted', from: { id: 'menu-1', version: 1 }, to: { id: 'domain-1', version: 1 }, predicate: 'supports' },
+    ] })
+    assert.equal(knowledge.isError, false, JSON.stringify(knowledge))
+    const related = await host.run('erp_knowledge_neighbors', { scope, id: 'menu-1', direction: 'out', after: '', limit: 10 })
+    assert.equal(related.value.items[0].record.to.id, 'domain-1')
+    assert.deepEqual((await host.run('erp_observation_get', { scope, id: saved.id })).value, saved)
     const backup = await host.ctx.erp.storage.call('backup', {})
     const browserBefore = await host.run('erp_browser_status')
     assert.equal(browserBefore.value.state, 'closed')
@@ -86,8 +96,11 @@ export async function exercise(plugin) {
     assert.equal((await host.run('erp_storage_status')).isError, true)
     await plugin.restoreBackup(join(root, 'data'), backup.id, join(root, 'restored'))
     const restored = new plugin.StorageClient({ directory: join(root, 'restored') })
-    try { assert.deepEqual(await restored.call('observation', { id: saved.id, scope }), saved) }
+    try {
+      assert.deepEqual(await restored.call('observation', { id: saved.id, scope }), saved)
+      assert.equal((await restored.call('knowledgeGet', { scope, id: 'link-1' })).record.to.id, 'domain-1')
+    }
     finally { await restored.dispose() }
-    return { tools: 'passed', modelService: 'fixture adapter passed', schema: 'passed', approvalWithoutAgent: 'denied', storageAndRestore: 'passed', browserManualSession: 'passed', unload: 'passed' }
+    return { tools: 'passed', modelService: 'fixture adapter passed', schema: 'passed', approvalWithoutAgent: 'denied', storageAndRestore: 'passed', knowledgeAndEvidence: 'passed', browserManualSession: 'passed', unload: 'passed' }
   } finally { await host.dispose(); await rm(root, { recursive: true, force: true }) }
 }

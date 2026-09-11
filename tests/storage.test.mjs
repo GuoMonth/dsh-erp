@@ -113,7 +113,7 @@ test('offline restore works when the original database is corrupt, and rejects t
 })
 test('migration backs up the old version then builds the new searchable index', async t => {
   const f = await fixture(t); await seedV1(f.directory)
-  const client = f.open(); assert.equal((await client.call('status', {})).schemaVersion, 2)
+  const client = f.open(); assert.equal((await client.call('status', {})).schemaVersion, 3)
   assert.equal((await client.call('search', { scope, query: '采购订单', limit: 10 })).length, 1)
   const [id] = await readdir(join(f.directory, 'backups'))
   const manifest = JSON.parse(await readFile(join(f.directory, 'backups', id, 'manifest.json'), 'utf8'))

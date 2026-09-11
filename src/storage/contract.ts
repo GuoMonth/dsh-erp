@@ -1,11 +1,11 @@
 import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
+import { knowledgeContracts } from '../knowledge/contract.js'
+import { scopeSchema, StorageError } from './primitives.js'
+export { scopeSchema, StorageError, scopeKey, canonicalScope } from './primitives.js'
 
 const str = { type: 'string', required: true } as const
 const num = { type: 'integer', required: true } as const
-export const scopeSchema = { type: 'object', additionalProperties: false, properties: {
-  site: str, account: str, tenant: { type: 'string' }, role: { type: 'string' },
-} } as const
 const scope = scopeSchema
 const evidence = { type: 'object', additionalProperties: false, properties: {
   mime: { type: 'string', enum: ['text/plain', 'application/json', 'image/png'], required: true },
@@ -40,6 +40,7 @@ export const storageStatusSchema = { type: 'object', additionalProperties: false
   observations: num, tasks: num, evidenceFiles: num,
 } } as const
 export const contracts = {
+  ...knowledgeContracts,
   status: { input: empty, output: storageStatusSchema },
   observe: { input: observationSchema, output: storedObservation },
   observation: { input: scopedId, output: { oneOf: [storedObservation, { type: 'null' }] } },
@@ -64,20 +65,7 @@ export type Output<K extends Method> = InferValue<(typeof contracts)[K]['output'
 const schemas = Object.fromEntries(Object.entries(contracts).map(([method, spec]) => [method, {
   input: valueSchemaSpecToJsonSchema(spec.input), output: valueSchemaSpecToJsonSchema(spec.output),
 }]))
-export class StorageError extends Error {
-  constructor(readonly code: string) { super(code); this.name = 'StorageError' }
-}
 export function validate<K extends Method>(method: K, direction: 'input' | 'output', data: unknown): void {
   const schema = schemas[method]?.[direction]
   if (!schema || validateJsonSchemaValue(schema, data, '').length) throw new StorageError('INVALID_STORAGE_MESSAGE')
-}
-export function scopeKey(value: Input<'observation'>['scope']): string {
-  for (const s of Object.values(value)) if (!s.trim() || s.length > 500) throw new StorageError('INVALID_SCOPE')
-  return JSON.stringify([value.site, value.account, value.tenant ?? null, value.role ?? null])
-}
-export function canonicalScope(value: Input<'observation'>['scope']): Input<'observation'>['scope'] {
-  scopeKey(value)
-  return { site: value.site, account: value.account,
-    ...(value.tenant === undefined ? {} : { tenant: value.tenant }),
-    ...(value.role === undefined ? {} : { role: value.role }) }
 }
