@@ -11,6 +11,7 @@ let active: { id: string; controller: AbortController } | undefined
 const browser = process.env.ERP_BROWSER_DIRECTORY ? new BrowserSession({
   directory: process.env.ERP_BROWSER_DIRECTORY, headless: process.env.ERP_BROWSER_HEADLESS === 'true',
   sandbox: process.env.ERP_BROWSER_SANDBOX !== 'false',
+  ...(process.env.ERP_BROWSER_READ_POLICY ? { readPolicyFile: process.env.ERP_BROWSER_READ_POLICY } : {}),
   progress: (phase, percent) => send({ v: PROTOCOL, kind: 'progress', phase, percent }),
 }) : undefined
 
@@ -46,6 +47,9 @@ process.on('message', (raw: unknown) => {
           case 'browser.resume': value = await browser.resume(request.input.sessionId, request.input.revision, controller.signal); break
           case 'browser.pause': value = browser.pause(); break
           case 'browser.capture': value = await browser.capture(controller.signal); break
+          case 'browser.readPolicy': value = browser.readPolicy(); break
+          case 'browser.readEnable': value = await browser.enableRead(request.input, controller.signal); break
+          case 'browser.read': value = await browser.read(request.input, controller.signal); break
           case 'browser.close': value = await browser.close(); break
         }
         controller.signal.throwIfAborted()

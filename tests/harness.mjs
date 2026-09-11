@@ -80,6 +80,7 @@ export async function exercise(plugin) {
     assert.equal(related.value.items[0].record.to.id, 'domain-1')
     assert.deepEqual((await host.run('erp_observation_get', { scope, id: saved.id })).value, saved)
     const backup = await host.ctx.erp.storage.call('backup', {})
+    assert.equal((await host.run('erp_browser_read_policy')).isError, true)
     const browserBefore = await host.run('erp_browser_status')
     assert.equal(browserBefore.value.state, 'closed')
     const browserArgs = { siteUrl: 'https://example.invalid/erp/', scope }

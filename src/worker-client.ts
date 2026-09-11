@@ -36,6 +36,7 @@ export class WorkerClient {
     browserDirectory?: string
     browserHeadless?: boolean
     browserResourcesDir?: string
+    browserReadPolicyFile?: string
     browserSandbox?: boolean
   } = {}) {}
 
@@ -59,6 +60,7 @@ export class WorkerClient {
     }
     if (this.options.browserDirectory) {
       env.ERP_BROWSER_DIRECTORY = this.options.browserDirectory
+      if (this.options.browserReadPolicyFile) env.ERP_BROWSER_READ_POLICY = this.options.browserReadPolicyFile
       env.PLAYWRIGHT_BROWSERS_PATH = this.options.browserResourcesDir ?? this.options.browserDirectory + '/browser-resources'
       env.ERP_BROWSER_HEADLESS = String(this.options.browserHeadless === true)
       env.ERP_BROWSER_SANDBOX = String(this.options.browserSandbox !== false)
