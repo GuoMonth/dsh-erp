@@ -25,11 +25,15 @@ class Fixture extends LlmAdapter {
       ['erp_runtime_status', {}],
       ['erp_model_probe', { provider: 'erp-fixture', model: 'test-model' }],
       ['erp_approval_probe', {}],
+      ['erp_storage_status', {}],
     ]
     if (results.length >= specs.length) {
       const body = results[0].content.find(b => b.type === 'text').text
       const health = JSON.parse(body)
       assert.ok(health.pid > 0)
+      const storage = JSON.parse(results[3].content.find(b => b.type === 'text').text)
+      assert.equal(storage.schemaVersion, 2)
+      assert.equal(storage.journalMode, 'wal')
       yield* textChunks(`ERP_HOST_SMOKE_OK worker=${health.pid}`)
       return
     }

@@ -6,9 +6,17 @@ import { assertRuntime, DSH_TARGET } from './runtime-version.js'
 import { healthSchema } from './protocol.js'
 import { WorkerClient } from './worker-client.js'
 import type { RuntimeEvent } from './worker-client.js'
+import z from '@deepseek-ai/schemastery'
+import { StorageClient } from './storage/client.js'
+import { storageStatusSchema } from './storage/contract.js'
+
+export { StorageClient, restoreBackup } from './storage/client.js'
+export type { Observation } from './storage/contract.js'
 
 export const name = 'dsh-erp'
 export const inject = ['tools', 'llm']
+export interface Config { dataDir?: string }
+export const Config: z<Config> = z.object({ dataDir: z.string() })
 
 declare module '@deepseek-ai/cordis' {
   interface Context { erp: ErpRuntime }
@@ -16,6 +24,7 @@ declare module '@deepseek-ai/cordis' {
 
 export class ErpRuntime extends Service {
   readonly worker: WorkerClient
+  readonly storage: StorageClient
   readonly lifetime = new AbortController()
   private events: RuntimeEvent[] = []
   private modelCalls = 0
@@ -24,12 +33,13 @@ export class ErpRuntime extends Service {
   private outputTokens = 0
   private readonly modelTasks = new Set<Promise<unknown>>()
 
-  constructor(ctx: Context) {
+  constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'erp')
     this.worker = new WorkerClient({ onEvent: event => {
       this.events.push(event)
       if (this.events.length > 100) this.events.shift()
     } })
+    this.storage = new StorageClient(config.dataDir ? { directory: config.dataDir } : {})
     ctx.effect(() => () => this.stop())
   }
 
@@ -79,13 +89,20 @@ export class ErpRuntime extends Service {
 
   private async stop(): Promise<void> {
     this.lifetime.abort()
-    await Promise.all([this.worker.dispose(), ...[...this.modelTasks].map(task => task.catch(() => {}))])
+    await Promise.all([this.worker.dispose(), this.storage.dispose(), ...[...this.modelTasks].map(task => task.catch(() => {}))])
   }
 }
 
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: Config = {}): void {
   assertRuntime()
-  const runtime = new ErpRuntime(ctx)
+  const runtime = new ErpRuntime(ctx, config)
+  ctx.tools.register(defineTool({
+    name: 'erp_storage_status',
+    description: 'Check the local observation store. Opens the plugin data directory when needed; does not access or modify an ERP.',
+    parameters: {},
+    output: { schema: storageStatusSchema, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    async execute(_args, exec) { return runtime.storage.call('status', {}, exec.signal) },
+  }))
   ctx.tools.register(defineTool({
     name: 'erp_runtime_status',
     description: 'Check the local ERP worker connection. Diagnostic only; does not open or modify an ERP.',

@@ -1,11 +1,29 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { setTimeout as delay } from 'node:timers/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import * as plugin from '../dist/index.js'
 import { mount, exercise } from './harness.mjs'
 
 test('real rc2 tools, model service, schema and unload lifecycle', async () => { await exercise(plugin) })
+test('cancelling execution worker leaves independent durable storage usable', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'erp-isolation-'))
+  const host = await mount(plugin, undefined, { dataDir: join(root, 'data') })
+  t.after(async () => { await host.dispose(); await rm(root, { recursive: true, force: true }) })
+  await host.run('erp_runtime_status')
+  const controller = new AbortController()
+  const interrupted = assert.rejects(host.ctx.erp.worker.health(controller.signal, 10_000), { code: 'CANCELLED' })
+  const scope = { site: 'fixture', account: 'reader' }
+  const saving = host.ctx.erp.storage.call('observe', { id: 'independent-commit', scope, url: 'https://example.invalid',
+    title: 'Fixture', text: 'durable observation', context: 'test', locale: 'en', observedAt: '2026-09-11T00:00:00.000Z' })
+  await delay(20); controller.abort(); await interrupted
+  const saved = await saving
+  assert.deepEqual(await host.ctx.erp.storage.call('observation', { id: saved.id, scope }), saved)
+  assert.equal((await host.run('erp_storage_status')).isError, false)
+})
 test('plugin can be disabled and reloaded with a fresh worker', async t => {
   const host = await mount(plugin)
   t.after(() => host.dispose())

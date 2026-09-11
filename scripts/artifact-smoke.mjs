@@ -14,7 +14,7 @@ function run(command, args, options = {}) {
 try {
   const packed = JSON.parse(run(npm, ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], { cwd: root }))[0]
   const names = packed.files.map(f => f.path)
-  for (const file of ['dist/index.js', 'dist/worker.js', 'cordis.patch.yml']) assert.ok(names.includes(file), file)
+  for (const file of ['dist/index.js', 'dist/worker.js', 'dist/storage/worker.js', 'dist/storage/database.js', 'cordis.patch.yml']) assert.ok(names.includes(file), file)
   assert.ok(!names.some(n => n.startsWith('tests/') || n.startsWith('scripts/') || n.endsWith('.ts') && !n.endsWith('.d.ts')))
   const consumer = join(scratch, 'consumer'); mkdirSync(consumer)
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
@@ -39,7 +39,7 @@ try {
   const match = output.match(/ERP_HOST_SMOKE_OK worker=(\d+)/)
   assert.ok(match, output)
   assert.throws(() => process.kill(Number(match[1]), 0), { code: 'ESRCH' })
-  console.log(`Real dsh rc2 CLI: plugin install, agent loop, IPC, model service, approval and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider).`)
+  console.log(`Real dsh rc2 CLI: plugin install, agent loop, IPC, model service, approval, SQLite and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider).`)
 } finally {
   if (process.env.ERP_KEEP_SMOKE === '1') console.log('Smoke artifacts:', scratch)
   else rmSync(scratch, { recursive: true, force: true })
