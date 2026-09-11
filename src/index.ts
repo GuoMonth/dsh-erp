@@ -9,14 +9,15 @@ import type { RuntimeEvent } from './worker-client.js'
 import z from '@deepseek-ai/schemastery'
 import { StorageClient } from './storage/client.js'
 import { storageStatusSchema } from './storage/contract.js'
+import { BrowserRuntime, registerBrowserTools } from './browser/runtime.js'
 
 export { StorageClient, restoreBackup } from './storage/client.js'
 export type { Observation } from './storage/contract.js'
 
 export const name = 'dsh-erp'
 export const inject = ['tools', 'llm']
-export interface Config { dataDir?: string }
-export const Config: z<Config> = z.object({ dataDir: z.string() })
+export interface Config { dataDir?: string; browserHeadless?: boolean; browserResourcesDir?: string; browserSandbox?: boolean }
+export const Config: z<Config> = z.object({ dataDir: z.string(), browserHeadless: z.boolean().default(false), browserResourcesDir: z.string(), browserSandbox: z.boolean().default(true) })
 
 declare module '@deepseek-ai/cordis' {
   interface Context { erp: ErpRuntime }
@@ -25,6 +26,7 @@ declare module '@deepseek-ai/cordis' {
 export class ErpRuntime extends Service {
   readonly worker: WorkerClient
   readonly storage: StorageClient
+  readonly browser: BrowserRuntime
   readonly lifetime = new AbortController()
   private events: RuntimeEvent[] = []
   private modelCalls = 0
@@ -35,11 +37,13 @@ export class ErpRuntime extends Service {
 
   constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'erp')
-    this.worker = new WorkerClient({ onEvent: event => {
+    this.storage = new StorageClient(config.dataDir ? { directory: config.dataDir } : {})
+    this.worker = new WorkerClient({ browserDirectory: this.storage.directory, browserHeadless: config.browserHeadless ?? false, browserSandbox: config.browserSandbox ?? true,
+      ...(config.browserResourcesDir ? { browserResourcesDir: config.browserResourcesDir } : {}), onEvent: event => {
       this.events.push(event)
       if (this.events.length > 100) this.events.shift()
     } })
-    this.storage = new StorageClient(config.dataDir ? { directory: config.dataDir } : {})
+    this.browser = new BrowserRuntime(this.worker, this.storage, this.lifetime.signal)
     ctx.effect(() => () => this.stop())
   }
 
@@ -89,6 +93,7 @@ export class ErpRuntime extends Service {
 
   private async stop(): Promise<void> {
     this.lifetime.abort()
+    await this.browser.drain()
     await Promise.all([this.worker.dispose(), this.storage.dispose(), ...[...this.modelTasks].map(task => task.catch(() => {}))])
   }
 }
@@ -96,6 +101,7 @@ export class ErpRuntime extends Service {
 export function apply(ctx: Context, config: Config = {}): void {
   assertRuntime()
   const runtime = new ErpRuntime(ctx, config)
+  registerBrowserTools(ctx, runtime.browser)
   ctx.tools.register(defineTool({
     name: 'erp_storage_status',
     description: 'Check the local observation store. Opens the plugin data directory when needed; does not access or modify an ERP.',

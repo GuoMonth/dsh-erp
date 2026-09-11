@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { chromium } from 'playwright'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import Tools from '@deepseek-ai/dsh-tools'
@@ -45,7 +46,8 @@ export async function mount(plugin, adapter = new ProbeAdapter(), config = {}) {
 }
 export async function exercise(plugin) {
   const root = await mkdtemp(join(tmpdir(), 'erp-plugin-'))
-  const host = await mount(plugin, undefined, { dataDir: join(root, 'data') })
+  const host = await mount(plugin, undefined, { dataDir: join(root, 'data'), browserHeadless: true, browserSandbox: false,
+    browserResourcesDir: dirname(dirname(dirname(chromium.executablePath()))) })
   try {
     const status = await host.run('erp_runtime_status')
     assert.equal(status.isError, false, JSON.stringify(status))
@@ -68,6 +70,15 @@ export async function exercise(plugin) {
       url: 'https://example.invalid/erp', title: 'Fixture', text: 'Packaged storage worker',
       locale: 'en', context: 'test', observedAt: '2026-09-11T00:00:00.000Z' })
     const backup = await host.ctx.erp.storage.call('backup', {})
+    const browserBefore = await host.run('erp_browser_status')
+    assert.equal(browserBefore.value.state, 'closed')
+    const browserArgs = { siteUrl: 'https://example.invalid/erp/', scope }
+    const opened = await host.run('erp_browser_open', browserArgs)
+    assert.equal(opened.isError, false, JSON.stringify(opened))
+    assert.equal(opened.value.state, 'manual'); assert.equal(opened.value.pageUrl, '')
+    assert.equal((await host.run('erp_browser_resume', { sessionId: opened.value.sessionId, revision: opened.value.revision })).isError, true)
+    assert.equal((await host.run('erp_browser_observe')).isError, true)
+    assert.equal((await host.run('erp_browser_close')).value.state, 'closed')
     const pid = status.value.pid
     await host.fiber.dispose()
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
@@ -77,6 +88,6 @@ export async function exercise(plugin) {
     const restored = new plugin.StorageClient({ directory: join(root, 'restored') })
     try { assert.deepEqual(await restored.call('observation', { id: saved.id, scope }), saved) }
     finally { await restored.dispose() }
-    return { tools: 'passed', modelService: 'fixture adapter passed', schema: 'passed', approvalWithoutAgent: 'denied', storageAndRestore: 'passed', unload: 'passed' }
+    return { tools: 'passed', modelService: 'fixture adapter passed', schema: 'passed', approvalWithoutAgent: 'denied', storageAndRestore: 'passed', browserManualSession: 'passed', unload: 'passed' }
   } finally { await host.dispose(); await rm(root, { recursive: true, force: true }) }
 }

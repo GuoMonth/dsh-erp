@@ -3,9 +3,10 @@ import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 
 const str = { type: 'string', required: true } as const
 const num = { type: 'integer', required: true } as const
-const scope = { type: 'object', additionalProperties: false, properties: {
+export const scopeSchema = { type: 'object', additionalProperties: false, properties: {
   site: str, account: str, tenant: { type: 'string' }, role: { type: 'string' },
 } } as const
+const scope = scopeSchema
 const evidence = { type: 'object', additionalProperties: false, properties: {
   mime: { type: 'string', enum: ['text/plain', 'application/json', 'image/png'], required: true },
   base64: str,
@@ -15,10 +16,11 @@ export const observationSchema = { type: 'object', additionalProperties: false, 
   context: str, observedAt: str, evidence,
 } } as const satisfies ValueSchemaSpec
 export type Observation = InferValue<typeof observationSchema>
-const storedObservation = { type: 'object', additionalProperties: false, properties: {
+export const storedObservationSchema = { type: 'object', additionalProperties: false, properties: {
   id: str, scope: { ...scope, required: true }, url: str, title: str, text: str, locale: str,
   context: str, observedAt: str, evidenceHash: { type: 'string' }, evidenceMime: { type: 'string' }, version: num,
 } } as const
+const storedObservation = storedObservationSchema
 const checkpoint = { type: 'object', additionalProperties: false, properties: {
   id: str, scope: { ...scope, required: true }, expectedVersion: num,
   state: { type: 'string', enum: ['running', 'paused', 'round-ended', 'cancelled'], required: true },
