@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve, delimiter } from 'node:path'
+import { join, resolve, delimiter, dirname } from 'node:path'
+import { chromium } from 'playwright'
 import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const scratch = mkdtempSync(join(tmpdir(), 'dsh-erp-artifact-'))
@@ -14,7 +15,7 @@ function run(command, args, options = {}) {
 try {
   const packed = JSON.parse(run(npm, ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], { cwd: root }))[0]
   const names = packed.files.map(f => f.path)
-  for (const file of ['dist/index.js', 'dist/worker.js', 'dist/storage/worker.js', 'dist/storage/database.js', 'cordis.patch.yml']) assert.ok(names.includes(file), file)
+  for (const file of ['dist/index.js', 'dist/worker.js', 'dist/storage/worker.js', 'dist/storage/database.js', 'dist/browser/session.js', 'dist/browser/resources.js', 'cordis.patch.yml']) assert.ok(names.includes(file), file)
   assert.ok(!names.some(n => n.startsWith('tests/') || n.startsWith('scripts/') || n.endsWith('.ts') && !n.endsWith('.d.ts')))
   const consumer = join(scratch, 'consumer'); mkdirSync(consumer)
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
@@ -35,11 +36,12 @@ try {
   cpSync(join(root, 'scripts/fixture-provider.mjs'), join(consumer, 'fixture-provider.mjs'))
   const patch = join(scratch, 'fixture.patch.yml')
   writeFileSync(patch, `- id: agent-default-model\n  config:\n    provider: erp-fixture\n    model: test-model\n- insert:\n    - id: erp-artifact-fixture\n      name: ${JSON.stringify(join(consumer, 'fixture-provider.mjs'))}\n`)
+  writeFileSync(patch, `- id: erp\n  config:\n    browserHeadless: true\n    browserSandbox: false\n    browserResourcesDir: ${JSON.stringify(dirname(dirname(dirname(chromium.executablePath()))))}\n`, { flag: 'a' })
   const output = run(process.execPath, [cli, '--profile', 'headless', '--patch', patch, 'Verify ERP plugin diagnostics'], { cwd: consumer, env })
   const match = output.match(/ERP_HOST_SMOKE_OK worker=(\d+)/)
   assert.ok(match, output)
   assert.throws(() => process.kill(Number(match[1]), 0), { code: 'ESRCH' })
-  console.log(`Real dsh rc2 CLI: plugin install, agent loop, IPC, model service, approval, SQLite and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider).`)
+  console.log(`Real dsh rc2 CLI: plugin install, agent loop, IPC, model service, approval, SQLite, blank Chromium session and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider, browser sandbox disabled only for container fixture).`)
 } finally {
   if (process.env.ERP_KEEP_SMOKE === '1') console.log('Smoke artifacts:', scratch)
   else rmSync(scratch, { recursive: true, force: true })

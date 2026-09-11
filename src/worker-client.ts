@@ -1,8 +1,8 @@
 import { fork } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { parseResponse, PROTOCOL } from './protocol.js'
-import type { Health, Request } from './protocol.js'
+import { parseResponse, parseRequest, validateBrowser, PROTOCOL } from './protocol.js'
+import type { Health, Request, BrowserMethod, BrowserInput, BrowserOutput } from './protocol.js'
 
 export class WorkerError extends Error {
   constructor(readonly code: string) { super(code); this.name = 'WorkerError' }
@@ -13,7 +13,7 @@ export interface RuntimeEvent {
   elapsedMs?: number
   code?: string
 }
-type Pending = { id: string; finish(error?: Error, value?: Health): void }
+type Pending = { id: string; finish(error?: Error, value?: unknown): void }
 
 /** A bounded, single-operation channel. Restarting never replays an operation. */
 export class WorkerClient {
@@ -27,14 +27,20 @@ export class WorkerClient {
   private stopping = false
   private busy = false
   private disposePromise: Promise<void> | undefined
+  private resourceProgress = { phase: 'preparing', percent: 0 }
 
   constructor(private readonly options: {
     workerUrl?: URL
     timeoutMs?: number
     onEvent?: (event: RuntimeEvent) => void
+    browserDirectory?: string
+    browserHeadless?: boolean
+    browserResourcesDir?: string
+    browserSandbox?: boolean
   } = {}) {}
 
   get pid(): number | undefined { return this.child?.pid }
+  get browserProgress(): { phase: string; percent: number } { return { ...this.resourceProgress } }
 
   private emit(event: RuntimeEvent): void {
     try { this.options.onEvent?.(event) } catch { /* Diagnostics cannot break cleanup. */ }
@@ -48,8 +54,14 @@ export class WorkerClient {
     if (this.child) return
     // Explicit allowlist: do not inherit provider keys, NODE_OPTIONS or preload hooks.
     const env: NodeJS.ProcessEnv = {}
-    for (const key of ['PATH', 'SystemRoot', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL']) {
+    for (const key of ['PATH', 'SystemRoot', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL', 'DISPLAY', 'XAUTHORITY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY', 'NODE_EXTRA_CA_CERTS']) {
       if (process.env[key] !== undefined) env[key] = process.env[key]
+    }
+    if (this.options.browserDirectory) {
+      env.ERP_BROWSER_DIRECTORY = this.options.browserDirectory
+      env.PLAYWRIGHT_BROWSERS_PATH = this.options.browserResourcesDir ?? this.options.browserDirectory + '/browser-resources'
+      env.ERP_BROWSER_HEADLESS = String(this.options.browserHeadless === true)
+      env.ERP_BROWSER_SANDBOX = String(this.options.browserSandbox !== false)
     }
     const child = fork(this.options.workerUrl ?? new URL('./worker.js', import.meta.url), [], {
       env, execArgv: [], stdio: ['ignore', 'ignore', 'ignore', 'ipc'], serialization: 'json',
@@ -74,6 +86,9 @@ export class WorkerClient {
           this.rejectStartup = undefined
           resolve()
           this.emit({ kind: 'worker-started' })
+        } else if (message.kind === 'progress') {
+          if (!ready || !this.pending || message.percent < 0 || message.percent > 100) { void this.terminate(new WorkerError('INVALID_PROTOCOL_MESSAGE')); return }
+          this.resourceProgress = { phase: message.phase, percent: message.percent }
         } else if (ready && this.pending?.id === message.id) {
           if (message.kind === 'error') this.pending.finish(new WorkerError(message.code))
           else this.pending.finish(undefined, message.value)
@@ -105,6 +120,20 @@ export class WorkerClient {
   }
 
   async health(signal: AbortSignal, delayMs = 0): Promise<Health> {
+    const value = await this.request({ kind: 'request', method: 'health', delayMs }, signal)
+    if (!value || typeof value !== 'object' || !('pid' in value)) throw new WorkerError('INVALID_PROTOCOL_MESSAGE')
+    return value as Health
+  }
+
+  async browser<K extends BrowserMethod>(method: K, input: BrowserInput<K>, signal: AbortSignal): Promise<BrowserOutput<K>> {
+    validateBrowser(method, 'input', input)
+    const snapshot = structuredClone(input)
+    const value = await this.request({ kind: 'browser', method, input: snapshot }, signal, method === 'browser.open' ? 660_000 : 15_000)
+    validateBrowser(method, 'output', value)
+    return value as BrowserOutput<K>
+  }
+
+  private async request(payload: { kind: 'request'; method: 'health'; delayMs: number } | { kind: 'browser'; method: BrowserMethod; input: unknown }, signal: AbortSignal, timeoutMs = this.options.timeoutMs ?? 10_000): Promise<unknown> {
     if (this.closed) throw new WorkerError('WORKER_CLOSED')
     signal.throwIfAborted()
     if (this.busy) throw new WorkerError('WORKER_BUSY')
@@ -117,7 +146,7 @@ export class WorkerClient {
       signal.removeEventListener('abort', abortStart)
       signal.throwIfAborted()
       if (this.closed) throw new WorkerError('WORKER_CLOSED')
-      return await new Promise<Health>((resolve, reject) => {
+      return await new Promise<unknown>((resolve, reject) => {
         const id = randomUUID()
         const started = performance.now()
         let cancelTimer: ReturnType<typeof setTimeout> | undefined
@@ -126,10 +155,10 @@ export class WorkerClient {
           if (abortCode) return
           abortCode = code
           try { this.send({ v: PROTOCOL, kind: 'cancel', id }) } catch { /* Kill below. */ }
-          cancelTimer = setTimeout(() => { void this.terminate(new WorkerError(code)) }, 300)
+          cancelTimer = setTimeout(() => { void this.terminate(new WorkerError(code)) }, payload.kind === 'browser' ? 3000 : 300)
         }
         const onAbort = () => cancel('CANCELLED')
-        const timer = setTimeout(() => cancel('WORKER_TIMEOUT'), this.options.timeoutMs ?? 10_000)
+        const timer = setTimeout(() => cancel('WORKER_TIMEOUT'), timeoutMs)
         this.pending = { id, finish: (error, value) => {
           clearTimeout(timer)
           clearTimeout(cancelTimer)
@@ -143,7 +172,7 @@ export class WorkerClient {
         } }
         signal.addEventListener('abort', onAbort, { once: true })
         try {
-          this.send({ v: PROTOCOL, kind: 'request', id, method: 'health', delayMs })
+          this.send(parseRequest({ v: PROTOCOL, id, ...payload }))
           if (signal.aborted) onAbort()
         } catch (error) { void this.terminate(error instanceof Error ? error : new WorkerError('WORKER_ERROR')) }
       })
@@ -164,7 +193,7 @@ export class WorkerClient {
     }
     child.prependOnceListener('close', onExit)
     child.kill('SIGTERM')
-    const force = setTimeout(() => child.kill('SIGKILL'), 500)
+    const force = setTimeout(() => child.kill('SIGKILL'), this.options.browserDirectory ? 5000 : 500)
     try { await this.stopped } finally { clearTimeout(force) }
   }
 

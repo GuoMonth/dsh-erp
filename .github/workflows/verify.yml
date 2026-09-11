@@ -15,4 +15,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium --no-shell
       - run: npm run verify
+      - run: ERP_TEST_HEADFUL=1 xvfb-run -a node --test tests/browser.test.mjs

@@ -26,6 +26,9 @@ class Fixture extends LlmAdapter {
       ['erp_model_probe', { provider: 'erp-fixture', model: 'test-model' }],
       ['erp_approval_probe', {}],
       ['erp_storage_status', {}],
+      ['erp_browser_status', {}],
+      ['erp_browser_open', { siteUrl: 'https://example.invalid/erp/', scope: { site: 'fixture', account: 'reader' } }],
+      ['erp_browser_close', {}],
     ]
     if (results.length >= specs.length) {
       const body = results[0].content.find(b => b.type === 'text').text
@@ -34,6 +37,9 @@ class Fixture extends LlmAdapter {
       const storage = JSON.parse(results[3].content.find(b => b.type === 'text').text)
       assert.equal(storage.schemaVersion, 2)
       assert.equal(storage.journalMode, 'wal')
+      const browser = JSON.parse(results[5].content.find(b => b.type === 'text').text)
+      assert.equal(browser.state, 'manual'); assert.equal(browser.pageUrl, '')
+      assert.equal(JSON.parse(results[6].content.find(b => b.type === 'text').text).state, 'closed')
       yield* textChunks(`ERP_HOST_SMOKE_OK worker=${health.pid}`)
       return
     }

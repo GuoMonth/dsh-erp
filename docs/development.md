@@ -4,6 +4,7 @@
 
 ```sh
 npm ci --ignore-scripts
+npx playwright install chromium --no-shell
 npm run verify
 npm pack
 ```
@@ -12,7 +13,7 @@ npm pack
 
 ## 在已有 dsh 中加载
 
-当前产物提供连接诊断及 SQLite 持久化基础，尚不包含浏览器、业务知识模型或 ERP 操作。打包后，在装有目标 dsh 的机器上执行：
+当前产物提供连接诊断、SQLite 和浏览器被动观察；自动探索、业务知识模型与写入操作尚未开放。打包后，在装有目标 dsh 的机器上执行：
 
 ```sh
 dsh plugin --profile headless add /absolute/path/dsh-erp-0.1.0-dev.0.tgz
@@ -26,6 +27,8 @@ npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile headless add /absol
 ```
 
 自动化冒烟在隔离的 `DSH_HOME` 中通过已安装的 pnpm 验证真实 CLI 安装命令；上面的临时获取方式及其他平台需要在 M5 干净环境矩阵中进一步验证。不能据此宣称已经完成全部单机分发体验。
+
+上面的 Chromium 安装命令用于开发测试预备缓存；安装后的插件会在首次打开浏览器时自动准备锁定资源，不要求用户部署浏览器服务。Linux 缺少系统库时需先准备 Playwright 所需系统依赖（CI 使用 `npx playwright install --with-deps chromium --no-shell`）；插件不自动提权安装系统包。普通使用默认启动本机窗口，具体工具及配置见 [浏览器观察说明](browser-observation.md)。
 
 ## 诊断入口
 
@@ -52,4 +55,4 @@ SQLite 使用另一条存储线程，执行进程的取消或终止不终止存�
 
 测试适配器是测试替身。`npm run smoke` 用真实 dsh CLI、代理循环、工具管线和审批服务检查安装产物，模型由固定测试适配器回答；不会连接线上模型供应商或 ERP。
 
-真实 ERP 任务遵循 [验收环境与样本](testing/README.md)。目标站点已完成独立登录探测；角色、独立菜单清单及可复位数据尚待确认，不关闭 [Issue #2](https://github.com/GuoMonth/dsh-erp/issues/2)，不宣称插件浏览器或全局认知已经验证。
+真实 ERP 任务遵循 [验收环境与样本](testing/README.md)。目标站点已完成独立登录探测；角色、独立菜单清单及可复位数据尚待确认，不关闭 [Issue #2](https://github.com/GuoMonth/dsh-erp/issues/2)。当前浏览器能力只有本地合成站点证据，不能据此声称真实 ERP 全局认知或业务安全已验证。
