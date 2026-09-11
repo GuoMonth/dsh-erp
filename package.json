@@ -1,0 +1,40 @@
+{
+  "name": "dsh-erp",
+  "version": "0.1.0-dev.0",
+  "description": "Local ERP cognition and controlled operations for DeepSeek Harness",
+  "type": "module",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/GuoMonth/dsh-erp.git" },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }, "./cordis.patch.yml": "./cordis.patch.yml" },
+  "files": ["dist", "cordis.patch.yml", "README.md", "LICENSE"],
+  "engines": { "node": ">=24.18.0 <25" },
+  "packageManager": "npm@11.16.0",
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "smoke": "npm run build && node scripts/artifact-smoke.mjs",
+    "verify": "npm run typecheck && npm test && npm run smoke",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-tools": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "0.1.5-rc.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-user-approval": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-session": "0.1.5-rc.2",
+    "@types/node": "24.13.4",
+    "typescript": "6.0.3",
+    "pnpm": "11.7.0"
+  }
+}

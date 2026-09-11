@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "status": "unselected",
+  "erp": { "product": null, "testUrl": null, "version": null },
+  "scope": { "tenantAlias": null, "role": null, "readOnly": null },
+  "deepDomain": null,
+  "menuInventoryRevision": null,
+  "dataset": { "revision": null, "setupInstructions": null, "resetInstructions": null },
+  "writeCase": { "operation": null, "businessKey": null, "readbackInstructions": null, "externalEffectsStubbed": null },
+  "model": { "provider": null, "model": null, "reasoningEffort": null },
+  "thresholds": { "status": "awaiting-baseline", "revision": null, "frozenAt": null },
+  "evidenceDirectory": null
+}
