@@ -12,7 +12,7 @@ npm pack
 
 ## 在已有 dsh 中加载
 
-当前产物为开发骨架，仅提供连接诊断，尚不包含浏览器、SQLite 学习库或 ERP 操作。打包后，在装有目标 dsh 的机器上执行：
+当前产物提供连接诊断及 SQLite 持久化基础，尚不包含浏览器、业务知识模型或 ERP 操作。打包后，在装有目标 dsh 的机器上执行：
 
 ```sh
 dsh plugin --profile headless add /absolute/path/dsh-erp-0.1.0-dev.0.tgz
@@ -32,6 +32,7 @@ npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile headless add /absol
 | 工具 | 行为 |
 | --- | --- |
 | `erp_runtime_status` | 懒启动本地工作进程，返回 Node 版本、协议版本和 PID；不访问 ERP |
+| `erp_storage_status` | 懒启动存储线程，检查/创建本地 SQLite，返回版本、锁模式及记录数；不访问 ERP |
 | `erp_model_probe` | 使用指定的已有 dsh provider/model 路由发出固定连接测试；有模型调用成本，不发送 ERP 页面数据 |
 | `erp_approval_probe` | 对无副作用的诊断触发宿主审批；无 Agent 或不可用审批通道时拒绝，不批准后续业务操作 |
 
@@ -45,8 +46,10 @@ npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile headless add /absol
 
 工作进程仅继承必要系统环境，不继承模型凭据、`NODE_OPTIONS` 或宿主的 preload 参数。这是职责隔离，不能当作对恶意同机插件的安全沙箱。后续浏览器自动化必须等待 [Issue #7](https://github.com/GuoMonth/dsh-erp/issues/7) 的统一业务授权边界完成。
 
+SQLite 使用另一条存储线程，执行进程的取消或终止不终止存储线程。插件卸载会等待已接收的持久化操作结算并关闭连接，不删除数据。存储取消、迁移失败与离线恢复的具体语义见 [存储说明](storage.md)。
+
 ## 真实 ERP 验证
 
 测试适配器是测试替身。`npm run smoke` 用真实 dsh CLI、代理循环、工具管线和审批服务检查安装产物，模型由固定测试适配器回答；不会连接线上模型供应商或 ERP。
 
-真实 ERP 任务遵循 [验收环境与样本](testing/README.md)。未选定站点、角色及数据之前，不关闭 [Issue #2](https://github.com/GuoMonth/dsh-erp/issues/2)，不宣称浏览器选型或全局认知已经验证。
+真实 ERP 任务遵循 [验收环境与样本](testing/README.md)。目标站点已完成独立登录探测；角色、独立菜单清单及可复位数据尚待确认，不关闭 [Issue #2](https://github.com/GuoMonth/dsh-erp/issues/2)，不宣称插件浏览器或全局认知已经验证。
