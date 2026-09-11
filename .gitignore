@@ -1,0 +1,8 @@
+node_modules/
+dist/
+artifacts/
+*.tgz
+.env
+.env.*
+!.env.example
+*.sqlite*
