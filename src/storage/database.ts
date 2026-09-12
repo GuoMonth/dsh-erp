@@ -8,10 +8,12 @@ import {
 import { StorageError, canonicalScope, scopeKey, validate } from './contract.js'
 import type { Input, Method, Output } from './contract.js'
 import { privateDirectory } from './paths.js'
+import { checkedId } from './primitives.js'
+import { knowledgeMigration } from '../knowledge/migration.js'
+import { KnowledgeStore } from '../knowledge/store.js'
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 const HASH = /^[a-f0-9]{64}$/
-const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/
 const sha = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex')
 export const migrations = [
   `CREATE TABLE observations(id TEXT PRIMARY KEY, scope TEXT NOT NULL, payload TEXT NOT NULL, fingerprint TEXT NOT NULL, evidence_hash TEXT REFERENCES evidence(hash)) STRICT;
@@ -20,11 +22,8 @@ export const migrations = [
    CREATE TABLE tasks(id TEXT NOT NULL, scope TEXT NOT NULL, version INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(id,scope)) STRICT;`,
   `CREATE VIRTUAL TABLE observations_fts USING fts5(id UNINDEXED, title, text, tokenize='trigram');
    INSERT INTO observations_fts(id,title,text) SELECT id,json_extract(payload,'$.title'),json_extract(payload,'$.text') FROM observations;`,
+  knowledgeMigration,
 ]
-function checkedId(id: string): string {
-  if (!ID.test(id)) throw new StorageError('INVALID_RECORD_ID')
-  return id
-}
 function durableWrite(path: string, data: Uint8Array | string): void {
   const fd = openSync(path, 'wx', 0o600)
   try { writeFileSync(fd, data); fsyncSync(fd) } finally { closeSync(fd) }
@@ -50,6 +49,7 @@ function normalizeUrl(raw: string): string {
 /** Owned only by the storage worker. No browser/model/user wait occurs in a transaction. */
 export class StoreDatabase {
   private db!: DatabaseSync
+  private knowledge!: KnowledgeStore
   readonly directory: string
   constructor(directory: string, private readonly migrationSql = migrations) {
     this.directory = privateDirectory(directory)
@@ -81,6 +81,7 @@ export class StoreDatabase {
           })
         } catch { throw new StorageError('MIGRATION_FAILED_ORIGINAL_RETAINED') }
       }
+      this.knowledge = new KnowledgeStore(this.db, action => this.transaction(action))
       privateDirectory(join(this.directory, 'evidence'))
       chmodSync(path, 0o600)
       this.transaction(() => {
@@ -258,6 +259,13 @@ export class StoreDatabase {
         journalMode: String(this.db.prepare('PRAGMA journal_mode').get()!.journal_mode), lockingMode: String(this.db.prepare('PRAGMA locking_mode').get()!.locking_mode),
         observations: Number(this.db.prepare('SELECT count(*) AS n FROM observations').get()!.n), tasks: Number(this.db.prepare('SELECT count(*) AS n FROM tasks').get()!.n),
         evidenceFiles: Number(this.db.prepare('SELECT count(*) AS n FROM evidence').get()!.n) }; break
+      case 'knowledgeCommit': output = this.knowledge.commit(input as Input<'knowledgeCommit'>); break
+      case 'knowledgeGet': output = this.knowledge.get(input as Input<'knowledgeGet'>); break
+      case 'knowledgeSearch': output = this.knowledge.search(input as Input<'knowledgeSearch'>); break
+      case 'knowledgeNeighbors': output = this.knowledge.neighbors(input as Input<'knowledgeNeighbors'>); break
+      case 'knowledgeHistory': output = this.knowledge.history(input as Input<'knowledgeHistory'>); break
+      case 'knowledgeVerifications': output = this.knowledge.verifications(input as Input<'knowledgeVerifications'>); break
+      case 'knowledgeVerify': output = this.knowledge.verify(input as Input<'knowledgeVerify'>); break
       case 'observe': output = this.observe(input as Input<'observe'>); break
       case 'observation': output = this.getObservation(input as Input<'observation'>); break
       case 'search': output = this.search(input as Input<'search'>); break
@@ -272,6 +280,7 @@ export class StoreDatabase {
       case 'check': output = this.check(); break
       case 'rebuildIndex': this.transaction(() => {
         this.db.exec("DELETE FROM observations_fts; INSERT INTO observations_fts(id,title,text) SELECT id,json_extract(payload,'$.title'),json_extract(payload,'$.text') FROM observations;")
+        this.db.exec("DELETE FROM knowledge_fts; INSERT INTO knowledge_fts(scope,id,text) SELECT scope,id,search_text FROM knowledge_records;")
       }); output = true; break
     }
     validate(method, 'output', output)

@@ -13,7 +13,7 @@ npm pack
 
 ## 在已有 dsh 中加载
 
-当前产物提供连接诊断、SQLite 和浏览器被动观察；自动探索、业务知识模型与写入操作尚未开放。打包后，在装有目标 dsh 的机器上执行：
+当前产物提供连接诊断、SQLite、浏览器被动观察和版本化知识查询/修订；自动探索与 ERP 写入操作尚未开放。知识工具及示例见 [知识说明](knowledge.md)。打包后，在装有目标 dsh 的机器上执行：
 
 ```sh
 dsh plugin --profile headless add /absolute/path/dsh-erp-0.1.0-dev.0.tgz

@@ -10,7 +10,9 @@ import z from '@deepseek-ai/schemastery'
 import { StorageClient } from './storage/client.js'
 import { storageStatusSchema } from './storage/contract.js'
 import { BrowserRuntime, registerBrowserTools } from './browser/runtime.js'
+import { registerKnowledgeTools } from './knowledge/tools.js'
 
+export type { KnowledgeWrite, KnowledgeRecord, KnowledgeView, Verification } from './knowledge/contract.js'
 export { StorageClient, restoreBackup } from './storage/client.js'
 export type { Observation } from './storage/contract.js'
 
@@ -102,6 +104,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   assertRuntime()
   const runtime = new ErpRuntime(ctx, config)
   registerBrowserTools(ctx, runtime.browser)
+  registerKnowledgeTools(ctx, runtime.storage)
   ctx.tools.register(defineTool({
     name: 'erp_storage_status',
     description: 'Check the local observation store. Opens the plugin data directory when needed; does not access or modify an ERP.',

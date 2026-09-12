@@ -16,7 +16,7 @@ npx playwright install chromium --no-shell
 npm run verify
 ```
 
-当前本地结果：类型检查通过；42 个测试全部通过（含 14 个存储专项及 11 个浏览器/资源专项测试）；从 tarball 安装的独立消费者与真实 dsh CLI 冒烟均通过。GitHub Actions 检查流程已配置；远端结果以对应提交的 PR 检查为准，不将本地结果视为远端 CI 已通过。SQLite 的具体边界与基准见 [存储说明](storage.md)，浏览器的测试方式和限制见 [浏览器说明](browser-observation.md)。
+当前本地结果：类型检查通过；50 个测试全部通过（含 14 个存储、8 个知识及 11 个浏览器/资源专项测试）；从 tarball 安装的独立消费者与真实 dsh CLI 冒烟均通过。GitHub Actions 检查流程已配置；远端结果以对应提交的 PR 检查为准，不将本地结果视为远端 CI 已通过。合成知识写入、原生查询及恢复也已通过，详见 [知识说明](knowledge.md)；SQLite 的具体边界与基准见 [存储说明](storage.md)，浏览器的测试方式和限制见 [浏览器说明](browser-observation.md)。
 
 | 验证点 | 结果与证据来源 |
 | --- | --- |
