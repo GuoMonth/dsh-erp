@@ -35,6 +35,11 @@ class Fixture extends LlmAdapter {
       ['erp_knowledge_record', { scope, records: [record] }],
       ['erp_knowledge_get', { scope, id: record.id }],
       ['erp_knowledge_search', { scope, query: '测试', after: '', limit: 10 }],
+      ['erp_learning_start', { scope, id: 'cli-round', units: [{ id: 'global', level: 1, label: 'Global structure' }] }],
+      ['erp_learning_status', { scope, id: 'cli-round' }],
+      ['erp_storage_backup', {}],
+      ['erp_storage_check', {}],
+      ['erp_knowledge_export', { scope }],
     ]
     if (results.length >= specs.length) {
       const body = results[0].content.find(b => b.type === 'text').text
@@ -50,6 +55,8 @@ class Fixture extends LlmAdapter {
       assert.equal(knowledge(7)[0].origin, 'ai')
       assert.equal(knowledge(8).record.id, record.id)
       assert.equal(knowledge(9).items[0].record.id, record.id)
+      assert.equal(knowledge(14).records, 1)
+      assert.ok(knowledge(14).markdownPath.endsWith('.md'))
       yield* textChunks(`ERP_HOST_SMOKE_OK worker=${health.pid}`)
       return
     }

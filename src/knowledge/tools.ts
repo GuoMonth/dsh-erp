@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { StorageClient } from '../storage/client.js'
 import { contracts } from '../storage/contract.js'
+import { exportKnowledge } from './export.js'
 import { commitParameters } from './contract.js'
 
 export function registerKnowledgeTools(ctx: Context, storage: StorageClient): void {
@@ -14,9 +15,14 @@ export function registerKnowledgeTools(ctx: Context, storage: StorageClient): vo
     return next()
   })
   ctx.tools.register(defineTool({ name: 'erp_knowledge_record',
-    description: 'Automatically save 1–50 local AI knowledge revisions atomically. Use stable IDs and expectedVersion (0 for new); menu/UI and business concepts remain separate, linked with typed relation records. Cite literal observation quotes from the same full scope. Page nodes require context.pageType; observed stage requires evidence. Relations pin endpoint versions; include resulting versions for records in this batch. Fields contain observed samples with completeness unknown, never executable schemas. Retrieve existing records first; conflicts require rereading, never blind replay. No ERP interaction or approval granted.',
+    description: 'Automatically save 1–50 local AI knowledge revisions atomically. Use stable IDs and expectedVersion (0 for new); menu/UI and business concepts remain separate, linked with typed relation records. Cite literal observation title/text quotes from the same full scope. For JSON, quote a string value or fetch erp_observation_get and copy exact whitespace; tool metadata/limitations are not observation text. Page nodes require context.pageType; observed stage requires evidence. Valid pairs: menu/page supports domain; object/field/rule/operation belongs-to domain; semantic references semantic; object contains field; page/tab/window displays object; object/field/operation governed-by rule. Reverse-query neighbors(direction=in) for domain-to-menu; never invert supports. Relations pin endpoint versions; include resulting versions for records in this batch. Fields contain observed samples with completeness unknown, never executable schemas. Retrieve existing records first; conflicts require rereading, never blind replay. No ERP interaction or approval granted.',
     parameters: commitParameters, output: { schema: contracts.knowledgeCommit.output, render },
     execute: (args, exec) => storage.call('knowledgeCommit', { ...args, origin: 'ai' }, exec.signal),
+  }))
+  ctx.tools.register(defineTool({ name: 'erp_knowledge_export',
+    description: 'Generate private local Markdown and JSON views of current scoped knowledge, up to 2000 records, including menu/domain relations, evidence references and gaps. Returns file paths; not a database backup or complete revision export. Does not access ERP or overwrite existing files.',
+    parameters: { scope: commitParameters.scope }, output: { schema: { type: 'json' }, render },
+    execute: (args, exec) => exportKnowledge(storage, args.scope, exec.signal),
   }))
   ctx.tools.register(defineTool({ name: 'erp_knowledge_correct',
     description: 'Ask the user to adopt exact local knowledge revisions as user corrections. Same full snapshot contract as erp_knowledge_record; use only for an explicit user correction, ordinary AI learning uses erp_knowledge_record. Does not change original observations or verify ERP behavior.',
@@ -34,7 +40,7 @@ export function registerKnowledgeTools(ctx: Context, storage: StorageClient): vo
     execute: (args, exec) => storage.call('knowledgeGet', args, exec.signal),
   }))
   ctx.tools.register(defineTool({ name: 'erp_knowledge_search',
-    description: 'Search names, aliases and descriptions within full scope, including retired records. Optional kind filter. Use after="" initially then nextAfter while hasMore; limit 1–50. Results are stored knowledge, not a completeness claim; pages are not a snapshot under concurrent edits.',
+    description: 'Search names, aliases and descriptions within full scope, including retired records. query="" enumerates scoped records. Optional kind filter. Use after="" initially then nextAfter while hasMore; limit 1–50. Results are stored knowledge, not a completeness claim; pages are not a snapshot under concurrent edits.',
     parameters: contracts.knowledgeSearch.input.properties, output: { schema: contracts.knowledgeSearch.output, render },
     execute: (args, exec) => storage.call('knowledgeSearch', args, exec.signal),
   }))

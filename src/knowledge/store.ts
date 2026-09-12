@@ -160,7 +160,7 @@ export class KnowledgeStore {
       hasMore: rows.length > size, nextAfter: selected.length ? String(selected.at(-1)!.id) : '' }
   }
   search(input: KnowledgeInput<'knowledgeSearch'>) {
-    limit(input.limit); text(input.query, 500)
+    limit(input.limit); if (input.query !== '') text(input.query, 500)
     if (input.after) checkedId(input.after)
     const scope = scopeKey(input.scope)
     const params = [scope, input.after, input.kind ?? '', input.kind ?? '']
