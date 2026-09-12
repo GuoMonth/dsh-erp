@@ -1,6 +1,6 @@
 # 第一版规划
 
-更新日期：2026-09-12。本轮根据用户提供的真实 ERP、deepseek-flash 和 Read only 约束，交付 `0.1.0-alpha.1` SCM/USA 只读预览版。新增固定查询适配、菜单导入、学习任务持久化与商品链复用。原完整愿景仍保留，未完成项不通过改名视作完成；具体 M1–M5 处置见 [本版验收](assessments/2026-09-12-v1-acceptance.md)，操作说明见 [只读版](scm-readonly.md)。
+更新日期：2026-09-12。本轮根据用户提供的真实 ERP、deepseek-flash 和 Read only 约束，交付 `0.1.0-alpha.2` SCM/USA 只读预览版。新增固定查询适配、菜单导入、学习任务持久化与商品链复用。原完整愿景仍保留，未完成项不通过改名视作完成；具体 M1–M5 处置见 [本版验收](assessments/2026-09-12-v1-acceptance.md)，操作说明见 [只读版](scm-readonly.md)。
 
 目标宿主：**dsh 0.1.5 rc2**，官方标签 [`dsh-v0.1.5-rc.2`](https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.1.5-rc.2)。运行时基线：**Node.js 24 LTS**。
 

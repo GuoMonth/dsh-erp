@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.2
+
+- Rebuilt the precompiled TGZ from main after merging PR #28. Runtime code is unchanged from alpha.1.
+- Removed GitHub Actions CI and documented local delivery checks.
+- Updated installation examples; distributed through GitHub Releases, not npm.
+- Real ERP acceptance remains the alpha.1 baseline; this release adds local package verification, not a new live ERP run.
+
 ## 0.1.0-alpha.1
 
 SCM/USA read-only preview for dsh 0.1.5-rc.2 and Node 24.18+.

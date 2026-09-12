@@ -1,6 +1,6 @@
 {
   "name": "dsh-erp",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Local ERP cognition and controlled operations for DeepSeek Harness",
   "type": "module",
   "license": "MIT",
