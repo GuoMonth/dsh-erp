@@ -15,7 +15,7 @@ function run(command, args, options = {}) {
 try {
   const packed = JSON.parse(run(npm, ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], { cwd: root }))[0]
   const names = packed.files.map(f => f.path)
-  for (const file of ['dist/index.js', 'dist/worker.js', 'dist/storage/worker.js', 'dist/storage/database.js', 'dist/knowledge/store.js', 'dist/knowledge/tools.js', 'dist/knowledge/migration.js', 'dist/browser/session.js', 'dist/browser/resources.js', 'dist/browser/labels.js', 'dist/browser/read-policy.js', 'dist/browser/read-navigation.js', 'cordis.patch.yml']) assert.ok(names.includes(file), file)
+  for (const file of ['dist/index.js', 'dist/worker.js', 'dist/storage/worker.js', 'dist/storage/database.js', 'dist/knowledge/store.js', 'dist/knowledge/tools.js', 'dist/knowledge/export.js', 'dist/knowledge/migration.js', 'dist/browser/session.js', 'dist/browser/resources.js', 'dist/browser/labels.js', 'dist/browser/read-policy.js', 'dist/browser/read-navigation.js', 'dist/scm/read.js', 'dist/scm/trace.js', 'dist/learning/runtime.js', 'dist/learning/tools.js', 'cordis.patch.yml']) assert.ok(names.includes(file), file)
   assert.ok(!names.some(n => n.startsWith('tests/') || n.startsWith('scripts/') || n.endsWith('.ts') && !n.endsWith('.d.ts')))
   const consumer = join(scratch, 'consumer'); mkdirSync(consumer)
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))

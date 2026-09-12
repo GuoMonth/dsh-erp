@@ -1,6 +1,6 @@
 # M0 插件运行基础验证
 
-日期：2026-09-11。关联 [Issue #3](https://github.com/GuoMonth/dsh-erp/issues/3)；本记录描述当前开发骨架，不代表 M0 全部任务或首版产品已经完成。
+日期：2026-09-11（历史基线）。2026-09-12 的最新真实模型、SCM 链路和测试结果见 [本版验收](assessments/2026-09-12-v1-acceptance.md)。关联 [Issue #3](https://github.com/GuoMonth/dsh-erp/issues/3)；本记录描述当前开发骨架，不代表 M0 全部任务或首版产品已经完成。
 
 ## 环境与版本
 

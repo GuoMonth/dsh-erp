@@ -8,8 +8,9 @@ import { WorkerClient } from './worker-client.js'
 import type { RuntimeEvent } from './worker-client.js'
 import z from '@deepseek-ai/schemastery'
 import { StorageClient } from './storage/client.js'
-import { storageStatusSchema } from './storage/contract.js'
+import { contracts, storageStatusSchema } from './storage/contract.js'
 import { BrowserRuntime, registerBrowserTools } from './browser/runtime.js'
+import { registerLearningTools } from './learning/tools.js'
 import { registerKnowledgeTools } from './knowledge/tools.js'
 
 export type { KnowledgeWrite, KnowledgeRecord, KnowledgeView, Verification } from './knowledge/contract.js'
@@ -106,12 +107,20 @@ export function apply(ctx: Context, config: Config = {}): void {
   const runtime = new ErpRuntime(ctx, config)
   registerBrowserTools(ctx, runtime.browser)
   registerKnowledgeTools(ctx, runtime.storage)
+  registerLearningTools(ctx, runtime.storage)
   ctx.tools.register(defineTool({
     name: 'erp_storage_status',
     description: 'Check the local observation store. Opens the plugin data directory when needed; does not access or modify an ERP.',
     parameters: {},
     output: { schema: storageStatusSchema, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
     async execute(_args, exec) { return runtime.storage.call('status', {}, exec.signal) },
+  }))
+  for (const [toolName, method, description] of [
+    ['erp_storage_backup', 'backup', 'Create a consistent local SQLite and evidence backup before upgrading. Does not call ERP or delete data.'],
+    ['erp_storage_check', 'check', 'Check local database/evidence integrity without repairing or deleting anything.'],
+  ] as const) ctx.tools.register(defineTool({ name: toolName, description, parameters: {},
+    output: { schema: contracts[method].output, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    execute: (_args, exec) => runtime.storage.call(method, {}, exec.signal),
   }))
   ctx.tools.register(defineTool({
     name: 'erp_runtime_status',
