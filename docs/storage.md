@@ -87,7 +87,7 @@ await restoreBackup(directory, backup.id, '/absolute/local/path/dsh-erp-restored
 
 ## 验证与实际限制
 
-执行 `npm run verify`：当前共 50 项测试，包括 14 项存储和 8 项知识专项测试、执行进程取消隔离、安装产物中的恢复链路、真实 dsh CLI 的 SQLite 工具调用。存储用例覆盖建库/重启、范围隔离、不可变观察、任务版本冲突、迁移成功/失败、未来版本拒绝、WAL 备份边界、原库损坏的离线恢复、坏证据、2 MB 证据、排队取消与背压。
+执行 `npm run verify`：当前共 58 项测试，包括 14 项存储和 8 项知识专项测试、执行进程取消隔离、安装产物中的恢复链路、真实 dsh CLI 的 SQLite 工具调用。存储用例覆盖建库/重启、范围隔离、不可变观察、任务版本冲突、迁移成功/失败、未来版本拒绝、WAL 备份边界、原库损坏的离线恢复、坏证据、2 MB 证据、排队取消与背压。
 
 性能复现：`npm run build && node scripts/storage-benchmark.mjs`。2026-09-11 schema v2 的本机单次合成基准为 1,000 条观察（每条约 2 KB 文本、独立小证据），逐条提交并执行 100 次中文两字/四字查询：
 

@@ -1,6 +1,6 @@
 # 第一版规划
 
-更新日期：2026-09-11。状态：规划已确认，M0 运行基础已可本地打包安装；M1 已开始知识契约开发。真实 ERP 学习与完整首版验收尚未完成。详见 [当前知识实现](knowledge.md) 和 [运行验证](m0-runtime-validation.md)。
+更新日期：2026-09-11。状态：规划已确认，M0 运行基础已可本地打包安装；M1 已实现知识契约基础，并有按可信契约读取已知路由的实验入口；全局菜单探索尚未实现。真实 ERP 学习与完整首版验收尚未完成。详见 [当前知识实现](knowledge.md) 和 [运行验证](m0-runtime-validation.md)。
 
 目标宿主：**dsh 0.1.5 rc2**，官方标签 [`dsh-v0.1.5-rc.2`](https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.1.5-rc.2)。运行时基线：**Node.js 24 LTS**。
 

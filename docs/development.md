@@ -13,7 +13,7 @@ npm pack
 
 ## 在已有 dsh 中加载
 
-当前产物提供连接诊断、SQLite、浏览器被动观察和版本化知识查询/修订；自动探索与 ERP 写入操作尚未开放。知识工具及示例见 [知识说明](knowledge.md)。打包后，在装有目标 dsh 的机器上执行：
+当前产物提供连接诊断、SQLite、浏览器被动观察和版本化知识查询/修订；自动探索与 ERP 写入操作尚未开放。知识工具及示例见 [知识说明](knowledge.md)。另有默认未配置的 [实验性受控只读导航](controlled-read-navigation.md)，依赖可信只读契约，不等于通用菜单自动化。打包后，在装有目标 dsh 的机器上执行：
 
 ```sh
 dsh plugin --profile headless add /absolute/path/dsh-erp-0.1.0-dev.0.tgz
@@ -47,7 +47,7 @@ npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile headless add /absol
 
 工作进程同一时刻处理一个请求，忙时明确拒绝。调用取消或超时先发送取消消息，未协作结束时终止进程，等待退出后才返回；崩溃使当前调用失败，下一次显式调用可重建工作进程，不重放旧请求。插件禁用/卸载中止工作及模型调用，等待清理；宿主断开 IPC 后工作进程退出。模型适配器须遵循 dsh 的取消协作契约，插件无法强杀宿主内任意失控代码。
 
-工作进程仅继承必要系统环境，不继承模型凭据、`NODE_OPTIONS` 或宿主的 preload 参数。这是职责隔离，不能当作对恶意同机插件的安全沙箱。后续浏览器自动化必须等待 [Issue #7](https://github.com/GuoMonth/dsh-erp/issues/7) 的统一业务授权边界完成。
+工作进程仅继承必要系统环境，不继承模型凭据、`NODE_OPTIONS` 或宿主的 preload 参数。这是职责隔离，不能当作对恶意同机插件的安全沙箱。通用浏览器自动化仍须等待 [Issue #7](https://github.com/GuoMonth/dsh-erp/issues/7) 的统一业务授权边界完成。
 
 SQLite 使用另一条存储线程，执行进程的取消或终止不终止存储线程。插件卸载会等待已接收的持久化操作结算并关闭连接，不删除数据。存储取消、迁移失败与离线恢复的具体语义见 [存储说明](storage.md)。
 

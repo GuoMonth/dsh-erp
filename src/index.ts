@@ -18,8 +18,8 @@ export type { Observation } from './storage/contract.js'
 
 export const name = 'dsh-erp'
 export const inject = ['tools', 'llm']
-export interface Config { dataDir?: string; browserHeadless?: boolean; browserResourcesDir?: string; browserSandbox?: boolean }
-export const Config: z<Config> = z.object({ dataDir: z.string(), browserHeadless: z.boolean().default(false), browserResourcesDir: z.string(), browserSandbox: z.boolean().default(true) })
+export interface Config { dataDir?: string; browserHeadless?: boolean; browserResourcesDir?: string; browserSandbox?: boolean; browserReadPolicyFile?: string }
+export const Config: z<Config> = z.object({ dataDir: z.string(), browserReadPolicyFile: z.string(), browserHeadless: z.boolean().default(false), browserResourcesDir: z.string(), browserSandbox: z.boolean().default(true) })
 
 declare module '@deepseek-ai/cordis' {
   interface Context { erp: ErpRuntime }
@@ -41,6 +41,7 @@ export class ErpRuntime extends Service {
     super(ctx, 'erp')
     this.storage = new StorageClient(config.dataDir ? { directory: config.dataDir } : {})
     this.worker = new WorkerClient({ browserDirectory: this.storage.directory, browserHeadless: config.browserHeadless ?? false, browserSandbox: config.browserSandbox ?? true,
+      ...(config.browserReadPolicyFile ? { browserReadPolicyFile: config.browserReadPolicyFile } : {}),
       ...(config.browserResourcesDir ? { browserResourcesDir: config.browserResourcesDir } : {}), onEvent: event => {
       this.events.push(event)
       if (this.events.length > 100) this.events.shift()

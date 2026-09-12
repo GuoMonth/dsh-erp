@@ -1,5 +1,6 @@
 import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
 import { browserStatusSchema, browserOpenSchema, captureSchema } from './browser/contract.js'
+import { readPolicyViewSchema, readGrantSchema, readEnableSchema, readNavigateSchema } from './browser/read-policy.js'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 
 export const PROTOCOL = 1
@@ -26,6 +27,9 @@ export const operations = {
   'browser.resume': { input: revision, output: browserStatusSchema },
   'browser.pause': { input: empty, output: browserStatusSchema },
   'browser.capture': { input: empty, output: captureSchema },
+  'browser.readPolicy': { input: empty, output: readPolicyViewSchema },
+  'browser.readEnable': { input: readEnableSchema, output: readGrantSchema },
+  'browser.read': { input: readNavigateSchema, output: captureSchema },
   'browser.close': { input: empty, output: browserStatusSchema },
 } as const
 export type BrowserMethod = keyof typeof operations
@@ -62,7 +66,7 @@ const responseSchema = {
     } },
     { type: 'object', additionalProperties: false, properties: {
       v: version, id, kind: { type: 'string', const: 'result', required: true },
-      value: { oneOf: [healthSchema, browserStatusSchema, captureSchema], required: true },
+      value: { oneOf: [healthSchema, browserStatusSchema, captureSchema, readPolicyViewSchema, readGrantSchema], required: true },
     } },
     { type: 'object', additionalProperties: false, properties: {
       v: version, id, kind: { type: 'string', const: 'error', required: true },
