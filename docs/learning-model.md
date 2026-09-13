@@ -1,6 +1,6 @@
 # 学习模型与探索协议
 
-更新日期：2026-09-11。状态：已接受的设计；两套知识模型、版本关系、证据和指定命题的用户确认已实现，自动四级探索、行为验证和能力演进尚未实现。当前代码边界见 [知识说明](knowledge.md)。
+更新日期：2026-09-11。状态：已接受的设计；两套知识模型、版本关系、证据和指定命题的用户确认已实现，alpha.6 增加通用快照、逐次确认的交互、动态发现队列和界面结构导入；完整无人值守探索、行为验证和能力自动演进尚未实现。当前代码边界见 [知识说明](knowledge.md)。
 
 本文是认知模型、探索状态、关联规则和能力契约的权威说明。[第一版规划](v1-plan.md) 定义交付范围与验收，[ADR 0002](adr/0002-menu-first-domain-learning.md) 记录取舍。示例用于表达设计，不代表已经核实某个 ERP 的业务规则。
 
@@ -38,7 +38,7 @@ flowchart LR
 
 ### 身份与上下文
 
-alpha.5 由用户配置建立固定系统 ID 与账号/企业/角色范围，具体见[系统配置](system-configuration.md)。新对话通过 `erp_system_status` 读取精确 scope，运行时拒绝其他范围。学习检查点随系统保存，登录和读取许可不作为持久知识恢复。
+alpha.5 起由用户配置建立固定系统 ID 与账号/企业/角色范围，具体见[系统配置](system-configuration.md)。新对话通过 `erp_system_status` 读取精确 scope，运行时拒绝其他范围。学习检查点随系统保存，登录和读取许可不作为持久知识恢复。
 
 节点使用稳定 ID；名称、路径、URL 和定位信息为可变化属性。页面身份结合站点、路由、页面类型、Tab、弹窗和必要上下文，不能只用 URL 或显示名称。一个业务对象的多条单据通常是观察样本，不应无限生成新的页面类型。
 
@@ -167,3 +167,7 @@ alpha.5 由用户配置建立固定系统 ID 与账号/企业/角色范围，具
 - [AnythingGraph Playbooks](https://github.com/AnythingGraph/AnythingGraph/blob/main/playbooks/README.md)：业务词汇与实际来源绑定分离。
 - [dsh 目标版本工具 Schema](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.1.5-rc.2/docs/subsystems/tools.md)：宿主工具契约及受支持子集。
 - [Zod 元数据](https://zod.dev/metadata)、[JSON Schema 转换](https://zod.dev/json-schema)：内部契约可选方案及转换边界。
+
+## alpha.6 实现入口
+
+运行协议以[通用学习](adaptive-learning.md)为准：模型从页面证据规划，菜单/字段结构从快照导入，业务域与方法由模型带证据记录。SCM/USA 固定读取和关联只在开发测试中保留，不作为新 ERP 的先验答案。

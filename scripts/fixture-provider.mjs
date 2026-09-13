@@ -25,6 +25,9 @@ class Fixture extends LlmAdapter {
     const scope = this.scope
     const record = { id: 'cli-menu', kind: 'menu', name: 'Synthetic menu', aliases: ['测试'], description: 'Unverified fixture hypothesis',
       expectedVersion: 0, stage: 'interpreted', flags: ['needs-review'], lifecycle: 'active', evidence: [], dependencies: [] }
+    const parsed = i => { const text = results[i]?.content.find(b => b.type === 'text')?.text; return text ? JSON.parse(text.slice(text.indexOf('{'))) : {} }
+    const connected = parsed(15), snapshot = parsed(17), actionResult = parsed(19)
+    const menu = snapshot.controls?.find(c => c.kind === 'menuitem' || c.kind === 'treeitem')
     const specs = [
       ['erp_runtime_status', {}],
       ['erp_model_probe', { provider: 'erp-fixture', model: 'test-model' }],
@@ -41,6 +44,13 @@ class Fixture extends LlmAdapter {
       ['erp_storage_backup', {}],
       ['erp_storage_check', {}],
       ['erp_knowledge_export', { scope }],
+      ['erp_connect', {}],
+      ['erp_browser_resume', { sessionId: connected.sessionId, revision: connected.revision }],
+      ['erp_browser_snapshot', {}],
+      ['erp_learning_import_snapshot', { scope, observationId: snapshot.observationId }],
+      ['erp_browser_action', { sessionId: snapshot.sessionId, revision: snapshot.revision, snapshotId: snapshot.snapshotId, ref: menu?.ref, operation: 'click', reason: 'Inspect the first discovered menu in the synthetic test ERP' }],
+      ['erp_learning_import_snapshot', { scope, observationId: actionResult.observationId }],
+      ['erp_browser_close', {}],
     ]
     if (results.length >= specs.length) {
       const body = results[0].content.find(b => b.type === 'text').text
@@ -58,6 +68,8 @@ class Fixture extends LlmAdapter {
       assert.equal(knowledge(9).items[0].record.id, record.id)
       assert.equal(knowledge(14).records, 1)
       assert.ok(knowledge(14).markdownPath.endsWith('.md'))
+      assert.ok(JSON.stringify(actionResult.frames).includes('P-501'))
+      assert.ok(actionResult.controls.some(c => c.kind === 'field' && c.options.length))
       yield* textChunks(`ERP_HOST_SMOKE_OK worker=${health.pid}`)
       return
     }
@@ -73,5 +85,5 @@ class Fixture extends LlmAdapter {
 }
 export function apply(ctx) {
   ctx.llm.registerAdapter(['erp-fixture'], new Fixture(ctx.erp.system.scope))
-  ctx.on('approval/request', (request, next) => request.toolName === 'erp_approval_probe' ? Promise.resolve('allowed-once') : next())
+  ctx.on('approval/request', (request, next) => ['erp_approval_probe', 'erp_browser_resume', 'erp_browser_action'].includes(request.toolName) ? Promise.resolve('allowed-once') : next())
 }

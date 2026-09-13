@@ -53,7 +53,7 @@ test('configured native tools reuse stored knowledge without login and reject ot
   const record = { id: 'menu', kind: 'menu', name: 'Inventory', aliases: [], description: 'Saved hypothesis',
     expectedVersion: 0, stage: 'interpreted', flags: ['needs-review'], lifecycle: 'active', evidence: [], dependencies: [] }
   assert.equal((await host.run('erp_knowledge_record', { scope, records: [record] })).isError, false)
-  assert.equal((await host.run('erp_scm_connect', { siteUrl: 'https://wrong.test/' })).isError, true)
+  assert.equal((await host.run('erp_connect', { siteUrl: 'https://wrong.test/' })).isError, true)
   assert.equal((await host.run('erp_browser_status')).value.state, 'closed')
   assert.equal((await host.run('erp_knowledge_get', { scope: { ...scope, account: 'another' }, id: 'menu' })).isError, true)
   await host.dispose()
@@ -72,7 +72,7 @@ test('missing configuration gives actionable status, disables connection and nev
   const host = await mount(plugin, undefined, { dataDir: root })
   t.after(() => host.dispose())
   assert.equal((await host.run('erp_system_status')).value.state, 'unconfigured')
-  assert.equal((await host.run('erp_scm_connect')).isError, true)
+  assert.equal((await host.run('erp_connect')).isError, true)
   assert.equal((await host.run('erp_browser_open')).isError, true)
   const scope = { site: 'old-site-alias', account: 'old-account' }
   const record = { id: 'legacy-menu', kind: 'menu', name: 'Legacy inventory', aliases: [], description: 'Old hypothesis',
@@ -103,7 +103,7 @@ test('configured path/hash opens unchanged; manual login is required and no busi
     browserHeadless: process.env.ERP_TEST_HEADFUL !== '1', browserSandbox: false,
     browserResourcesDir: dirname(dirname(dirname(chromium.executablePath()))) })
   try {
-    const connected = await host.run('erp_scm_connect')
+    const connected = await host.run('erp_connect')
     assert.equal(connected.isError, false, JSON.stringify(connected))
     assert.equal(connected.value.pageUrl, system.entryUrl)
     assert.equal(connected.value.state, 'manual')
@@ -111,27 +111,21 @@ test('configured path/hash opens unchanged; manual login is required and no busi
   } finally { await host.dispose() }
   const browser = new BrowserSession({ directory: system.directory, headless: process.env.ERP_TEST_HEADFUL !== '1', sandbox: false, prepare: async () => {} })
   t.after(() => browser.close())
-  let status = await browser.scmConnect(systemBrowserInput(system), signal())
+  let status = await browser.connect(systemBrowserInput(system), signal())
   const page = browser.context.pages()[0]
   assert.equal(page.url(), system.entryUrl)
   assert.equal(status.state, 'manual')
   assert.ok(!requests.some(p => p.startsWith('/api/')))
-  await assert.rejects(browser.scmEnable(status.sessionId, status.revision, signal()), /BROWSER_LOGIN_REQUIRED/)
+  await assert.rejects(browser.resume(status.sessionId, status.revision, signal()), /BROWSER_LOGIN_REQUIRED/)
   // Test fixture simulates the human completing authentication; no production credential tool exists.
   await page.evaluate(() => document.querySelector('input').remove())
   status = browser.status()
-  await assert.rejects(browser.scmEnable(status.sessionId, status.revision, signal()), /SCM_LOGIN_REQUIRED/)
-  assert.equal(browser.status().state, 'manual')
-  await page.evaluate(() => sessionStorage.setItem('v1@CacheToken', JSON.stringify({ token: 'synthetic-test-token' })))
-  status = browser.status()
-  status = await browser.scmEnable(status.sessionId, status.revision, signal())
-  await browser.scmRead({ query: 'menu', sessionId: status.sessionId, revision: status.revision }, signal())
-  assert.ok(requests.some(p => p.startsWith('/api/loveinway-admin/sys/menu/nav')))
-  await page.evaluate(() => sessionStorage.removeItem('v1@CacheToken'))
-  await assert.rejects(browser.scmRead({ query: 'menu', sessionId: status.sessionId, revision: status.revision }, signal()), /SCM_LOGIN_REQUIRED/)
-  assert.equal(browser.status().state, 'manual')
+  status = await browser.resume(status.sessionId, status.revision, signal())
+  const snapshot = await browser.snapshot(signal())
+  assert.ok(snapshot.frames[0].text.includes('Sign in'))
+  assert.ok(!requests.some(p => p.startsWith('/api/')))
   await browser.close()
-  const reopened = await browser.scmConnect(systemBrowserInput(system), signal())
+  const reopened = await browser.connect(systemBrowserInput(system), signal())
   assert.equal(reopened.state, 'manual')
-  await assert.rejects(browser.scmRead({ query: 'menu', sessionId: status.sessionId, revision: status.revision }, signal()), /SCM_READ_GRANT_INVALID/)
+  await assert.rejects(browser.snapshot(signal()), /BROWSER_MANUAL_CONTROL/)
 })

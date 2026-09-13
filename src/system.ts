@@ -9,7 +9,7 @@ import { defaultDataDir, privateDirectory } from './storage/paths.js'
 export interface SystemConfig { url: string; baseUrl?: string; name?: string; account?: string; tenant?: string; role?: string }
 export interface SystemProfile {
   id: string; name: string; entryUrl: string; baseUrl: string; directory: string;
-  scope: BrowserOpen['scope']; adapter: 'scm-usa-read-v1'; legacyDataPresent: boolean
+  scope: BrowserOpen['scope']; adapter: 'browser-learning-v1'; legacyDataPresent: boolean
 }
 
 // URL lookup is separate from the permanent ID, allowing explicit URL aliases in a future migration.
@@ -42,7 +42,7 @@ export function resolveSystem(config: SystemConfig, dataDir = defaultDataDir()):
   if (!/^erp_[a-f0-9-]{36}$/.test(saved.id) || saved.baseUrl !== base.href) throw new BrowserError('ERP_INVALID_SYSTEM_REFERENCE')
   const directory = privateDirectory(join(systems, saved.id))
   const profile: SystemProfile = { id: saved.id, name, entryUrl: entry.href, baseUrl: base.href, directory,
-    scope: { ...scope, site: saved.id }, adapter: 'scm-usa-read-v1', legacyDataPresent: existsSync(join(root, 'store.sqlite')) }
+    scope: { ...scope, site: saved.id }, adapter: 'browser-learning-v1', legacyDataPresent: existsSync(join(root, 'store.sqlite')) }
   const temp = join(directory, `${randomUUID()}.tmp`)
   try {
     writeFileSync(temp, JSON.stringify({ format: 1, id: profile.id, name, baseUrl: base.href, entryUrl: entry.href, adapter: profile.adapter }, null, 2), { mode: 0o600, flag: 'wx' })

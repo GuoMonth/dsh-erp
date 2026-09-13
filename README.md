@@ -1,137 +1,131 @@
-# dsh-erp
+# Adapt ERP · dsh-erp
 
 [简体中文](https://github.com/GuoMonth/dsh-erp/blob/main/docs/README.zh-CN.md) · [npm](https://www.npmjs.com/package/@guosheng_047/dsh-erp) · [Releases](https://github.com/GuoMonth/dsh-erp/releases) · [Changelog](https://github.com/GuoMonth/dsh-erp/blob/main/CHANGELOG.md)
 
-Build a menu map of your ERP, connect menus to business concepts, and trace a product through stock, purchase orders and sales orders from DeepSeek Harness (DSH). Keep observations, supporting evidence and revisable knowledge in local SQLite and files.
+**Learn your ERP through its browser interface, and keep the knowledge on your machine.** Adapt ERP is a plugin for DeepSeek Harness (DSH). Configure your ERP, log in yourself, and let DSH observe menus, pages, fields and business data, build evidence-backed knowledge, and reuse it in later conversations.
 
-**This is a read-only preview for an adapted SCM/USA system family.** It runs as a plugin inside your local DSH installation. Support for other ERP systems and automatic exploration of every page, tab and dialog remain future work.
+The plugin starts without site-specific knowledge. It does not require a particular ERP vendor, API path or login-token format. Compatibility depends on the site's interface and authentication; this preview does not claim successful operation on every ERP.
 
-## Install and start
+**Preview interaction policy:** page observation and local knowledge accumulation are automatic after you confirm your login scope. Every click, fill, selection or scroll asks for individual approval, including queries—an unfamiliar control may save data. This is AI-guided learning with confirmations, not unattended crawling or a transaction engine.
 
-You need:
+## Install
 
-| Requirement | Supported setup |
+| Requirement | Current baseline |
 | --- | --- |
 | Node.js | `>=24.18.0 <25` |
-| DSH | `0.1.5-rc.2` |
-| Desktop | Linux x64 with a graphical session and Chromium system libraries; Windows/macOS desktop acceptance is pending |
-| Services | Access to a compatible SCM site and a model configured in DSH; real ERP validation used `deepseek-flash` |
+| DSH | `0.1.5-rc.2`, with a model configured in DSH |
+| Desktop | Linux x64, a graphical session and Chromium system libraries |
+| Other platforms | Windows/macOS desktop acceptance pending |
 
-With DSH already installed, add the plugin to your `web` profile:
-
-```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.5
-dsh web
-```
-
-This guide describes **0.1.0-alpha.5**. Source/PR documentation can precede publication: use the npm commands once that version appears in Releases, or build and install this checkout’s TGZ for PR testing. Published alpha.4 does not include the configuration flow below. The commands pin the preview version. The `alpha` tag may resolve through cached package-manager metadata immediately after a release. Use the full scoped name: the unscoped npm package `dsh-erp` belongs to another project. Replace `web` with your own profile if needed.
-
-If only Node is installed, npm can prepare the pinned DSH and pnpm versions:
+With DSH installed:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.5
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.6
 ```
 
-Configure a model in DSH before asking it to use the plugin. Installation fetches npm dependencies; the plugin prepares its pinned Chromium on first browser use. The TGZ contains precompiled JavaScript, so users do not need TypeScript, Python, PostgreSQL, Docker or a separate browser service. Linux browser libraries must already be available or be installed by the user.
+With only Node installed:
 
-For a local TGZ from [GitHub Releases](https://github.com/GuoMonth/dsh-erp/releases), replace the package spec in the install command with its absolute file path.
+```sh
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.6
+```
 
-## Configure your ERP once
+Use the full scoped name; the unscoped npm package `dsh-erp` is another project. Adapt ERP is the product name; the package name stays unchanged. Source documentation can precede publication: for PR testing, build a TGZ and replace the package spec with its absolute path. Use the npm command once the version appears in Releases.
 
-After installing the plugin, stop DSH. Add the following entry to `~/.dsh/profiles/web/cordis.patch.yml` (or `$DSH_HOME/profiles/web/cordis.patch.yml` if you set `DSH_HOME`). If the file contains comments followed by `[]`, replace that empty list with the block below. Preserve existing entries; if an `id: erp` override already exists, merge its config rather than adding another one. Replace the example URL with your own ERP entry. Restart with `dsh web`.
+The package contains compiled JavaScript. Chromium is prepared on first browser use. No Python, PostgreSQL, Docker or separate browser service is required; missing Linux browser libraries still need to be installed.
+
+## Configure once, then log in yourself
+
+Stop DSH and edit `~/.dsh/profiles/web/cordis.patch.yml`, or `$DSH_HOME/profiles/web/cordis.patch.yml` when `DSH_HOME` is set. If the file contains comments and `[]`, replace that empty list with the block below. Preserve existing entries and merge an existing `id: erp` config instead of duplicating it.
 
 ```yaml
 - id: erp
   config:
     system:
-      url: "https://erp.example.com/#/login"
+      url: "https://erp.example.com/app/#/login"
       name: "My ERP"
       account: "my-work-account"
       # tenant: "my-company"
       # role: "purchasing"
 ```
 
-Only `url` is required. The name defaults to the hostname and the local account alias to `default`. These are labels for knowledge isolation, **not login credentials**. Configure distinct account/company/role aliases before using a different identity. This preview uses DSH's existing patch file; it does not add an ERP settings page or a system-switcher UI.
+Only `url` is required. The name defaults to the hostname, account to `default`. Identity aliases isolate knowledge; they are not credentials. Use distinct aliases for different accounts, companies or roles and confirm they match your actual login.
 
-The entry is opened unchanged, including its path and hash. For `https://erp.example.com/app/login`, also set `baseUrl: "https://erp.example.com/app/"` in `system`. Otherwise the application root is inferred only when the entry's path ends in `/`, such as `/app/#/login`. The base must end in `/` and contain the entry. Use a durable HTTP(S) entry without embedded credentials or query parameters, including queries inside the hash. Transient SSO links are not configuration values; complete login manually in the browser.
+For an entry such as `https://erp.example.com/app/login`, also set `baseUrl: "https://erp.example.com/app/"`. Otherwise the base is inferred only if the entry path ends in `/`. Entry paths and hash routes are preserved. Use a durable HTTP(S) entry without embedded credentials or query parameters; the base must end in `/` and contain the entry. See [configuration details](https://github.com/GuoMonth/dsh-erp/blob/main/docs/system-configuration.md).
 
-**A configurable URL does not make arbitrary ERPs compatible.** Business reads still require the SCM/USA adapter described below.
+Start DSH:
 
-## Your first session
-
-On a fresh DSH installation, acknowledge the preview notice, choose a workspace and configure a model in Settings. Then ask:
-
-```text
-Check my configured ERP system and any existing knowledge first.
-Open that ERP so I can log in manually. After I confirm the identity
-and approve read access, import the global menu structure and explain
-its links to products, inventory, purchasing and sales. Mark unnamed
-entries and unvisited pages. Save explanations with supporting evidence.
-Only perform read queries.
+```sh
+dsh web
+# With only Node:
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 ```
 
-The flow is `erp_system_status → erp_scm_connect → manual login → erp_browser_status → erp_scm_enable`. Enter passwords, verification codes or scan the site's QR code in the separate local Chromium window; the plugin does not attach to your everyday browser. QR/SSO behavior depends on the website and has not been separately accepted. If login opens multiple tabs, finish login and leave one ERP page within the configured application before approving reads.
+On a fresh DSH installation, acknowledge its preview notice, choose a workspace and configure a model in Settings. Ask it to check `erp_system_status` and open your ERP with `erp_connect`. Log in in the dedicated Chromium window, then confirm the observation scope in DSH. Passwords, codes and QR login stay with you; the plugin does not attach to your everyday browser or manage credentials.
 
-Confirm that the account/company/role shown in the DSH read-approval request matches your login. Detection of a missing password field or a token does not verify your business identity. Read permission lasts up to 10 minutes or 250 queries. Taking over the browser, navigation or losing the session revokes it. A missing SCM token can mean login is incomplete or the ERP is incompatible; it does not authorize an alternative API or an automated login attempt.
+## First learning round
 
-In later conversations, ask DSH to call `erp_system_status` and reuse its exact `scope`. Saved knowledge, evidence and listed exploration tasks survive restart with the same configuration and data root. You can ask about them **without opening or logging into the ERP**. Live stock/order queries require login and current approval; historical observations are not current balances. Login may expire, and read grants never survive restart. One system is configured per plugin instance; automatic conversation-based routing between multiple ERPs is future work.
+Try this task:
 
-Then try:
+```text
+Use Adapt ERP with my configured system. Check existing knowledge first.
+Open the ERP and wait for me to log in and confirm the account/company.
+Start a comprehensive learning round: map global menus before going deeper,
+then explore functional pages, tabs, fields and windows. Build business-domain
+understanding from the evidence and link it back to menus. Persist the queue
+and discoveries as you go. Ask before page interactions; never auto-retry a
+possible write. Report observed, pending and blocked areas separately.
+```
 
-- “Find product code `<code>`, show its shared stock balance and related purchase/sales orders. Report how much of the order history you scanned.”
-- “Using saved knowledge only, which menus support inventory? Show the evidence and when it was observed.”
-- “Export what you have learned as Markdown and JSON, and list conclusions that still need review.”
+DSH uses this loop:
 
-`erp_system_status`, `erp_runtime_status` and `erp_storage_status` check configuration, the local worker and storage without accessing the ERP. If no system is configured, browser tools give configuration guidance; they do not accept an address from the model.
+1. `erp_system_status` → `erp_connect` → manual login → `erp_browser_status` → confirmed `erp_browser_resume`.
+2. `erp_browser_snapshot` saves visible text/tables, menus, fields and option samples. `erp_learning_import_snapshot` builds initial UI knowledge without a vendor-specific menu API.
+3. DSH plans the next step, maintains `erp_learning_start/status/extend/finish_unit`, and requests `erp_browser_action` for an exact observed target. Each approved action returns fresh evidence and new target refs.
+4. `erp_knowledge_record` saves interpretations, menu/domain relationships and learned methods. Later tasks retrieve that knowledge, inspect the current UI and revise it when evidence changes.
 
-## What the preview provides
+“Comprehensive” means working across the current account's accessible structure. It does not mean downloading every order or proving every possible state. New discoveries extend the queue; pause/resume retains known work. The DSH model drives planning—installation or login does not independently start an autonomous background crawler. The initial importer records visible structure and option samples; the model still has to establish hierarchy, business meaning and cross-page relationships from evidence.
 
-| Capability | Current behavior |
-| --- | --- |
-| Menu map | Import the current account's menu metadata into a versioned hierarchy; retain unnamed entries and retired relationships |
-| Business understanding | Let DSH relate menus to domains, objects and fields, with evidence, revisions and distinctions between AI inference and user confirmation |
-| Product trace | Join product SKU IDs to purchase/sales order lines; report shared product-level (SPU) stock, scan limits and original order states |
-| Learning continuity | Persist an explicitly listed, breadth-first task queue, observations and blocked outcomes across restarts |
-| Local knowledge | Search and follow relationships, export Markdown/JSON, and create consistent SQLite/evidence backups |
+Then ask:
 
-Menu metadata discovery does not mean every page has been visited. The task queue preserves listed work; it does not automatically discover and operate every tab, button or nested window.
+- “Using saved knowledge only, explain the inventory workflow and show the menu links and evidence.”
+- “Find product `<code>` in this ERP's UI, inspect its stock and related orders, and record the steps and uncertainty.”
+- “Continue the unfinished learning round. Review changed fields and export the knowledge as Markdown and JSON.”
 
-## Supported scope and data
+The second example is a model-planned UI task, not a built-in product/order API or a guaranteed accounting reconciliation.
 
-Business reads use a fixed adapter for the SCM/USA interfaces under `/api/loveinway-admin`. The browser supplies login state and page observations; API responses are recorded as API evidence. This version does not learn arbitrary ERP APIs or register ERP business-write tools.
+## Knowledge belongs to your installation
 
-Product traces scan at most 100 purchase orders and 100 sales orders per call and explicitly report partial coverage. An order's cancelled/draft status or historical quantities do not establish actual stock movement. Inventory reconciliation, returns and unit conversion need further validation.
+Each system has `systems/<permanent-ID>/` under the local data root, containing SQLite, evidence, exports and private browser profiles. `erp_system_status` reports its exact scope and directory. With the same configuration/data root, later conversations can read saved knowledge without opening a browser. Live data requires a current login; old balances and orders remain historical observations.
 
-Knowledge and browser data stay on your machine; observations used by DSH may be sent to your configured model provider. Local storage does not imply offline AI processing. The adapter keeps its login token in the browser worker and excludes it from model-facing results. Other DSH tools and plugins retain their own permissions.
+**User knowledge, browser login data, test fixtures and benchmark answers are not included in npm releases.** The package ships the learning tools, generic schemas and user guides. SCM/USA examples now live only in the development test baseline. Local knowledge sharing is an explicit user export, not part of publishing the plugin. Markdown/JSON exports are readable projections; SQLite retains revisions and evidence links.
 
-The recorded baseline used Linux x64, real DSH and `deepseek-flash`, and one SCM site. It established menu/domain links and matched a product trace against independently read orders. It is not a cross-platform or general ERP benchmark. See the [acceptance report (简体中文)](https://github.com/GuoMonth/dsh-erp/blob/main/docs/assessments/2026-09-12-v1-acceptance.md).
+Observations supplied to DSH may be sent to your configured model provider. Snapshots exclude password/hidden/file inputs, obvious credential fields and `data-erp-private` regions, but redaction is best effort. Tables and ordinary fields can contain business data. No credentials are requested through the interaction tool.
 
-## Local system files and changes
+## Controls and limits
 
-`erp_system_status` reports the actual data directory. Under the plugin's data root, each application gets `systems/<permanent-ID>/` with `system.json`, `store.sqlite`, `evidence/`, `exports/`, `backups/` and private `browser-profiles/`. URL lookup records live in `systems/by-url/`; the URL itself is not a directory name. Account/company/role knowledge is isolated inside that system, and browser profiles are isolated by identity. SQLite is authoritative; Markdown/JSON exports are readable projections, not a second editable database.
+- Every page interaction needs a separate DSH approval. This also covers write buttons and autosaving inputs; denying the request sends no interaction. Observation authorization alone never permits an action.
+- Actions use short-lived snapshot refs, not model-provided selectors, JavaScript or request URLs. Changed targets, navigation, stale revisions or reused refs are rejected. A failed action may already have reached the site: inspect the result before trying again.
+- Observation grants expire after 10 minutes and pause on human input/navigation. Action approval includes reading its result and a renewed bounded observation window. Login and grants are rechecked after restart.
+- One configured system and one browser page per instance. Same-application frames are supported; cross-origin frames, canvas/closed-shadow interfaces, multi-window login and QR/SSO flows may require manual handling and are not broadly accepted yet. Native browser dialogs remain for the human.
+- Snapshots are bounded, non-transactional samples. Multi-step business transactions, automatic retries, unattended write workflows and automatic selection among multiple ERPs are not provided.
 
-Renaming the system or changing only its login hash within the same base keeps its ID and knowledge. A different application base creates a separate system; changing back recovers the previous one. A domain migration, URL alias merge or legacy-data import needs an explicit future migration, not an automatic guess. Restart DSH after configuration changes. Keep the same data root across updates. One DSH process owns a store at a time; independent DSH processes cannot concurrently share it.
+## Upgrade and remove
 
-## Update, restart and remove
+Before upgrading, call `erp_storage_backup`, stop DSH, repeat the install command and restart. Keep the same data root and configuration.
 
-Before updating, ask DSH to call `erp_storage_backup`, then stop DSH and repeat the install command. Restart DSH afterward. Knowledge and tasks persist; browser login and read permission must be checked again.
+**From alpha.5:** system IDs and stored knowledge remain. Fixed `erp_scm_*` tools and SCM menu import are removed; use the browser learning flow. Existing SCM-derived records are historical evidence, not preverified methods for another ERP. Reobserve pages before using an old procedure.
 
-To remove the plugin from the same profile after stopping DSH:
+**From alpha.4 or earlier:** configuring `system` uses a separate store. The original root-level data is retained, not automatically imported. With DSH stopped, temporarily omit `system` to query/export/back up the old store under its original scope; browser connection is disabled in that mode. See [storage and recovery](https://github.com/GuoMonth/dsh-erp/blob/main/docs/storage.md). For alpha.1/alpha.2 TGZ installations, first remove the old unscoped plugin entry and enable only the scoped package.
+
+After stopping DSH:
 
 ```sh
 npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web remove @guosheng_047/dsh-erp
 ```
 
-Removal retains your knowledge, evidence and browser data. See the [storage guide (简体中文)](https://github.com/GuoMonth/dsh-erp/blob/main/docs/storage.md) for data locations and recovery.
+Uninstalling retains your data. One process owns a store at a time; independent DSH processes cannot concurrently share it.
 
-**Upgrading from alpha.4 or earlier:** back up with the old configuration before changing it. Configuring `system` creates a separate system store; existing root-level knowledge is preserved but not automatically copied or reassigned. Without `system`, the new plugin can still query/export/back up that legacy store using its original scopes, but browser connections are disabled. To revisit legacy data, stop DSH, temporarily remove the `system` config, query/export, then restore the config and restart. Do not move live SQLite/WAL files or change scope IDs manually. Automatic legacy import is deferred. See [system configuration and migration](https://github.com/GuoMonth/dsh-erp/blob/main/docs/system-configuration.md).
-
-**Migrating from the alpha.1/alpha.2 TGZ:** back up, stop DSH and remove the old `dsh-erp` package from the profile before installing `@guosheng_047/dsh-erp`. Both use the same plugin entry and data root; enable only one. The system-store migration note above also applies. The remove command above can be used with the old name for this migration.
-
-## Development and documentation
-
-From a source checkout with Node 24.18+ and the browser system libraries:
+## Development and validation
 
 ```sh
 npm ci --ignore-scripts
@@ -140,17 +134,8 @@ npm run verify
 npm pack
 ```
 
-Full tests run locally. The manual Release Action builds the TGZ, publishes it to npm and verifies matching GitHub assets. A dry run does not prove OIDC publishing permission. Report bugs through [GitHub Issues](https://github.com/GuoMonth/dsh-erp/issues), including versions and reproduction steps; keep credentials and private ERP records out of public reports.
+The build cleans `dist` so removed adapters cannot survive into a later package. Full tests run locally; the manual Release Action builds, publishes through Trusted Publishing and checks registry/GitHub bytes.
 
-Detailed guides are currently in Simplified Chinese:
+The generic path is exercised with distinct synthetic ERP UIs, empty stores, real Chromium/worker IPC and native DSH approvals. Deterministic test decisions are not a real-model compatibility benchmark. Historical live SCM acceptance is retained as a separate baseline and is not proof that the new UI workflow works on every ERP. See [learning and boundaries](https://github.com/GuoMonth/dsh-erp/blob/main/docs/adaptive-learning.md) and [development documentation](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.md).
 
-- [System configuration, local files and future multi-ERP design](https://github.com/GuoMonth/dsh-erp/blob/main/docs/system-configuration.md)
-- [SCM queries and session behavior](https://github.com/GuoMonth/dsh-erp/blob/main/docs/scm-readonly.md)
-- [Knowledge, evidence and revisions](https://github.com/GuoMonth/dsh-erp/blob/main/docs/knowledge.md)
-- [Development and local checks](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.md)
-- [Release configuration](https://github.com/GuoMonth/dsh-erp/blob/main/docs/npm-publishing.md)
-- [Roadmap](https://github.com/GuoMonth/dsh-erp/blob/main/docs/v1-plan.md)
-
-## License
-
-[MIT](https://github.com/GuoMonth/dsh-erp/blob/main/LICENSE). Dependencies keep their own licenses; see [third-party notices](https://github.com/GuoMonth/dsh-erp/blob/main/NOTICE.md). Chromium is downloaded separately. `browser-use` and `browser-harness` informed the research and are not bundled runtime dependencies.
+[MIT](https://github.com/GuoMonth/dsh-erp/blob/main/LICENSE). Dependencies retain their own licenses; see [notices](https://github.com/GuoMonth/dsh-erp/blob/main/NOTICE.md). `browser-use` and `browser-harness` informed the research; Playwright is the current browser runtime.

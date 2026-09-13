@@ -3,6 +3,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { scopeSchema } from '../storage/contract.js'
 import type { StorageClient } from '../storage/client.js'
 import { LearningRuntime } from './runtime.js'
+import { importSnapshot } from './snapshot-import.js'
 const str = { type: 'string', required: true } as const
 const scope = { ...scopeSchema, required: true } as const
 const id = { scope, id: str }
@@ -10,8 +11,16 @@ const render = (_args: unknown, value: unknown) => [{ type: 'text' as const, tex
 const output = { schema: { type: 'json' as const }, render }
 export function registerLearningTools(ctx: Context, storage: StorageClient) {
   const runtime = new LearningRuntime(storage)
-  ctx.tools.register(defineTool({ name: 'erp_learning_import_menu', description: 'Materialize a saved SCM menu observation into versioned menu nodes and contains edges. Records discovery, not visited pages or inferred business domains. Use erp_knowledge_record afterward for evidence-backed domains and relations. Returns local graph IDs; does not call ERP.', parameters: { scope, observationId: str }, output,
-    execute: async (a,e) => { const { menuIds: _ids, ...summary } = await runtime.importMenu(a.scope,a.observationId,e.signal); return summary } }))
+  ctx.tools.register(defineTool({ name: 'erp_learning_import_snapshot',
+    description: 'Build menu/page/control/field knowledge from a saved generic browser snapshot, starting with no site-specific knowledge. Preserve evidence and revisions, observed select values (completeness unknown), and user corrections. Repeated import is idempotent. Does not infer a complete menu hierarchy, business domains or visited linked pages. Add evidence-backed domains, menu links and learned query methods with erp_knowledge_record; discovery expands the durable queue with erp_learning_extend.',
+    parameters: { scope, observationId: str }, output, execute: (a, e) => importSnapshot(storage, a.scope, a.observationId, e.signal),
+  }))
+  ctx.tools.register(defineTool({ name: 'erp_learning_extend',
+    description: 'Append newly discovered menus/pages/tabs/behavior tasks to an existing learning round using its exact version. New lower-level tasks precede pending deeper work. Does not reopen completed tasks or grant browser permissions. Use stable task IDs, maximum 200 additions per call / 2000 total; coverage counts known tasks only.',
+    parameters: { ...id, expectedVersion: { type: 'integer', required: true }, units: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+      id: str, level: { type: 'integer', required: true }, label: str,
+    } } } }, output, execute: (a, e) => runtime.extend(a.scope, a.id, a.expectedVersion, a.units, e.signal),
+  }))
   ctx.tools.register(defineTool({ name: 'erp_learning_start', description: 'Persist a finite breadth-first learning round. Provide explicit tasks: level1 global structure, level2 functional pages, level3 fields/tabs/windows, level4 behavior. Lower levels always settle before higher levels. No browser actions or permissions are created. ID must be new; use status to resume.', parameters: { ...id, units: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: { id: str, level: { type: 'integer', required: true }, label: str } } } }, output,
     execute: (a,e) => runtime.start(a.scope,a.id,a.units,e.signal) }))
   ctx.tools.register(defineTool({ name: 'erp_learning_status', description: 'Return next pending unit, durable revision, coverage and recorded gaps. Ended rounds may contain blocked units; never describe that as complete ERP coverage.', parameters: id, output,

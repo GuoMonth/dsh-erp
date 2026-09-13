@@ -5,10 +5,10 @@ import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import http from 'node:http'
 import {chromium} from 'playwright'
-import {requestFor,readScm} from '../dist/scm/read.js'
-import {LearningRuntime} from '../dist/learning/runtime.js'
+import {requestFor,readScm} from './fixtures/scm-alpha5/read.mjs'
+import {LearningRuntime} from './fixtures/scm-alpha5/learning.mjs'
 import {StorageClient} from '../dist/storage/client.js'
-import {BrowserSession} from '../dist/browser/session.js'
+import {BrowserSession} from './fixtures/scm-alpha5/session.mjs'
 const scope={site:'fixture',account:'reader'}
 const signal=()=>new AbortController().signal
 const readArgs={query:'products',sessionId:'test',revision:1}
@@ -70,8 +70,8 @@ test('menu import preserves discovery, identity, provenance and idempotence; dur
 })
 
 test('product chain joins SKU IDs, preserves cancelled rows and reports bounded/empty scans without false absence',async()=>{
-  const {traceProduct}=await import('../dist/scm/trace.js');const calls=[]
-  const fake=async(input)=>{const {validateBrowser}=await import('../dist/protocol.js');validateBrowser('browser.scmRead','input',input);calls.push(input);const data={products:{total:1,list:[{id:'1',productCode:'P'}]},product:{id:'1',productCode:'P',skus:[{id:'s1'},{id:'s2'}]},stock:{total:1,list:[{productId:'1',qtyOnHand:10}]},purchases:{total:3,list:[{id:'2'}]},purchase:{id:'2',poNo:'PO',status:'CANCELLED',items:[{skuId:'s2',qty:2},{skuId:'other',qty:90}]},sales:{total:0,list:[]}}[input.query];return {query:input.query,url:'https://example.test/',observedAt:new Date().toISOString(),data,limitations:[],observationId:'obs-'+calls.length}}
+  const {traceProduct}=await import('./fixtures/scm-alpha5/trace.mjs');const calls=[]
+  const fake=async(input)=>{const {scmReadSchema}=await import('./fixtures/scm-alpha5/contract.mjs');const {validateJsonSchemaValue,valueSchemaSpecToJsonSchema}=await import('@deepseek-ai/dsh-tools');assert.deepEqual(validateJsonSchemaValue(valueSchemaSpecToJsonSchema(scmReadSchema),input,''),[]);calls.push(input);const data={products:{total:1,list:[{id:'1',productCode:'P'}]},product:{id:'1',productCode:'P',skus:[{id:'s1'},{id:'s2'}]},stock:{total:1,list:[{productId:'1',qtyOnHand:10}]},purchases:{total:3,list:[{id:'2'}]},purchase:{id:'2',poNo:'PO',status:'CANCELLED',items:[{skuId:'s2',qty:2},{skuId:'other',qty:90}]},sales:{total:0,list:[]}}[input.query];return {query:input.query,url:'https://example.test/',observedAt:new Date().toISOString(),data,limitations:[],observationId:'obs-'+calls.length}}
   const r=await traceProduct(fake,{sessionId:'test',revision:1,productCode:'P',maxDocuments:1},'P',1,signal());assert.equal(r.found,true);assert.equal(r.documents.purchases.scanComplete,false);assert.equal(r.documents.purchases.matched[0].items.length,1);assert.equal(r.documents.purchases.matched[0].status,'CANCELLED');assert.equal(r.documents.sales.scanComplete,true)
   const empty=await traceProduct(async()=>({...await fake({...readArgs,query:'products'}),data:{total:0,list:[]}}),{sessionId:'test',revision:1},'MISSING',1,signal());assert.equal(empty.found,false);assert.equal(empty.complete,false)
   const aborted=new AbortController();aborted.abort();await assert.rejects(traceProduct(fake,{sessionId:'test',revision:1},'P',1,aborted.signal))
