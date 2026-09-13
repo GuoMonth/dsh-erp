@@ -1,69 +1,123 @@
 # dsh-erp
 
-面向 ERP 网站的本地学习与辅助操作插件，目标宿主锁定为 **dsh 0.1.5 rc2**（官方标签 `dsh-v0.1.5-rc.2`），运行时基线为 **Node.js 24 LTS**。
+[简体中文](https://github.com/GuoMonth/dsh-erp/blob/main/docs/README.zh-CN.md) · [npm](https://www.npmjs.com/package/@guosheng_047/dsh-erp) · [Releases](https://github.com/GuoMonth/dsh-erp/releases) · [Changelog](https://github.com/GuoMonth/dsh-erp/blob/main/CHANGELOG.md)
 
-先通过用户登录后的浏览器建立菜单结构认知，再依据页面证据形成业务域认知，建立二者的双向关联。随后按业务域深入，积累可验证、可复用的操作能力。知识可查看、纠正并追溯证据；每次向 ERP 写入业务数据前必须获得用户对具体变更的确认。
+Build a menu map of your ERP, connect menus to business concepts, and trace a product through stock, purchase orders and sales orders from DeepSeek Harness (DSH). Keep observations, supporting evidence and revisable knowledge in local SQLite and files.
 
-## 核心原则
+**This is a read-only preview for an adapted SCM/USA system family.** It runs as a plugin inside your local DSH installation. Support for other ERP systems and automatic exploration of every page, tab and dialog remain future work.
 
-- **效果第一**：用真实 ERP 任务验证选型，语言统一和依赖数量服从完成效果。
-- **信任 AI 能力**：自主探索、推理、纠错和积累方法；先建立全局菜单框架，再由任务和知识缺口决定深入优先级，不要求提前编写所有流程。
-- **方便单机启动**：用户本机运行 dsh，安装插件即可开始配置与登录；允许包体较大，不要求部署数据库或其他服务。
-- **业务写入固定确认**：确认具体业务变更，AI 自主完成批准范围内的必要步骤；内部学习记录自动积累。
+## Install and start
 
-## 当前状态
+You need:
 
-已发布 [`@guosheng_047/dsh-erp@0.1.0-alpha.3`](https://www.npmjs.com/package/@guosheng_047/dsh-erp)，提供 npm 安装与 [GitHub TGZ](https://github.com/GuoMonth/dsh-erp/releases/tag/v0.1.0-alpha.3)。SCM/USA 只读预览版提供：本机 Chromium 手动登录，读取全局菜单元数据并导入知识图谱，AI 解释菜单与业务域关联，持久化先广后深学习轮次，以及商品 → SPU 库存 → 关联采购/销售的可复用查询。仅支持已适配的接口，**不提供 ERP 写入工具**。
+| Requirement | Supported setup |
+| --- | --- |
+| Node.js | `>=24.18.0 <25` |
+| DSH | `0.1.5-rc.2` |
+| Desktop | Linux x64 with a graphical session and Chromium system libraries; Windows/macOS desktop acceptance is pending |
+| Services | Access to a compatible SCM site and a model configured in DSH; real ERP validation used `deepseek-flash` |
 
-实测宿主为最新发布的 dsh `0.1.5-rc.2`，模型为真实 `deepseek-flash`。首批验证平台是 Linux x64 / Node `24.18.0`；容器测试显式关闭 Chromium 沙箱，产品默认启用。支持范围、结果与延期项见 [本版验收](docs/assessments/2026-09-12-v1-acceptance.md)。通过 npm 与 GitHub Release 分发。
+With DSH already installed, add the plugin to your `web` profile:
 
-**[安装与使用 SCM 只读版](docs/scm-readonly.md)**。只需本机 Node、dsh 与 Chromium 所需系统库，不需要 Python、PostgreSQL、Docker 或单独浏览器服务。模型配置复用 dsh。
+```sh
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@alpha
+dsh web
+```
 
-菜单元数据发现不代表所有页面已访问；任务队列不是通用浏览器自动探索器；字段状态样本不代表完整枚举。通用 ERP 适配、自动 Tab/窗口深入和业务写入仍在后续计划中。
+The `alpha` tag selects the current preview. Use the full scoped name: the unscoped npm package `dsh-erp` belongs to another project. Replace `web` with your own profile if needed.
 
-开发与交付采用[本地验证](docs/development.md#本地交付检查)，不运行 push/PR 自动 CI，仅使用手动 Release Action 发布；保留完整测试、安装产物冒烟和浏览器验证，结果记录在 PR 与验收文档中。
+If only Node is installed, npm can prepare the pinned DSH and pnpm versions:
 
-## 首版目标成果
+```sh
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@alpha
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
+```
 
-安装并登录后，插件首先形成当前企业、账号和角色可见范围内的菜单地图，并据此建立带证据的初步业务域框架。用户可以从菜单理解业务，也可以从业务概念返回对应页面；未探索、阻塞和待验证部分明确可见。
+Configure a model in DSH before asking it to use the plugin. Installation fetches npm dependencies; the plugin prepares its pinned Chromium on first browser use. The TGZ contains precompiled JavaScript, so users do not need TypeScript, Python, PostgreSQL, Docker or a separate browser service. Linux browser libraries must already be available or be installed by the user.
 
-## 第一版范围
+For a local TGZ from [GitHub Releases](https://github.com/GuoMonth/dsh-erp/releases), replace the package spec in the install command with its absolute file path.
 
-- **一个 ERP、一个角色，全局广度探索＋一个业务域深度验证**。
-- 全局完成一级入口和二三级菜单的初步探索，支持暂停、恢复及部分成果查看。
-- 菜单认知与业务域认知分别维护，以证据支持多对多关联。
-- 选择一个业务域深入 Tab、字段、按钮及子窗口，形成少量可复用查询能力。
-- 本次交付按用户指定的 Read only 范围收敛；原测试写入计划延期，未计为验证通过。
+## Your first session
 
-## 技术方向
+Open DSH and give it a task like this, replacing the placeholder with your site root URL:
 
-**dsh 原生代理＋TypeScript 插件＋本地 Node 24 工作进程＋SQLite＋本机 Chromium。**
+```text
+Use the ERP plugin to connect to <my SCM site root URL>.
+I will log in in the browser window. Use local aliases for the site,
+account, company and role so knowledge stays in the right scope.
+First import the global menu structure, then explain how the menus
+relate to products, inventory, purchasing and sales. Mark unnamed
+entries and pages that have not been visited. Save explanations
+with their supporting evidence. Only perform read queries.
+```
 
-- 复用 dsh 的模型、代理循环、工具管线、审批与会话能力；原生接入，首版不额外增加 MCP 或代理编排框架。
-- Playwright `1.63.0` 作为浏览器基础；支持登录、被动观察和固定 SCM 查询适配。通用复杂交互及与 browser-use 的效果对照仍待验证。
-- SQLite 已采用 `node:sqlite`，独立存储线程协调短事务；证据放本地文件。菜单与业务模型、版本关系和指定命题确认已在此基础上实现。
-- Node 是唯一主开发路线。只有实测证明成熟 Python 方案持续明显领先且值得承担依赖成本时，才考虑随插件打包执行器，不要求用户管理 Python。
-- 本机浏览器窗口支持登录与人工接管；内嵌画面是后续增强，不是第一版前置条件。
+The plugin opens a separate local Chromium window for manual login. Enter your password and verification code there. Approve the plugin's read access in DSH after login. A permission grant is bound to the current session and scope, and lasts up to 10 minutes or 250 queries. Taking over the browser or losing the session revokes the grant; reconnecting requires a fresh check and approval.
 
-## 文档
+Then try:
 
-- [SCM 只读版安装与使用](docs/scm-readonly.md)：支持范围、上手、查询、恢复及限制。
-- [本版验收与里程碑处置](docs/assessments/2026-09-12-v1-acceptance.md)：实际证据及延期项。
+- “Find product code `<code>`, show its shared stock balance and related purchase/sales orders. Report how much of the order history you scanned.”
+- “Which menus support the inventory domain? Show the evidence for those links.”
+- “Export what you have learned as Markdown and JSON, and list conclusions that still need review.”
 
-- [npm 发布配置](docs/npm-publishing.md)：包名、首次授权与手动 Release Action。
-- [开发与本地验证](docs/development.md)：构建、安装、诊断工具、运行边界及恢复。
-- [本地存储与恢复](docs/storage.md)：数据目录、观察/检查点契约、一致性备份、迁移和验证结果。
-- [受控只读导航](docs/controlled-read-navigation.md)：实验入口、契约与许可、负向验证及适用限制。
-- [本阶段对抗式评估](docs/assessments/2026-09-11-next-stage.md)：现状、产品缺口与下一轮优先级。
-- [版本化知识与查询](docs/knowledge.md)：菜单/业务关联、证据、AI/用户来源、修订和当前验证限制。
-- [浏览器会话与被动观察](docs/browser-observation.md)：人工登录、范围确认、观察入库、接管及当前防护边界。
-- [首版验收环境与样本](docs/testing/README.md)：目标站点登记、独立菜单清单和固定任务集。
-- [首版 Epic](https://github.com/GuoMonth/dsh-erp/issues/1)：M0–M5 开发任务及依赖。
-- [第一版规划](docs/v1-plan.md)：用户成果、首版范围、交付阶段、验收和技术基线。
-- [学习模型与探索协议](docs/learning-model.md)：两套认知模型、四级探索、证据关联、能力契约和更新规则。
-- [架构决策：效果优先的本地插件](docs/adr/0001-local-first-ai-erp.md)：对抗式审查、已锁定取舍和例外触发条件。
-- [学习决策：菜单认知先行](docs/adr/0002-menu-first-domain-learning.md)：全局探索、业务域关联和局部深度验证的取舍。
+To check installation before accessing an ERP, ask DSH to call `erp_runtime_status` and `erp_storage_status`. They report the local worker and storage state without accessing the ERP.
 
-## 许可证
+## What the preview provides
 
-[MIT](LICENSE)。上游组件的许可证和托管服务条款在实际选型与分发时分别核对。
+| Capability | Current behavior |
+| --- | --- |
+| Menu map | Import the current account's menu metadata into a versioned hierarchy; retain unnamed entries and retired relationships |
+| Business understanding | Let DSH relate menus to domains, objects and fields, with evidence, revisions and distinctions between AI inference and user confirmation |
+| Product trace | Join product SKU IDs to purchase/sales order lines; report shared product-level (SPU) stock, scan limits and original order states |
+| Learning continuity | Persist an explicitly listed, breadth-first task queue, observations and blocked outcomes across restarts |
+| Local knowledge | Search and follow relationships, export Markdown/JSON, and create consistent SQLite/evidence backups |
+
+Menu metadata discovery does not mean every page has been visited. The task queue preserves listed work; it does not automatically discover and operate every tab, button or nested window.
+
+## Supported scope and data
+
+Business reads use a fixed adapter for the SCM/USA interfaces under `/api/loveinway-admin`. The browser supplies login state and page observations; API responses are recorded as API evidence. This version does not learn arbitrary ERP APIs or register ERP business-write tools.
+
+Product traces scan at most 100 purchase orders and 100 sales orders per call and explicitly report partial coverage. An order's cancelled/draft status or historical quantities do not establish actual stock movement. Inventory reconciliation, returns and unit conversion need further validation.
+
+Knowledge and browser data stay on your machine; observations used by DSH may be sent to your configured model provider. Local storage does not imply offline AI processing. The adapter keeps its login token in the browser worker and excludes it from model-facing results. Other DSH tools and plugins retain their own permissions.
+
+The recorded baseline used Linux x64, real DSH and `deepseek-flash`, and one SCM site. It established menu/domain links and matched a product trace against independently read orders. It is not a cross-platform or general ERP benchmark. See the [acceptance report (简体中文)](https://github.com/GuoMonth/dsh-erp/blob/main/docs/assessments/2026-09-12-v1-acceptance.md).
+
+## Update, restart and remove
+
+Before updating, ask DSH to call `erp_storage_backup`, then stop DSH and repeat the install command. Restart DSH afterward. Knowledge and tasks persist; browser login and read permission must be checked again.
+
+To remove the plugin from the same profile after stopping DSH:
+
+```sh
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web remove @guosheng_047/dsh-erp
+```
+
+Removal retains your knowledge, evidence and browser data. See the [storage guide (简体中文)](https://github.com/GuoMonth/dsh-erp/blob/main/docs/storage.md) for data locations and recovery.
+
+**Migrating from the alpha.1/alpha.2 TGZ:** back up, stop DSH and remove the old `dsh-erp` package from the profile before installing `@guosheng_047/dsh-erp`. Both use the same plugin entry and data directory; enable only one. The remove command above can be used with the old name for this migration.
+
+## Development and documentation
+
+From a source checkout with Node 24.18+ and the browser system libraries:
+
+```sh
+npm ci --ignore-scripts
+npx playwright install chromium --no-shell
+npm run verify
+npm pack
+```
+
+Full tests run locally. The manual Release Action builds the TGZ, publishes it to npm and verifies matching GitHub assets. A dry run does not prove OIDC publishing permission. Report bugs through [GitHub Issues](https://github.com/GuoMonth/dsh-erp/issues), including versions and reproduction steps; keep credentials and private ERP records out of public reports.
+
+Detailed guides are currently in Simplified Chinese:
+
+- [SCM queries and session behavior](https://github.com/GuoMonth/dsh-erp/blob/main/docs/scm-readonly.md)
+- [Knowledge, evidence and revisions](https://github.com/GuoMonth/dsh-erp/blob/main/docs/knowledge.md)
+- [Development and local checks](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.md)
+- [Release configuration](https://github.com/GuoMonth/dsh-erp/blob/main/docs/npm-publishing.md)
+- [Roadmap](https://github.com/GuoMonth/dsh-erp/blob/main/docs/v1-plan.md)
+
+## License
+
+[MIT](https://github.com/GuoMonth/dsh-erp/blob/main/LICENSE). Dependencies keep their own licenses; see [third-party notices](https://github.com/GuoMonth/dsh-erp/blob/main/NOTICE.md). Chromium is downloaded separately. `browser-use` and `browser-harness` informed the research and are not bundled runtime dependencies.

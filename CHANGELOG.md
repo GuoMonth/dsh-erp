@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.4
+
+- Lead the npm/GitHub README with English setup, first-session tasks, supported scope, data handling and lifecycle guidance; ship a matching Simplified Chinese guide under docs.
+- Keep a single root README so npm selects the English text; add package homepage and issue links.
+- Include the release propagation wait fix from main. Runtime behavior and the real ERP acceptance baseline are unchanged.
+- Prepare this preview for the first real Trusted Publishing run after merge; this entry does not claim OIDC publication has passed.
+
 ## 0.1.0-alpha.3 — 2026-09-13
 
 - Use the npm package name `@guosheng_047/dsh-erp` with public access and the alpha dist-tag. The unscoped npm name belongs to a different project.

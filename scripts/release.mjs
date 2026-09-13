@@ -58,6 +58,8 @@ async function prepare() {
   assert.equal(packed.name, pkg.name)
   assert.equal(packed.version, pkg.version)
   const names = packed.files.map(file => file.path)
+  assert.deepEqual(names.filter(name => /^readme(?:$|\.)/i.test(name)), ['README.md'], 'Keep one root README so npm selects English')
+  assert.ok(names.includes('docs/README.zh-CN.md'), 'Missing Simplified Chinese guide')
   for (const name of ['dist/index.js', 'dist/worker.js', 'dist/storage/worker.js', 'dist/scm/trace.js', 'cordis.patch.yml', 'LICENSE']) assert.ok(names.includes(name), `Missing ${name}`)
   assert.ok(!names.some(name => /^(artifacts|scripts|tests|node_modules|\.github)\//.test(name) || /(^|\/)\.npmrc$/.test(name) || /(^|\/)\.env($|\.)/.test(name)), 'Unexpected private/development files in package')
   assert.match(readFileSync('cordis.patch.yml', 'utf8'), /name: ['"]?@guosheng_047\/dsh-erp['"]?\s*$/m)
