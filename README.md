@@ -20,16 +20,16 @@ You need:
 With DSH already installed, add the plugin to your `web` profile:
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@alpha
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.4
 dsh web
 ```
 
-The `alpha` tag selects the current preview. Use the full scoped name: the unscoped npm package `dsh-erp` belongs to another project. Replace `web` with your own profile if needed.
+The commands pin the verified preview. The `alpha` tag may resolve through cached package-manager metadata immediately after a release. Use the full scoped name: the unscoped npm package `dsh-erp` belongs to another project. Replace `web` with your own profile if needed.
 
 If only Node is installed, npm can prepare the pinned DSH and pnpm versions:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@alpha
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.4
 npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 ```
 
@@ -39,7 +39,7 @@ For a local TGZ from [GitHub Releases](https://github.com/GuoMonth/dsh-erp/relea
 
 ## Your first session
 
-Open DSH and give it a task like this, replacing the placeholder with your site root URL:
+On a fresh DSH installation, acknowledge the preview notice, choose a workspace and configure a model in Settings. Then give DSH a task like this, replacing the placeholder with your site root URL:
 
 ```text
 Use the ERP plugin to connect to <my SCM site root URL>.

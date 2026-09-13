@@ -20,16 +20,16 @@
 已有 DSH 时，将插件安装到 `web` profile：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@alpha
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.4
 dsh web
 ```
 
-`alpha` 标签选择当前预览版。请使用完整 scope 包名：npm 上无 scope 的 `dsh-erp` 属于另一个项目。按需要将 `web` 换成实际使用的 profile。
+命令固定到已验证的预览版；刚发布后，`alpha` 标签可能经包管理器缓存解析到旧版本。请使用完整 scope 包名：npm 上无 scope 的 `dsh-erp` 属于另一个项目。按需要将 `web` 换成实际使用的 profile。
 
 如果只安装了 Node，npm 可以同时准备固定版本的 DSH 和 pnpm：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@alpha
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.4
 npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 ```
 
@@ -39,7 +39,7 @@ npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 
 ## 第一次使用
 
-打开 DSH，发送下面的任务，并将占位符替换为站点根地址：
+全新 DSH 首次启动时，先确认预览提示、选择工作区，并在 Settings 中配置模型。然后发送下面的任务，并将占位符替换为站点根地址：
 
 ```text
 使用 ERP 插件连接 <我的 SCM 站点根地址>。
