@@ -2,6 +2,8 @@ import { Worker } from 'node:worker_threads'
 import { StorageError, validate } from './contract.js'
 import type { Input, Method, Output } from './contract.js'
 import { defaultDataDir } from './paths.js'
+import { scopeKey } from './primitives.js'
+import type { Scope } from './primitives.js'
 
 /** Serial durable work, independent of the cancellable browser process. */
 export class StorageClient {
@@ -17,7 +19,7 @@ export class StorageClient {
   private sequence = 0
   private admitted = 0
 
-  constructor(private readonly options: { directory?: string; restoreOnly?: boolean } = {}) {
+  constructor(private readonly options: { directory?: string; restoreOnly?: boolean; scope?: Scope } = {}) {
     this.directory = options.directory ?? defaultDataDir()
   }
   private start(): Promise<void> {
@@ -64,6 +66,9 @@ export class StorageClient {
     let snapshot: Input<K>
     try {
       validate(method, 'input', input)
+      if (this.options.scope && 'scope' in input && scopeKey(input.scope as Scope) !== scopeKey(this.options.scope)) {
+        throw new StorageError('ERP_SCOPE_MISMATCH: use the exact scope from erp_system_status')
+      }
       if (JSON.stringify(input).length > 16_000_000) throw new StorageError('STORAGE_PAYLOAD_TOO_LARGE')
       snapshot = structuredClone(input as unknown) as Input<K>
     } catch (error) { return Promise.reject(error) }

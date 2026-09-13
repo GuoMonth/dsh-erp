@@ -184,10 +184,10 @@ test('native confirmation binds scope and contract; successful read persists evi
     return f.session.status()
   } }
   const storage = new StorageClient({ directory: join(f.root, 'data') })
-  const runtime = new BrowserRuntime(worker, storage, signal())
+  const runtime = new BrowserRuntime(worker, storage, signal(), { siteUrl: f.base, scope })
   const host = await mount({ inject: ['tools'], apply(ctx) { registerBrowserTools(ctx, runtime) } })
   t.after(async () => { await host.dispose(); await storage.dispose() })
-  await host.run('erp_browser_open', { siteUrl: f.base, scope })
+  await host.run('erp_browser_open')
   const status = f.session.status(); const digest = f.session.readPolicy().digest
   const input = { sessionId: status.sessionId, revision: status.revision, policyDigest: digest }
   let answer = 'rejected'; const requests = []

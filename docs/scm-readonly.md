@@ -1,32 +1,16 @@
 # SCM/USA 只读首版
 
-`0.1.0-alpha.3` 面向一个经过实测的 SCM/USA 系统家族。宿主为 dsh `0.1.5-rc.2`，模型复用宿主配置，实测使用 `deepseek-official / deepseek-flash`。这是带明确适配范围的只读预览版；它不承诺任意 ERP 自动适配或全部页面自动操作。
+`0.1.0-alpha.5` 面向一个经过实测的 SCM/USA 系统家族。宿主为 dsh `0.1.5-rc.2`，模型复用宿主配置，实测使用 `deepseek-official / deepseek-flash`。这是带明确适配范围的只读预览版；它不承诺任意 ERP 自动适配或全部页面自动操作。
 
 ## 安装与开始
 
-需要 Node `>=24.18.0 <25`、本机图形桌面及可访问的 ERP 和模型服务。Linux 还需要 Chromium 的系统库。已验证平台为 Linux x64；Windows/macOS 桌面安装暂未验收。
+安装与完整中英文首次使用流程以 [README](../README.md) 和[中文指南](README.zh-CN.md)为准；alpha.5 源码文档不表示该版本已经发布。首次发布前可构建并安装 TGZ。
 
-已发布 [`@guosheng_047/dsh-erp@0.1.0-alpha.3`](https://www.npmjs.com/package/@guosheng_047/dsh-erp)，也可从 [GitHub Release](https://github.com/GuoMonth/dsh-erp/releases/tag/v0.1.0-alpha.3) 下载 TGZ。请使用完整 scope 包名；npm 上无 scope 的 `dsh-erp` 不属于本项目。在已有 dsh 环境安装到实际使用的 profile（以下为 web）：
+在 DSH profile 的 `cordis.patch.yml` 配置 `erp.config.system.url`，可选填写名称和身份别名；路径不以 `/` 结尾的入口另填应用 `baseUrl`。详见[系统配置](system-configuration.md)。不在对话中逐次提供 URL，不将密码交给模型。
 
-```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.3
-dsh web
-```
+工具流程为 `erp_system_status → erp_scm_connect → 人工登录 → erp_browser_status → erp_scm_enable`。connect 无参数，读取用户配置并原样打开入口，不拼接登录路由。确认绑定当前会话、版本和配置范围，最多 10 分钟、250 次查询；人工键鼠、导航、弹窗、退出、到期或失败会暂停并撤销许可。重新确认不自动重放失败任务。
 
-如果只有 Node，可用 npm 同时准备已验证宿主和安装工具：
-
-```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.3
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
-```
-
-2026-09-12 核对 npm 发布记录，最新发布为 rc.2（`next`），`latest` 标签仍为 rc.1，因此显式选择 rc.2。配置 dsh 自己的模型服务；插件不保存另一份 API Key。Chromium 在首次打开时自动准备，进度由 `erp_browser_status` 返回。
-
-向 dsh 说明：
-
-> 使用 ERP 插件连接我的 SCM 站点根地址。scope 的 site/account/tenant/role 使用本地别名。先建立全局菜单框架，说明未访问和缺失名称；再解释商品、库存、采购、销售及菜单关联。我会在打开的浏览器中登录。仅进行只读查询。
-
-工具流程为 `erp_scm_connect → 人工登录 → erp_browser_status → erp_scm_enable`。确认绑定当前会话、版本和范围，最多 10 分钟、250 次查询；人工键鼠、导航、弹窗、退出、到期或失败会暂停并撤销许可。重新确认不自动重放失败任务。密码及验证码由人填写，不交给模型。
+新对话通过系统状态拿到精确 scope，查询本地知识无需登录；实时读取需要当前登录和审批。缺少令牌表示未登录或适配不兼容，保持人工模式；配置任意 URL 不会自动适配它的接口。
 
 ## 能做什么
 

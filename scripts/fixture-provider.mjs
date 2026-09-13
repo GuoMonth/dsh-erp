@@ -12,6 +12,7 @@ function* textChunks(text) {
   yield { type: 'finish', reason: { kind: 'stop' } }
 }
 class Fixture extends LlmAdapter {
+  constructor(scope) { super(); this.scope = scope }
   async *stream(options) {
     options.signal.throwIfAborted()
     const messages = options.messages
@@ -21,7 +22,7 @@ class Fixture extends LlmAdapter {
     }
     const results = messages.flatMap(m => m.content.filter(b => b.type === 'tool-result'))
     for (const result of results) assert.notEqual(result.isError, true, JSON.stringify(result))
-    const scope = { site: 'fixture', account: 'reader' }
+    const scope = this.scope
     const record = { id: 'cli-menu', kind: 'menu', name: 'Synthetic menu', aliases: ['测试'], description: 'Unverified fixture hypothesis',
       expectedVersion: 0, stage: 'interpreted', flags: ['needs-review'], lifecycle: 'active', evidence: [], dependencies: [] }
     const specs = [
@@ -30,7 +31,7 @@ class Fixture extends LlmAdapter {
       ['erp_approval_probe', {}],
       ['erp_storage_status', {}],
       ['erp_browser_status', {}],
-      ['erp_browser_open', { siteUrl: 'https://example.invalid/erp/', scope: { site: 'fixture', account: 'reader' } }],
+      ['erp_browser_open', {}],
       ['erp_browser_close', {}],
       ['erp_knowledge_record', { scope, records: [record] }],
       ['erp_knowledge_get', { scope, id: record.id }],
@@ -71,6 +72,6 @@ class Fixture extends LlmAdapter {
   }
 }
 export function apply(ctx) {
-  ctx.llm.registerAdapter(['erp-fixture'], new Fixture())
+  ctx.llm.registerAdapter(['erp-fixture'], new Fixture(ctx.erp.system.scope))
   ctx.on('approval/request', (request, next) => request.toolName === 'erp_approval_probe' ? Promise.resolve('allowed-once') : next())
 }

@@ -135,10 +135,10 @@ test('native tools require confirmation, save evidence to SQLite and reload it a
       : method === 'browser.pause' ? f.session.pause() : method === 'browser.close' ? await f.session.close() : f.session.status()
     validateBrowser(method, 'output', value); return value
   } }
-  const runtime = new BrowserRuntime(worker, storage, signal())
+  const runtime = new BrowserRuntime(worker, storage, signal(), { siteUrl: f.siteUrl, scope })
   const host = await mount({ inject: ['tools'], apply(ctx) { registerBrowserTools(ctx, runtime) } })
   t.after(() => host.dispose())
-  assert.equal((await host.run('erp_browser_open', { siteUrl: f.siteUrl, scope })).isError, false)
+  assert.equal((await host.run('erp_browser_open')).isError, false)
   assert.equal(f.session.status().state, 'manual')
   let allowed = 'allowed-once'
   host.ctx.on('approval/request', async () => allowed)

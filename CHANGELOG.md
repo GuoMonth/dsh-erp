@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.5
+
+- Add user-owned ERP entry/base URL and identity configuration in the DSH profile patch. Browser connection tools no longer accept model-selected URLs or scopes.
+- Open the configured entry unchanged for manual login; remove the fixed login-route assumption and return to manual mode when SCM authentication is unavailable.
+- Persist a permanent system ID with a separate local SQLite/evidence directory; expose configured scope for knowledge reuse across conversations without browser login, and reject other scopes.
+- Align English and Simplified Chinese npm guides, configuration, storage, browser and roadmap documents. Explain fixed-adapter compatibility, historical versus live data, and deferred multi-system routing.
+- Breaking upgrade: configured systems use new stores. Legacy data is retained and remains available without system configuration, but is not automatically imported. Browser login/permission must be re-established.
+- Release candidate changes: publication is a separate manual step after merge; local checks do not imply new real ERP, QR/SSO or cross-platform acceptance.
+
 ## 0.1.0-alpha.4
 
 - Lead the npm/GitHub README with English setup, first-session tasks, supported scope, data handling and lifecycle guidance; ship a matching Simplified Chinese guide under docs.

@@ -17,7 +17,13 @@ export class BrowserRuntime {
   private target = ''
   private takingControl = false
   private active: { controller: AbortController; task: Promise<unknown>; kind: string } | undefined
-  constructor(private readonly worker: WorkerClient, private readonly storage: StorageClient, private readonly lifetime: AbortSignal) {}
+  constructor(private readonly worker: WorkerClient, private readonly storage: StorageClient, private readonly lifetime: AbortSignal,
+    private readonly configured?: BrowserOpen) {}
+
+  openConfigured(signal: AbortSignal, method: 'browser.open' | 'browser.scmConnect') {
+    if (!this.configured) throw new BrowserError('ERP_SYSTEM_NOT_CONFIGURED: set system.url in DSH plugin configuration and restart')
+    return this.open(this.configured, signal, method)
+  }
 
   contextLabel(): string { return JSON.stringify({ siteUrl: this.target, scope: this.scope }) }
   private async run<T>(action: (signal: AbortSignal) => Promise<T>, caller: AbortSignal, kind = 'operation'): Promise<T> {
@@ -114,9 +120,9 @@ export function registerBrowserTools(ctx: Context, browser: BrowserRuntime): voi
   })
   const render = (_args: unknown, value: unknown) => [{ type: 'text' as const, text: JSON.stringify(value) }]
   ctx.tools.register(defineTool({ name: 'erp_scm_connect',
-    description: 'Start the v1 SCM/USA integration: open its login page in a dedicated local Chromium window. siteUrl must be the site root, scope uses aliases. The user logs in manually, then confirms erp_scm_enable. No ERP business writes are supported.',
-    parameters: browserOpenSchema.properties, output: { schema: browserStatusSchema, render },
-    execute: (args, exec) => browser.open(args, exec.signal, 'browser.scmConnect'),
+    description: 'Open the user-configured ERP entry URL unchanged in a dedicated local Chromium window. First call erp_system_status. Wait for the user to log in manually, then request erp_scm_enable approval for the configured identity. Never ask for credentials or choose another URL. Reuse an already open window via status; close before reopening. Only the SCM/USA adapter supports business reads, not arbitrary ERPs.',
+    parameters: {}, output: { schema: browserStatusSchema, render },
+    execute: (_args, exec) => browser.openConfigured(exec.signal, 'browser.scmConnect'),
   }))
   ctx.tools.register(defineTool({ name: 'erp_scm_enable',
     description: 'Confirm the current login/scope and enable the reviewed SCM/USA read adapter. Use the exact sessionId/revision from erp_browser_status. Returns a new revision for erp_scm_read. Human input/navigation pauses and revokes the grant.',
@@ -137,9 +143,9 @@ export function registerBrowserTools(ctx: Context, browser: BrowserRuntime): voi
     execute: (args, exec) => browser.scmRead(args, exec.signal),
   }))
   ctx.tools.register(defineTool({ name: 'erp_browser_open',
-    description: 'Open a dedicated local browser in manual mode, preparing pinned Chromium if needed. The user navigates to siteUrl and logs in; use aliases for scope, never credentials. No automatic navigation. Observation requires separate scope confirmation.',
-    parameters: browserOpenSchema.properties, output: { schema: browserStatusSchema, render },
-    execute: (args, exec) => browser.open(args, exec.signal),
+    description: 'Advanced passive mode: open a blank dedicated local browser bound to the user-configured system and identity. The user navigates within that application and logs in. For the normal entry URL flow use erp_scm_connect. Observation requires separate scope confirmation.',
+    parameters: {}, output: { schema: browserStatusSchema, render },
+    execute: (_args, exec) => browser.openConfigured(exec.signal, 'browser.open'),
   }))
   ctx.tools.register(defineTool({ name: 'erp_browser_resume',
     description: 'Ask the user to confirm site/account scope and resume passive observation for the exact session and revision from erp_browser_status. Grants no click, typing, request or business-write permission.',

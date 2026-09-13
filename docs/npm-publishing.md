@@ -49,3 +49,9 @@ Token 只注入首次发布步骤，npmrc 使用环境变量占位符并在该�
 2026-09-13：首次 Token 未满足双因素认证要求，npm 返回 EOTP；用户更新 Token 后发布成功。registry 传播超过原 15 秒等待窗口，后置校验曾失败；原提交重跑后识别已有相同产物、跳过发布，并成功创建 GitHub Release。最终运行是上述发布记录的 attempt 3。后续等待窗口已扩展为约 2 分半。
 
 发布提交为 `096416a6dc25e91edc6ff5443910c77dee9b6ff2`，TGZ SHA256 为 `f5aa9be3e6e50b3c0eb9e3c81a4721b9aa60132871777d697a192fb4b61f5576`。npm registry 与 GitHub TGZ 内容一致。Linux x64 / Node 24.18.0 下，从 registry 下载的独立消费者验证及真实 DSH rc2 按包名安装、固定模型运行、SQLite/知识/浏览器诊断、退出清理和卸载均通过；未重复执行真实模型/ERP 在线验收。后续文档与等待策略变更不改写已发布安装包。
+
+## alpha.5 发布文档与升级检查
+
+alpha.4 已完成 Trusted Publishing 实发，记录见[安装验收](assessments/2026-09-13-installation.md)。alpha.5 的 PR 不自动触发发布；合并后再手动运行现有 Action，不增加 CI。
+
+发布前核对 README、中文指南和 CHANGELOG 的版本与 package.json 一致，安装包只保留一个英文根 README，包含 system-configuration.md。两份用户指南必须说明配置文件位置、完整入口与 Base URL、人工登录、已保存知识与实时数据区别，以及旧知识不自动迁移。安装 alpha.4 不会获得这些新行为；PR 验证使用预编译 TGZ。发布后按精确 alpha.5 从 npm 安装并核验版本、配置状态和本地目录，再记录 registry/GitHub 字节与用户流程结果。不要把源码测试记作发布包或真实扫码验收。

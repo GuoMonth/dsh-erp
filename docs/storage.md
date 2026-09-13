@@ -4,6 +4,12 @@
 
 已保存不可变观察、证据引用和任务检查点，并通过 schema v3 增加菜单、业务概念、多对多版本关系和指定命题的用户确认，详见 [知识说明](knowledge.md)。四级调度属于 #9，能力演进尚未实现。本存储层不把页面文字自动提升为已验证知识。
 
+## 系统档案（alpha.5）
+
+配置 `system` 后，下文所述默认目录和 `dataDir` 都作为数据根目录，实际存储位于 `systems/<固定ID>/store.sqlite`；状态工具返回实际路径。旧根目录库保留，未配置 system 时可按原 scope 查询/导出，但浏览器连接不可用。不做隐式旧数据迁移，详见[系统配置与升级](system-configuration.md)。
+
+配置系统后，StorageClient 在调用边界拒绝与配置不同的 site/account/tenant/role，防止对话传入其他身份范围。跨对话知识不依赖浏览器登录；独立 DSH 进程仍不允许共享同一活动库。备份针对当前系统的 SQLite 和证据，不包含系统索引、DSH 配置或浏览器资料；迁移时另存系统索引和配置。
+
 ## 所有者与数据目录
 
 `ctx.erp.storage` 懒启动独立 Node worker thread，通过固定 Schema 请求串行处理数据库和文件操作；可取消的执行进程不拥有 SQLite。宿主线程不执行 SQLite、迁移或文件备份。一次最多接收 16 项请求，超限返回 `STORAGE_QUEUE_FULL`。

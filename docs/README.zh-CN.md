@@ -20,16 +20,16 @@
 已有 DSH 时，将插件安装到 `web` profile：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.4
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.5
 dsh web
 ```
 
-命令固定到已验证的预览版；刚发布后，`alpha` 标签可能经包管理器缓存解析到旧版本。请使用完整 scope 包名：npm 上无 scope 的 `dsh-erp` 属于另一个项目。按需要将 `web` 换成实际使用的 profile。
+本文对应 **0.1.0-alpha.5**。源码/PR 文档可能先于发布：版本出现在 Releases 后使用下面的 npm 命令；PR 验证请构建并安装当前源码的 TGZ。已经发布的 alpha.4 不包含下面的新配置流程。命令固定到预览版；刚发布后，`alpha` 标签可能经包管理器缓存解析到旧版本。请使用完整 scope 包名：npm 上无 scope 的 `dsh-erp` 属于另一个项目。按需要将 `web` 换成实际使用的 profile。
 
 如果只安装了 Node，npm 可以同时准备固定版本的 DSH 和 pnpm：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.4
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.5
 npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 ```
 
@@ -37,28 +37,52 @@ npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 
 也可以下载 [GitHub Release](https://github.com/GuoMonth/dsh-erp/releases) 的 TGZ，将安装命令中的包名替换为该文件的绝对路径。
 
-## 第一次使用
+## 只配置一次 ERP
 
-全新 DSH 首次启动时，先确认预览提示、选择工作区，并在 Settings 中配置模型。然后发送下面的任务，并将占位符替换为站点根地址：
+安装插件后先退出 DSH。在 `~/.dsh/profiles/web/cordis.patch.yml` 中添加下面的条目；设置了 `DSH_HOME` 时，文件位于 `$DSH_HOME/profiles/web/cordis.patch.yml`。如果文件是注释加 `[]`，用下面的配置块替换这个空列表。保留其他条目；已有 `id: erp` 覆盖项时合并 config，不重复添加。把示例地址替换为自己的 ERP 入口，再用 `dsh web` 启动。
+
+```yaml
+- id: erp
+  config:
+    system:
+      url: "https://erp.example.com/#/login"
+      name: "我的 ERP"
+      account: "我的工作账号"
+      # tenant: "我的公司"
+      # role: "采购"
+```
+
+只有 `url` 必填。名称默认取域名，账号别名默认 `default`。这些是知识隔离标签，**不是登录凭据**；切换账号、公司或角色前配置不同别名。本版使用 DSH 已有的 patch 文件，尚未添加 ERP 设置页面或系统切换界面。
+
+入口保留原始路径与 hash，不再拼接固定登录路由。例如入口为 `https://erp.example.com/app/login`，需在 `system` 下另填 `baseUrl: "https://erp.example.com/app/"`。仅当入口路径以 `/` 结尾（例如 `/app/#/login`）时自动推导应用根路径。Base URL 必须以 `/` 结尾，入口必须属于该范围。请使用长期有效的 HTTP(S) 地址，不包含账号密码、查询参数或 hash 内查询参数；临时 SSO 链接不作为配置值，在浏览器中人工完成登录。
+
+**URL 可配置不等于支持任意 ERP。** 商品等业务查询仍依赖下面说明的 SCM/USA 固定适配器。
+
+## 第一次使用与后续对话
+
+全新 DSH 首次启动时，确认预览提示、选择工作区，并在 Settings 中配置模型，然后发送：
 
 ```text
-使用 ERP 插件连接 <我的 SCM 站点根地址>。
-我会在浏览器窗口中登录。站点、账号、企业和角色使用本地别名，
-确保知识保存在正确的范围内。
+先查看我配置的 ERP 系统及已有知识。
+打开该 ERP，我会自己登录。等我确认身份和读取授权之后，
 先导入全局菜单结构，再解释菜单与商品、库存、采购和销售的关系。
-标记缺少名称的入口和尚未访问的页面，保存解释及其支持证据。
+标记缺少名称的入口和尚未访问的页面，保存解释及支持证据。
 只执行读取查询。
 ```
 
-插件打开独立的本机 Chromium 窗口，由人填写密码和验证码。登录后在 DSH 中确认插件的读取许可。许可绑定当前会话与范围，最多持续 10 分钟或 250 次查询。人工接管浏览器或会话失效会撤销许可；重新连接后需要重新检查并确认。
+工具流程为 `erp_system_status → erp_scm_connect → 人工登录 → erp_browser_status → erp_scm_enable`。插件打开独立的本机 Chromium 窗口，不接管日常浏览器。密码、验证码或网站提供的扫码登录由人完成；扫码及 SSO 兼容性尚未单独验收。若登录打开多个标签页，完成登录后保留一个位于配置范围内的 ERP 页面，再确认读取。
+
+核对 DSH 授权提示中的账号、公司、角色是否与实际登录一致。没有密码框或存在令牌都不能证明业务身份正确。读取许可最多 10 分钟或 250 次查询；人工接管、导航或会话失效会撤销许可。缺少 SCM 令牌可能表示尚未登录，也可能是系统不兼容，不应因此尝试其他接口或自动登录。
+
+以后新开对话，先调用 `erp_system_status`，复用其返回的精确 `scope`。保持相同配置和数据根目录，知识、证据、已列出的探索任务可以跨重启使用。**查已有知识不需要登录，查实时库存或订单才需要有效登录和当前授权。** 历史观察不能当作当前余额。登录可能过期，读取许可不会跨重启保留。每个插件实例只配置一个系统，根据对话自动选择多个 ERP 是后续能力。
 
 随后可以尝试：
 
 - “查找商品编码 `<编码>`，展示共享库存及关联采购、销售单，并说明扫描了多少订单历史。”
-- “哪些菜单支持库存业务域？展示这些关联的证据。”
+- “只使用已有知识，哪些菜单支持库存业务域？展示证据及观察时间。”
 - “把已学知识导出为 Markdown 和 JSON，并列出仍需复核的结论。”
 
-访问 ERP 前，可让 DSH 调用 `erp_runtime_status` 和 `erp_storage_status` 检查安装。它们返回本机工作进程和存储状态，不访问 ERP。
+`erp_system_status`、`erp_runtime_status` 和 `erp_storage_status` 分别检查配置、工作进程和存储，不访问 ERP。未配置时，浏览器工具提示如何配置，不接受模型传入的地址。
 
 ## 当前能力
 
@@ -82,6 +106,12 @@ npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 
 已有基线使用 Linux x64、真实 DSH、`deepseek-flash` 和一个 SCM 站点，建立了菜单/领域关联，并将商品追查结果与独立读取的订单核对。这不是跨平台或通用 ERP 基准。详见[验收报告](https://github.com/GuoMonth/dsh-erp/blob/main/docs/assessments/2026-09-12-v1-acceptance.md)。
 
+## 系统目录与配置变更
+
+`erp_system_status` 返回实际数据目录。每个应用在插件数据根目录下对应 `systems/<固定ID>/`，包含 `system.json`、`store.sqlite`、`evidence/`、`exports/`、`backups/` 和私有 `browser-profiles/`。URL 查找记录位于 `systems/by-url/`，不会直接把 URL 当成目录名。系统内的知识按账号/公司/角色隔离，浏览器资料也按身份隔离。SQLite 是权威存储，Markdown/JSON 是可读导出，不是另一套可编辑数据库。
+
+改名或在相同 Base URL 下修改登录 hash 保留 ID 和知识；更换应用 Base URL 会建立新系统，改回旧地址可以找回原档案。域名迁移、URL 别名合并和旧数据导入需要后续显式迁移，不能自动猜测。配置变更后重启 DSH，升级时保持数据根目录一致。同一存储只允许一个 DSH 进程持有，不支持多个独立进程同时共享。
+
 ## 升级、重启与卸载
 
 升级前，让 DSH 调用 `erp_storage_backup`，再退出 DSH 并重复安装命令，随后重新启动。知识和任务会保留；浏览器登录态与读取许可需要重新检查。
@@ -94,7 +124,9 @@ npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web remove @guoshen
 
 卸载保留知识、证据与浏览器数据。数据目录及恢复步骤见[存储说明](https://github.com/GuoMonth/dsh-erp/blob/main/docs/storage.md)。
 
-**从 alpha.1/alpha.2 TGZ 迁移：**先备份并退出 DSH，从 profile 移除旧的 `dsh-erp` 包，再安装 `@guosheng_047/dsh-erp`。两者使用相同插件入口和数据目录，只启用一个。移除旧包时，将上面卸载命令的包名替换为 `dsh-erp`。
+**从 alpha.4 或更早版本升级：**更改配置前先用旧配置备份。配置 `system` 后使用新的独立存储；原根目录中的知识保留，但不自动复制或重新归属。未配置 `system` 时，新插件仍可按原 scope 查询、导出和备份旧知识，但不能连接浏览器。需要回看旧数据时，退出 DSH，临时移除 `system` 配置，查询/导出后恢复配置并重启。不要手动移动正在使用的 SQLite/WAL 或修改 scope ID。自动旧数据导入暂缓，详见[系统配置与迁移](https://github.com/GuoMonth/dsh-erp/blob/main/docs/system-configuration.md)。
+
+**从 alpha.1/alpha.2 TGZ 迁移：**先备份并退出 DSH，从 profile 移除旧的 `dsh-erp` 包，再安装 `@guosheng_047/dsh-erp`。两者使用相同插件入口和数据根目录，只启用一个；同时遵循上面的系统存储升级说明。移除旧包时，将上面卸载命令的包名替换为 `dsh-erp`。
 
 ## 开发与文档
 
@@ -111,6 +143,7 @@ npm pack
 
 深入文档：
 
+- [系统配置、本地目录与多 ERP 扩展设计](https://github.com/GuoMonth/dsh-erp/blob/main/docs/system-configuration.md)
 - [SCM 查询及会话行为](https://github.com/GuoMonth/dsh-erp/blob/main/docs/scm-readonly.md)
 - [知识、证据与修订](https://github.com/GuoMonth/dsh-erp/blob/main/docs/knowledge.md)
 - [开发与本地检查](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.md)

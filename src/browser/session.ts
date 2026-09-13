@@ -2,7 +2,7 @@ import { chromium } from 'playwright'
 import type { BrowserContext, Page } from 'playwright'
 import { createHash, randomUUID } from 'node:crypto'
 import { join } from 'node:path'
-import { BrowserError, cleanUrl, inSite, siteUrl } from './contract.js'
+import { BrowserError, cleanUrl, inSite, siteUrl, entryUrl } from './contract.js'
 import type { BrowserOpen, BrowserStatus, Capture } from './contract.js'
 import { scopeKey } from '../storage/contract.js'
 import { privateDirectory } from '../storage/paths.js'
@@ -155,17 +155,18 @@ export class BrowserSession {
   }
   async scmConnect(input: BrowserOpen, signal: AbortSignal): Promise<BrowserStatus> {
     const base = siteUrl(input.siteUrl)
-    if (base.pathname !== '/') throw new BrowserError('SCM_ROOT_URL_REQUIRED')
+    const target = entryUrl(input.entryUrl ?? base.href).href
+    if (!inSite(target, base)) throw new BrowserError('ERP_ENTRY_OUTSIDE_BASE_URL')
     await this.open(input, signal)
     try {
-      await this.context!.pages()[0]!.goto(new URL('/#/login', base).href, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      await this.context!.pages()[0]!.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 })
       signal.throwIfAborted()
       return this.pause('manual-login-required')
     } catch { await this.close(); throw new BrowserError('SCM_LOGIN_PAGE_FAILED') }
   }
   async scmEnable(sessionId: string, revision: number, signal: AbortSignal): Promise<BrowserStatus> {
     const status = await this.resume(sessionId, revision, signal)
-    await this.scmToken()
+    try { await this.scmToken() } catch (error) { this.pause('scm-login-required-or-incompatible'); throw error }
     if (this.revision !== status.revision) throw new BrowserError('BROWSER_STALE_CONFIRMATION')
     this.scmGrant = { remaining: 250, until: this.grantUntil, revision: this.revision }
     this.reason = 'scm-read-queries-enabled'
@@ -182,8 +183,9 @@ export class BrowserSession {
     const grant = this.scmGrant
     if (!grant || this.status().state !== 'observing' || input.sessionId !== this.sessionId || input.revision !== this.revision || grant.revision !== this.revision || grant.remaining <= 0 || Date.now() >= grant.until) throw new BrowserError('SCM_READ_GRANT_INVALID')
     if (this.readController) throw new BrowserError('BROWSER_BUSY')
-    await this.checkLogin(this.page())
-    const token = await this.scmToken()
+    let token: string
+    try { await this.checkLogin(this.page()); token = await this.scmToken() }
+    catch (error) { this.pause('scm-login-required-or-incompatible'); throw error }
     if (grant !== this.scmGrant || Date.now() >= grant.until) throw new BrowserError('SCM_READ_GRANT_INVALID')
     const controller = new AbortController(); this.readController = controller; grant.remaining--
     const combined = AbortSignal.any([signal, controller.signal, AbortSignal.timeout(Math.max(1, grant.until - Date.now()))])

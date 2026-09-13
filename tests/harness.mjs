@@ -46,7 +46,7 @@ export async function mount(plugin, adapter = new ProbeAdapter(), config = {}) {
 }
 export async function exercise(plugin) {
   const root = await mkdtemp(join(tmpdir(), 'erp-plugin-'))
-  const host = await mount(plugin, undefined, { dataDir: join(root, 'data'), browserHeadless: true, browserSandbox: false,
+  const host = await mount(plugin, undefined, { system: { url: 'https://example.invalid/erp/', account: 'reader' }, dataDir: join(root, 'data'), browserHeadless: true, browserSandbox: false,
     browserResourcesDir: dirname(dirname(dirname(chromium.executablePath()))) })
   try {
     const status = await host.run('erp_runtime_status')
@@ -65,7 +65,7 @@ export async function exercise(plugin) {
     assert.equal(storage.isError, false, JSON.stringify(storage))
     assert.equal(storage.value.schemaVersion, 3)
     assert.equal(storage.value.journalMode, 'wal')
-    const scope = { site: 'fixture', account: 'reader' }
+    const scope = (await host.run('erp_system_status')).value.scope
     const saved = await host.ctx.erp.storage.call('observe', { id: 'packaged-observation', scope,
       url: 'https://example.invalid/erp', title: 'Fixture', text: 'Packaged storage worker',
       locale: 'en', context: 'test', observedAt: '2026-09-11T00:00:00.000Z' })
@@ -83,19 +83,19 @@ export async function exercise(plugin) {
     assert.equal((await host.run('erp_browser_read_policy')).isError, true)
     const browserBefore = await host.run('erp_browser_status')
     assert.equal(browserBefore.value.state, 'closed')
-    const browserArgs = { siteUrl: 'https://example.invalid/erp/', scope }
-    const opened = await host.run('erp_browser_open', browserArgs)
+    const opened = await host.run('erp_browser_open')
     assert.equal(opened.isError, false, JSON.stringify(opened))
     assert.equal(opened.value.state, 'manual'); assert.equal(opened.value.pageUrl, '')
     assert.equal((await host.run('erp_browser_resume', { sessionId: opened.value.sessionId, revision: opened.value.revision })).isError, true)
     assert.equal((await host.run('erp_browser_observe')).isError, true)
     assert.equal((await host.run('erp_browser_close')).value.state, 'closed')
+    const storageDirectory = host.ctx.erp.storage.directory
     const pid = status.value.pid
     await host.fiber.dispose()
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
     assert.equal((await host.run('erp_runtime_status')).isError, true)
     assert.equal((await host.run('erp_storage_status')).isError, true)
-    await plugin.restoreBackup(join(root, 'data'), backup.id, join(root, 'restored'))
+    await plugin.restoreBackup(storageDirectory, backup.id, join(root, 'restored'))
     const restored = new plugin.StorageClient({ directory: join(root, 'restored') })
     try {
       assert.deepEqual(await restored.call('observation', { id: saved.id, scope }), saved)
