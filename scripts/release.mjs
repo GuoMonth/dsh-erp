@@ -35,7 +35,7 @@ export function checkRegistry(metadata, identity, integrity) {
 }
 
 async function getMetadata(name) {
-  const response = await fetch(`${registry}/${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(20_000) })
+  const response = await fetch(`${registry}/${encodeURIComponent(name)}`, { headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(20_000) })
   if (response.status === 404) return null
   assert.ok(response.ok, `Registry metadata failed: HTTP ${response.status}`)
   return response.json()
@@ -76,10 +76,13 @@ async function prepare() {
 async function finish() {
   const state = JSON.parse(readFileSync(`${outputDir}/state.json`, 'utf8'))
   let metadata
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     metadata = await getMetadata(state.name)
     if (metadata?.versions?.[state.version] && metadata['dist-tags']?.[state.npmTag] === state.version) break
-    if (attempt < 5) await delay(3000)
+    if (attempt < 29) {
+      if (attempt % 6 === 0) console.log('Waiting for npm registry propagation; publication is not repeated.')
+      await delay(5000)
+    }
   }
   assert.equal(checkRegistry(metadata, state, state.integrity).publishNeeded, false, 'Published version not visible')
   const tarballUrl = new URL(metadata.versions[state.version].dist.tarball)

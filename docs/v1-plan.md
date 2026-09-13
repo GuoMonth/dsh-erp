@@ -1,6 +1,6 @@
 # 第一版规划
 
-更新日期：2026-09-12。本轮根据用户提供的真实 ERP、deepseek-flash 和 Read only 约束，已交付 SCM/USA 只读预览版 TGZ（alpha.2）；当前准备 `@guosheng_047/dsh-erp@0.1.0-alpha.3` npm 分发。新增固定查询适配、菜单导入、学习任务持久化与商品链复用。原完整愿景仍保留，未完成项不通过改名视作完成；具体 M1–M5 处置见 [本版验收](assessments/2026-09-12-v1-acceptance.md)，操作说明见 [只读版](scm-readonly.md)。
+更新日期：2026-09-12。本轮根据用户提供的真实 ERP、deepseek-flash 和 Read only 约束，已交付 SCM/USA 只读预览版 TGZ（alpha.2）；2026-09-13 已发布 `@guosheng_047/dsh-erp@0.1.0-alpha.3` 到 npm。新增固定查询适配、菜单导入、学习任务持久化与商品链复用。原完整愿景仍保留，未完成项不通过改名视作完成；具体 M1–M5 处置见 [本版验收](assessments/2026-09-12-v1-acceptance.md)，操作说明见 [只读版](scm-readonly.md)。
 
 目标宿主：**dsh 0.1.5 rc2**，官方标签 [`dsh-v0.1.5-rc.2`](https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.1.5-rc.2)。运行时基线：**Node.js 24 LTS**。
 

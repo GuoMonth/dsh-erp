@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-alpha.3 (prepared; npm publication pending)
+## 0.1.0-alpha.3 — 2026-09-13
 
 - Use the npm package name `@guosheng_047/dsh-erp` with public access and the alpha dist-tag. The unscoped npm name belongs to a different project.
 - Update the DSH bundle entry, installed-package smoke and migration instructions for the scoped package; retain the existing data directory.

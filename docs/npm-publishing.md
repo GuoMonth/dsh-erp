@@ -1,6 +1,6 @@
 # npm 与 GitHub Release 发布
 
-包名为 `@guosheng_047/dsh-erp`。当前准备首个 npm 版本 `0.1.0-alpha.3`，公开访问，dist-tag 为 `alpha`；是否已发布以 npm registry 和对应 Release Action 的实际结果为准。无 scope 的 npm 包 `dsh-erp` 不属于本仓库。
+包名为 `@guosheng_047/dsh-erp`。首个 npm 版本 `0.1.0-alpha.3` 已于 2026-09-13 发布，公开访问，带 `alpha` 标签及 provenance。[发布记录](https://github.com/GuoMonth/dsh-erp/actions/runs/34751683419)。首次发布时 npm 还自动建立了指向同版本的 latest；本版本仍为预览版，安装示例使用精确版本。无 scope 的 npm 包 `dsh-erp` 不属于本仓库。
 
 ## 日常发布
 
@@ -13,13 +13,13 @@
 
 版本为 `x.y.z-alpha.N`、`beta.N` 或 `rc.N` 时，publishConfig.tag 须分别是 alpha、beta、rc；稳定版本使用 latest。发布参数来自受检查的 package.json，不执行输入框内的脚本。
 
-同版本重复运行只接受相同 TGZ 且 dist-tag 仍指向该版本；遇到不同内容、其他提交的 Git tag 或冲突附件时失败，不覆盖版本或附件。npm 成功而 GitHub 发布中断时，可在同一提交重跑补齐附件。此时不要为了改文档再把同一版本从新提交发布；后续变更应升级版本。
+同版本重复运行只接受相同 TGZ 且 dist-tag 仍指向该版本；遇到不同内容、其他提交的 Git tag 或冲突附件时失败，不覆盖版本或附件。registry 传播可能延迟；后置校验最多轮询约 2 分半，并请求重新验证缓存，不重试发布操作。npm 成功而 GitHub 发布中断时，可在同一提交重跑补齐附件。此时不要为了改文档再把同一版本从新提交发布；后续变更应升级版本。
 
 发布 Action 的编译和字节校验不代替本地业务验收；未配置 npm 授权时预演仍能运行，预演成功不代表 npm 发布权限已经验证。
 
 ## 首次发布：一次性 Token
 
-npm Trusted Publisher 要绑定已存在的包；本包尚未创建，因此第一次选择 `auth=bootstrap-token`。工作流会拒绝用该模式给已经存在的包发布新版本，之后必须改用 trusted。
+npm Trusted Publisher 要绑定已存在的包；本包已完成首次创建；以下保留首次配置步骤，第一次选择 `auth=bootstrap-token`。工作流会拒绝用该模式给已经存在的包发布新版本，之后必须改用 trusted。
 
 1. 用 `guosheng_047` 登录 npm，创建 Granular Access Token。Packages and scopes 选择 `Read and write (publish and stage)`，范围限定 `@guosheng_047` scope；新包不存在时选择 scope 权限。勾选 `Bypass two-factor authentication`，Organizations 为 No access，有效期建议 1 天。[npm 权限说明](https://docs.npmjs.com/creating-and-viewing-access-tokens/)
 2. 在本仓库 Settings → Environments → **npm-release** → Environment secrets 中添加 **NPM_TOKEN**，值为这个 Token。不需要在开发机配置环境变量，不需要把 Token 发给维护代理。
@@ -43,3 +43,9 @@ Token 只注入首次发布步骤，npmrc 使用环境变量占位符并在该�
 这是包级授权，不能复用另一个仓库的绑定。配置后选 auth=trusted，使用 GitHub OIDC 短期身份及 npm provenance，不需要长期 npm Token。[npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)
 
 工作流使用固定 Node 24 基线和 npm 11.16.0。GitHub Actions 的 contents:write 用于创建版本 tag/Release，id-token:write 用于 OIDC；npm-release Environment 将首次 Secret 与发布任务关联。
+
+## 首次发布实测记录
+
+2026-09-13：首次 Token 未满足双因素认证要求，npm 返回 EOTP；用户更新 Token 后发布成功。registry 传播超过原 15 秒等待窗口，后置校验曾失败；原提交重跑后识别已有相同产物、跳过发布，并成功创建 GitHub Release。最终运行是上述发布记录的 attempt 3。后续等待窗口已扩展为约 2 分半。
+
+发布提交为 `096416a6dc25e91edc6ff5443910c77dee9b6ff2`，TGZ SHA256 为 `f5aa9be3e6e50b3c0eb9e3c81a4721b9aa60132871777d697a192fb4b61f5576`。npm registry 与 GitHub TGZ 内容一致。Linux x64 / Node 24.18.0 下，从 registry 下载的独立消费者验证及真实 DSH rc2 按包名安装、固定模型运行、SQLite/知识/浏览器诊断、退出清理和卸载均通过；未重复执行真实模型/ERP 在线验收。后续文档与等待策略变更不改写已发布安装包。

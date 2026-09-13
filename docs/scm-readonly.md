@@ -6,17 +6,17 @@
 
 需要 Node `>=24.18.0 <25`、本机图形桌面及可访问的 ERP 和模型服务。Linux 还需要 Chromium 的系统库。已验证平台为 Linux x64；Windows/macOS 桌面安装暂未验收。
 
-本轮准备发布 `@guosheng_047/dsh-erp@0.1.0-alpha.3`（npm `alpha` 标签），尚未完成 registry 发布。当前已发布的旧版 TGZ 仍见 [alpha.2](https://github.com/GuoMonth/dsh-erp/releases/tag/v0.1.0-alpha.2)。下面以新包的本地预编译 TGZ 为例；不要安装 npm 上无 scope 的 `dsh-erp`。在已有 dsh 环境安装到实际使用的 profile（以下为 web）：
+已发布 [`@guosheng_047/dsh-erp@0.1.0-alpha.3`](https://www.npmjs.com/package/@guosheng_047/dsh-erp)，也可从 [GitHub Release](https://github.com/GuoMonth/dsh-erp/releases/tag/v0.1.0-alpha.3) 下载 TGZ。请使用完整 scope 包名；npm 上无 scope 的 `dsh-erp` 不属于本项目。在已有 dsh 环境安装到实际使用的 profile（以下为 web）：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.3.tgz
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.3
 dsh web
 ```
 
 如果只有 Node，可用 npm 同时准备已验证宿主和安装工具：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.3.tgz
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.3
 npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 ```
 
