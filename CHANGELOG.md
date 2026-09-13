@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.6
+
+- Introduce Adapt ERP as the general browser-learning workflow; retain the existing scoped npm name. Remove production SCM/USA endpoints, token assumptions, product trace and menu import. Preserve the alpha.5 implementation only as a development test baseline.
+- Add generic snapshots of visible menus, tables, fields, options and same-application frames; persist evidence and import UI structure into local knowledge. DSH interprets business domains and methods from that evidence.
+- Add individually approved click/fill/select/scroll actions on short-lived, rechecked element refs, with fresh result snapshots and no automatic retries. All interactions require approval, including possible writes and autosaving queries.
+- Extend persistent learning queues with newly discovered tasks. Retain system IDs and existing knowledge across upgrades; do not treat historical adapter knowledge as current UI verification.
+- Ship only runtime code and user guides: exclude test fixtures, benchmark reports/answers and user knowledge. Clean dist before compilation to prevent deleted adapters being packaged.
+- Validate distinct synthetic ERP UIs and approval boundaries locally. This is not a real-model universal ERP benchmark, QR/SSO acceptance or unattended full-site crawler.
+
 ## 0.1.0-alpha.5
 
 - Add user-owned ERP entry/base URL and identity configuration in the DSH profile patch. Browser connection tools no longer accept model-selected URLs or scopes.

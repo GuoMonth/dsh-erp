@@ -42,9 +42,9 @@ process.on('message', (raw: unknown) => {
         if (!browser) throw new BrowserError('BROWSER_NOT_CONFIGURED')
         let value
         switch (request.method) {
-          case 'browser.scmConnect': value = await browser.scmConnect(request.input, controller.signal); break
-          case 'browser.scmEnable': value = await browser.scmEnable(request.input.sessionId, request.input.revision, controller.signal); break
-          case 'browser.scmRead': value = await browser.scmRead(request.input, controller.signal); break
+          case 'browser.snapshot': value = await browser.snapshot(controller.signal); break
+          case 'browser.action': value = await browser.action(request.input, controller.signal); break
+          case 'browser.connect': value = await browser.connect(request.input, controller.signal); break
           case 'browser.open': value = await browser.open(request.input, controller.signal); break
           case 'browser.status': value = browser.status(); break
           case 'browser.resume': value = await browser.resume(request.input.sessionId, request.input.revision, controller.signal); break

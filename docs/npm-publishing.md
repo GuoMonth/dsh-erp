@@ -55,3 +55,7 @@ Token 只注入首次发布步骤，npmrc 使用环境变量占位符并在该�
 alpha.4 已完成 Trusted Publishing 实发，记录见[安装验收](assessments/2026-09-13-installation.md)。alpha.5 的 PR 不自动触发发布；合并后再手动运行现有 Action，不增加 CI。
 
 发布前核对 README、中文指南和 CHANGELOG 的版本与 package.json 一致，安装包只保留一个英文根 README，包含 system-configuration.md。两份用户指南必须说明配置文件位置、完整入口与 Base URL、人工登录、已保存知识与实时数据区别，以及旧知识不自动迁移。安装 alpha.4 不会获得这些新行为；PR 验证使用预编译 TGZ。发布后按精确 alpha.5 从 npm 安装并核验版本、配置状态和本地目录，再记录 registry/GitHub 字节与用户流程结果。不要把源码测试记作发布包或真实扫码验收。
+
+## alpha.6 发布契约
+
+品牌为 Adapt ERP，npm 包名保持不变。运行包使用通用浏览器学习，不再发布固定 SCM 适配器。files 白名单只保留用户指南，测试 fixture/基准答案和用户知识禁止进入 TGZ；build 清空 dist。发布说明须明确逐次交互确认、私有知识、alpha.5 知识兼容以及尚未完成真实模型/未知 ERP 全面验收。历史发布记录仅为对应版本证据，不能替代本版验收。

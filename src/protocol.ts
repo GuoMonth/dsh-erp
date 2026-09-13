@@ -1,6 +1,6 @@
 import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
 import { browserStatusSchema, browserOpenSchema, captureSchema } from './browser/contract.js'
-import { scmReadSchema, scmResultSchema } from './scm/contract.js'
+import { actionSchema, snapshotSchema } from './browser/snapshot.js'
 import { readPolicyViewSchema, readGrantSchema, readEnableSchema, readNavigateSchema } from './browser/read-policy.js'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 
@@ -23,9 +23,9 @@ const revision = { type: 'object', additionalProperties: false, properties: {
   revision: { type: 'integer', required: true }, sessionId: { type: 'string', required: true },
 } } as const
 export const operations = {
-  'browser.scmConnect': { input: browserOpenSchema, output: browserStatusSchema },
-  'browser.scmEnable': { input: revision, output: browserStatusSchema },
-  'browser.scmRead': { input: scmReadSchema, output: scmResultSchema },
+  'browser.snapshot': { input: empty, output: snapshotSchema },
+  'browser.action': { input: actionSchema, output: snapshotSchema },
+  'browser.connect': { input: browserOpenSchema, output: browserStatusSchema },
   'browser.open': { input: browserOpenSchema, output: browserStatusSchema },
   'browser.status': { input: empty, output: browserStatusSchema },
   'browser.resume': { input: revision, output: browserStatusSchema },
@@ -70,7 +70,7 @@ const responseSchema = {
     } },
     { type: 'object', additionalProperties: false, properties: {
       v: version, id, kind: { type: 'string', const: 'result', required: true },
-      value: { oneOf: [healthSchema, browserStatusSchema, captureSchema, readPolicyViewSchema, readGrantSchema, scmResultSchema], required: true },
+      value: { oneOf: [healthSchema, browserStatusSchema, captureSchema, readPolicyViewSchema, readGrantSchema, snapshotSchema], required: true },
     } },
     { type: 'object', additionalProperties: false, properties: {
       v: version, id, kind: { type: 'string', const: 'error', required: true },

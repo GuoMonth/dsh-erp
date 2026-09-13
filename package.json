@@ -1,23 +1,62 @@
 {
   "name": "@guosheng_047/dsh-erp",
-  "version": "0.1.0-alpha.5",
-  "description": "Local SCM/USA menu knowledge and read-only product, stock and order queries for DeepSeek Harness",
+  "version": "0.1.0-alpha.6",
+  "description": "Adapt ERP: learn your ERP through the browser and build private local knowledge in DeepSeek Harness",
   "type": "module",
   "license": "MIT",
-  "publishConfig": { "access": "public", "tag": "alpha", "registry": "https://registry.npmjs.org" },
-  "keywords": ["dsh-plugin", "deepseek-harness", "erp", "knowledge-graph", "local-first"],
-  "repository": { "type": "git", "url": "git+https://github.com/GuoMonth/dsh-erp.git" },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha",
+    "registry": "https://registry.npmjs.org"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "erp",
+    "knowledge-graph",
+    "local-first"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GuoMonth/dsh-erp.git"
+  },
   "homepage": "https://github.com/GuoMonth/dsh-erp#readme",
-  "bugs": { "url": "https://github.com/GuoMonth/dsh-erp/issues" },
+  "bugs": {
+    "url": "https://github.com/GuoMonth/dsh-erp/issues"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }, "./cordis.patch.yml": "./cordis.patch.yml" },
-  "files": ["dist", "cordis.patch.yml", "README.md", "LICENSE", "NOTICE.md", "CHANGELOG.md", "docs"],
-  "engines": { "node": ">=24.18.0 <25" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "dist",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md",
+    "CHANGELOG.md",
+    "docs/README.zh-CN.md",
+    "docs/system-configuration.md",
+    "docs/adaptive-learning.md",
+    "docs/storage.md",
+    "docs/knowledge.md"
+  ],
+  "engines": {
+    "node": ">=24.18.0 <25"
+  },
   "packageManager": "npm@11.16.0",
-  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "smoke": "npm run build && node scripts/artifact-smoke.mjs",
@@ -43,5 +82,7 @@
     "typescript": "6.0.3",
     "pnpm": "11.7.0"
   },
-  "dependencies": { "playwright": "1.63.0" }
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
 }

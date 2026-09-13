@@ -125,7 +125,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     execute: async (_args, exec) => {
       exec.signal.throwIfAborted()
       return runtime.system ? { state: 'configured', ...runtime.system, knowledgeAvailableWithoutLogin: true,
-        next: 'Use the returned scope for local knowledge. For live SCM reads call erp_scm_connect, wait for manual login, then request erp_scm_enable confirmation. This adapter supports only the SCM/USA family.' }
+        next: 'Use the returned scope for local knowledge. For fresh browser evidence call erp_connect, wait for manual login, then request erp_browser_resume confirmation and erp_browser_snapshot. Explore menus breadth-first, then pages/tabs/fields and business domains. Page interactions require individual approval; local learning does not. No ERP-specific APIs are preconfigured.' }
         : { state: 'unconfigured', directory: runtime.storage.directory,
           next: 'Set system.url in the erp row of your DSH patch and restart DSH. No URL or credentials should be supplied to browser tools. Legacy local knowledge remains accessible by its original scope; no browser connection is enabled.' }
     },

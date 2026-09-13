@@ -11,9 +11,9 @@ import type { BrowserProgress } from './resources.js'
 import { readLabels } from './labels.js'
 import { loadReadPolicy } from './read-policy.js'
 import type { ReadGrant, ReadNavigate } from './read-policy.js'
-import { readScm } from '../scm/read.js'
-import type { ScmRead } from '../scm/contract.js'
 import { navigateRead } from './read-navigation.js'
+import { SnapshotTargets } from './snapshot.js'
+import type { BrowserAction, Snapshot } from './snapshot.js'
 
 /** Passive observation and operator-reviewed route IDs. No agent-provided selector, script or navigation URL. */
 export class BrowserSession {
@@ -27,9 +27,9 @@ export class BrowserSession {
   private grantUntil = 0
   private scope: BrowserOpen['scope'] | undefined
   private readGrant: ReadGrant | undefined
-  private scmGrant: { remaining: number; until: number; revision: number } | undefined
   private readController: AbortController | undefined
   private readonly inputBinding = `erp_input_${randomUUID().replaceAll('-', '')}`
+  private readonly targets = new SnapshotTargets()
 
   constructor(private readonly options: { directory: string; headless?: boolean; sandbox?: boolean; readPolicyFile?: string; prepare?: typeof prepareBrowser; progress?: BrowserProgress }) {}
 
@@ -40,7 +40,7 @@ export class BrowserSession {
       pages: pages.length, pageUrl: pages.length === 1 && this.base && inSite(pages[0]!.url(), this.base) ? cleanUrl(pages[0]!.url()) : '' }
   }
   pause(reason = 'user-takeover'): BrowserStatus {
-    this.readGrant = undefined; this.scmGrant = undefined; this.readController?.abort()
+    this.readGrant = undefined; this.readController?.abort()
     this.revision++; this.reason = reason
     if (this.context) this.state = 'manual'
     return this.status()
@@ -113,7 +113,7 @@ export class BrowserSession {
     await this.checkLogin(page)
     signal.throwIfAborted()
     if (revision !== this.revision) throw new BrowserError('BROWSER_STALE_CONFIRMATION')
-    this.readGrant = undefined; this.scmGrant = undefined
+    this.readGrant = undefined
     this.grantUntil = Date.now() + 10 * 60_000
     this.state = 'observing'; this.reason = 'read-only-observation-enabled'; this.revision++
     return this.status()
@@ -153,7 +153,7 @@ export class BrowserSession {
     return { sessionId: this.sessionId, revision, url: cleanUrl(url), title, locale,
       observedAt: new Date().toISOString(), entries, limitations: [...limitations] }
   }
-  async scmConnect(input: BrowserOpen, signal: AbortSignal): Promise<BrowserStatus> {
+  async connect(input: BrowserOpen, signal: AbortSignal): Promise<BrowserStatus> {
     const base = siteUrl(input.siteUrl)
     const target = entryUrl(input.entryUrl ?? base.href).href
     if (!inSite(target, base)) throw new BrowserError('ERP_ENTRY_OUTSIDE_BASE_URL')
@@ -162,40 +162,33 @@ export class BrowserSession {
       await this.context!.pages()[0]!.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 })
       signal.throwIfAborted()
       return this.pause('manual-login-required')
-    } catch { await this.close(); throw new BrowserError('SCM_LOGIN_PAGE_FAILED') }
+    } catch { await this.close(); throw new BrowserError('ERP_ENTRY_PAGE_FAILED') }
   }
-  async scmEnable(sessionId: string, revision: number, signal: AbortSignal): Promise<BrowserStatus> {
-    const status = await this.resume(sessionId, revision, signal)
-    try { await this.scmToken() } catch (error) { this.pause('scm-login-required-or-incompatible'); throw error }
-    if (this.revision !== status.revision) throw new BrowserError('BROWSER_STALE_CONFIRMATION')
-    this.scmGrant = { remaining: 250, until: this.grantUntil, revision: this.revision }
-    this.reason = 'scm-read-queries-enabled'
-    return this.status()
-  }
-  private async scmToken(): Promise<string> {
-    const value = await this.page().evaluate(() => {
-      try { return JSON.parse(sessionStorage.getItem('v1@CacheToken') || '{}').token } catch { return undefined }
-    })
-    if (typeof value !== 'string' || value.length < 8 || value.length > 4096 || /[\r\n]/.test(value)) throw new BrowserError('SCM_LOGIN_REQUIRED')
+  async snapshot(signal: AbortSignal): Promise<Snapshot> {
+    if (this.status().state !== 'observing') throw new BrowserError('BROWSER_MANUAL_CONTROL')
+    const revision = this.revision, page = this.page()
+    await this.checkLogin(page)
+    const value = await this.targets.capture(page, this.base!, this.sessionId, revision, signal)
+    if (revision !== this.revision || this.status().state !== 'observing') {
+      await this.targets.clear(); throw new BrowserError('BROWSER_SNAPSHOT_INTERRUPTED')
+    }
     return value
   }
-  async scmRead(input: ScmRead, signal: AbortSignal) {
-    const grant = this.scmGrant
-    if (!grant || this.status().state !== 'observing' || input.sessionId !== this.sessionId || input.revision !== this.revision || grant.revision !== this.revision || grant.remaining <= 0 || Date.now() >= grant.until) throw new BrowserError('SCM_READ_GRANT_INVALID')
-    if (this.readController) throw new BrowserError('BROWSER_BUSY')
-    let token: string
-    try { await this.checkLogin(this.page()); token = await this.scmToken() }
-    catch (error) { this.pause('scm-login-required-or-incompatible'); throw error }
-    if (grant !== this.scmGrant || Date.now() >= grant.until) throw new BrowserError('SCM_READ_GRANT_INVALID')
-    const controller = new AbortController(); this.readController = controller; grant.remaining--
-    const combined = AbortSignal.any([signal, controller.signal, AbortSignal.timeout(Math.max(1, grant.until - Date.now()))])
+  async action(input: BrowserAction, signal: AbortSignal): Promise<Snapshot> {
+    if (input.sessionId !== this.sessionId || input.revision !== this.revision || this.status().state !== 'observing') throw new BrowserError('BROWSER_STALE_TARGET')
+    const page = this.page(); await this.checkLogin(page)
+    if (input.revision !== this.revision) throw new BrowserError('BROWSER_STALE_TARGET')
     try {
-      const result = await readScm(this.base!, input, token, combined)
-      combined.throwIfAborted()
-      if (grant !== this.scmGrant || this.status().state !== 'observing') throw new BrowserError('SCM_READ_INTERRUPTED')
-      return result
-    } catch (error) { this.pause('scm-read-failed'); throw error }
-    finally { this.readController = undefined }
+      await this.targets.act(page, this.base!, input, signal)
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 })
+      signal.throwIfAborted()
+      // This individual action's approval includes reading its result and a renewed bounded observation window.
+      await this.resume(this.sessionId, this.revision, signal)
+      return await this.snapshot(signal)
+    } catch (error) {
+      this.pause('action-failed-check-result-before-retrying')
+      throw error instanceof BrowserError ? error : new BrowserError('BROWSER_ACTION_FAILED_CHECK_RESULT_BEFORE_RETRY')
+    }
   }
   readPolicy() { return loadReadPolicy(this.options.readPolicyFile) }
   async enableRead(input: Omit<ReadNavigate, 'routeId'>, signal: AbortSignal): Promise<ReadGrant> {
@@ -231,6 +224,7 @@ export class BrowserSession {
   }
   async close(): Promise<BrowserStatus> {
     this.epoch++; this.pause('closing')
+    await this.targets.clear()
     const context = this.context; this.context = undefined
     try { await context?.close() } finally { this.state = 'closed'; this.reason = 'browser-closed' }
     return this.status()

@@ -1,4 +1,6 @@
-# SCM/USA 只读首版
+# SCM/USA 历史只读验证基线
+
+> 本文描述 alpha.1–alpha.5 的历史固定适配器。alpha.6 已将其移至开发测试，不再注册 erp_scm_* 工具。当前安装与使用见 [README](../README.md) 和[通用学习](adaptive-learning.md)。
 
 `0.1.0-alpha.5` 面向一个经过实测的 SCM/USA 系统家族。宿主为 dsh `0.1.5-rc.2`，模型复用宿主配置，实测使用 `deepseek-official / deepseek-flash`。这是带明确适配范围的只读预览版；它不承诺任意 ERP 自动适配或全部页面自动操作。
 
