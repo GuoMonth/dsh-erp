@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Publish every future release, including Alpha/Beta/RC previews, directly to npm `latest` through Trusted Publishing. Reject releases that would move `latest` backwards, and retain GitHub prerelease labels. Existing npm versions and tags are not changed by merging this policy.
+
 ## 0.1.0-alpha.6
 
 - Introduce Adapt ERP as the general browser-learning workflow; retain the existing scoped npm name. Remove production SCM/USA endpoints, token assumptions, product trace and menu import. Preserve the alpha.5 implementation only as a development test baseline.
