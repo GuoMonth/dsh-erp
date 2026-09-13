@@ -29,14 +29,14 @@ PR 应记录验证的提交或代码范围、Node/系统版本、命令、结果
 当前产物增加 SCM 只读查询、商品链、菜单导入和学习任务恢复；通用页面自动探索及 ERP 写入尚未开放。实用入口见 [SCM 只读版](scm-readonly.md)。知识工具及示例见 [知识说明](knowledge.md)。另有默认未配置的 [实验性受控只读导航](controlled-read-navigation.md)，依赖可信只读契约，不等于通用菜单自动化。打包后，在装有目标 dsh 的机器上执行：
 
 ```sh
-dsh plugin --profile headless add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.3.tgz
+dsh plugin --profile headless add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.5.tgz
 dsh --profile headless "调用 erp_runtime_status 检查本地工作进程"
 ```
 
 dsh 的对话使用用户已有的模型配置。上述 profile 可换成用户实际使用的 profile，不建议把测试配置覆盖进日常 profile。`dsh plugin` 在 rc2 内部调用 pnpm；若机器只有 Node 与 dsh，可由 npm 临时准备明确版本的 pnpm：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile headless add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.3.tgz
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile headless add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.5.tgz
 ```
 
 自动化冒烟在隔离的 `DSH_HOME` 中通过已安装的 pnpm 验证真实 CLI 安装命令；上面的临时获取方式及其他平台需要在 M5 干净环境矩阵中进一步验证。不能据此宣称已经完成全部单机分发体验。
@@ -69,3 +69,7 @@ SQLite 使用另一条存储线程，执行进程的取消或终止不终止存�
 测试适配器是测试替身。`npm run smoke` 用真实 dsh CLI、代理循环、工具管线和审批服务检查安装产物，模型由固定测试适配器回答；不会连接线上模型供应商或 ERP。
 
 真实 ERP 任务遵循 [验收环境与样本](testing/README.md)。本轮已使用真实模型、最新发布宿主和用户指定站点，具体链路结果、故障和未验证项统一记录在 [本版验收](assessments/2026-09-12-v1-acceptance.md)。合成测试、历史证据学习与实时网站查询分别报告，不相互替代。
+
+## alpha.5 配置回归
+
+按[系统配置](system-configuration.md)验证 profile patch；`tests/system.test.mjs` 覆盖固定 ID、地址/身份隔离、跨重启知识读取、未配置提示与真实 Chromium 合成站点登录交接。`scripts/artifact-smoke.mjs` 验证独立 TGZ 和真实 DSH CLI，使用固定测试模型，不替代真实 ERP/扫码/SSO 验收。

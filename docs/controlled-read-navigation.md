@@ -32,7 +32,7 @@
     browserReadPolicyFile: /absolute/local/path/reviewed-read-policy.json
 ```
 
-下面仅为不可访问的合成地址示例，不是任何真实 ERP 的只读规则。siteUrl 与人工登录窗口的应用范围必须完全一致，scope 各项也必须一致。
+先按[系统配置](system-configuration.md)建立档案，再调用 `erp_system_status`。下面仅为不可访问的合成地址示例，不是任何真实 ERP 的只读规则。实际契约的 siteUrl 必须复制状态中的 baseUrl，scope 必须完整复制返回值（包括固定系统 ID），不能使用示例中的 fixture。将上述路径配置合并到同一个 erp 条目。
 
 ```json
 {
@@ -55,7 +55,7 @@
 
 ## 工具流程
 
-1. `erp_browser_open` 打开人工窗口，用户导航并登录。
+1. 确认 `erp_system_status` 后，无参数调用 `erp_browser_open` 打开人工窗口，用户在配置范围内导航并登录。
 2. `erp_browser_read_policy` 查看可信契约及 digest；`erp_browser_status` 取得当前 sessionId/revision。
 3. `erp_browser_read_enable` 提交 sessionId、revision、policyDigest，经宿主确认后取得新的 revision、到期时间和尝试预算；不需要先做一次被动 resume。
 4. `erp_browser_read` 提交许可中的 sessionId/revision/policyDigest 和 routeId；成功返回已入库观察，可交给现有知识工具解释、关联和查询。

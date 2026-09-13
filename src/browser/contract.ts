@@ -9,7 +9,7 @@ export const browserStatusSchema = { type: 'object', additionalProperties: false
 } } as const satisfies ValueSchemaSpec
 export type BrowserStatus = InferValue<typeof browserStatusSchema>
 export const browserOpenSchema = { type: 'object', additionalProperties: false, properties: {
-  siteUrl: str, scope: { ...scopeSchema, required: true },
+  siteUrl: str, entryUrl: { type: 'string' }, scope: { ...scopeSchema, required: true },
 } } as const satisfies ValueSchemaSpec
 export type BrowserOpen = InferValue<typeof browserOpenSchema>
 export const captureSchema = { type: 'object', additionalProperties: false, properties: {
@@ -36,6 +36,16 @@ export function inSite(raw: string, base: URL): boolean {
     const prefix = base.pathname.endsWith('/') ? base.pathname : `${base.pathname}/`
     return url.origin === base.origin && (url.pathname === base.pathname || url.pathname.startsWith(prefix)) && !url.username && !url.password
   } catch { return false }
+}
+export function entryUrl(raw: string): URL {
+  if (raw.length > 2000) throw new BrowserError('INVALID_ENTRY_URL')
+  let url: URL
+  try { url = new URL(raw) } catch { throw new BrowserError('INVALID_ENTRY_URL') }
+  // Saved entry points are durable settings, never transient signed/credential-bearing login links.
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash.includes('?')) {
+    throw new BrowserError('INVALID_ENTRY_URL: use an HTTP(S) entry without credentials or query parameters')
+  }
+  return url
 }
 export function cleanUrl(raw: string): string {
   try {
