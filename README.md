@@ -21,7 +21,7 @@
 
 菜单元数据发现不代表所有页面已访问；任务队列不是通用浏览器自动探索器；字段状态样本不代表完整枚举。通用 ERP 适配、自动 Tab/窗口深入和业务写入仍在后续计划中。
 
-开发与交付采用[本地验证](docs/development.md#本地交付检查)，不运行 GitHub Actions 自动 CI；保留完整测试、安装产物冒烟和浏览器验证，结果记录在 PR 与验收文档中。
+开发与交付采用[本地验证](docs/development.md#本地交付检查)，不运行 push/PR 自动 CI，仅使用手动 Release Action 发布；保留完整测试、安装产物冒烟和浏览器验证，结果记录在 PR 与验收文档中。
 
 ## 首版目标成果
 
@@ -50,7 +50,7 @@
 - [SCM 只读版安装与使用](docs/scm-readonly.md)：支持范围、上手、查询、恢复及限制。
 - [本版验收与里程碑处置](docs/assessments/2026-09-12-v1-acceptance.md)：实际证据及延期项。
 
-- [npm 发布配置](docs/npm-publishing.md)：包名、短期认证与本地发布流程。
+- [npm 发布配置](docs/npm-publishing.md)：包名、首次授权与手动 Release Action。
 - [开发与本地验证](docs/development.md)：构建、安装、诊断工具、运行边界及恢复。
 - [本地存储与恢复](docs/storage.md)：数据目录、观察/检查点契约、一致性备份、迁移和验证结果。
 - [受控只读导航](docs/controlled-read-navigation.md)：实验入口、契约与许可、负向验证及适用限制。

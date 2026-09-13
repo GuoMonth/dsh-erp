@@ -4,7 +4,7 @@
 
 - Use the npm package name `@guosheng_047/dsh-erp` with public access and the alpha dist-tag. The unscoped npm name belongs to a different project.
 - Update the DSH bundle entry, installed-package smoke and migration instructions for the scoped package; retain the existing data directory.
-- Add a local terminal helper for configuring npm publishing authentication outside the repository. No automatic CI is added.
+- Add a manual Release Action: build and validate TGZ, publish to npm, verify registry bytes, and attach matching GitHub Release assets. Bootstrap once with an environment secret, then use npm Trusted Publishing. No push/PR CI is added.
 
 ## 0.1.0-alpha.2
 

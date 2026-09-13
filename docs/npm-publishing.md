@@ -1,31 +1,45 @@
-# npm 首次发布
+# npm 与 GitHub Release 发布
 
-包名：`@guosheng_047/dsh-erp`，首个 npm 版本准备为 `0.1.0-alpha.3`，公开访问，dist-tag 为 `alpha`。npm 上无 scope 的 `dsh-erp` 不属于本仓库。当前文件描述待执行流程，不代表 npm 已发布成功。
+包名为 `@guosheng_047/dsh-erp`。当前准备首个 npm 版本 `0.1.0-alpha.3`，公开访问，dist-tag 为 `alpha`；是否已发布以 npm registry 和对应 Release Action 的实际结果为准。无 scope 的 npm 包 `dsh-erp` 不属于本仓库。
 
-## 本地认证
+## 日常发布
 
-用 `guosheng_047` 登录 npm，创建短期 Granular Access Token。Packages and scopes 选择 `Read and write (publish and stage)`，范围限定 `@guosheng_047`；新包尚不存在，需要 scope 权限。勾选 `Bypass two-factor authentication` 以允许本次非交互发布，Organizations 选择 `No access`，有效期建议 1 天。权限说明见 [npm 文档](https://docs.npmjs.com/creating-and-viewing-access-tokens/)。
+使用 [Release npm package](https://github.com/GuoMonth/dsh-erp/actions/workflows/release.yml)。工作流仅 `workflow_dispatch` 手动触发，且只从 `main` 发布；没有 push、PR、tag 自动触发，也不在 Action 中重复运行完整测试或下载 Chromium。
 
-在当前开发机的交互终端、仓库根目录运行：
+1. 在本地完成 [交付检查](development.md#本地交付检查)，记录对应提交的命令和结果。更新 package.json、package-lock.json、CHANGELOG 和安装示例，将变更合并到 main。
+2. 打开 Actions → Release npm package → Run workflow，选择 main，填写与 package.json 完全一致的 `version`。
+3. 首次可保留 `dry_run=true`：只安装构建依赖、编译、打包，检查名称/版本、已有 tag/registry 产物；不向 npm 或 GitHub 发布。
+4. 正式执行时取消 dry_run，日常认证 `auth=trusted`。工作流发布同一个预编译 TGZ 到 npm，下载 registry TGZ 比对 SHA512，再建立 GitHub tag 和 Release，附 TGZ 与 SHA256SUMS。
 
-```sh
-bash scripts/configure-npm-auth.sh
-```
+版本为 `x.y.z-alpha.N`、`beta.N` 或 `rc.N` 时，publishConfig.tag 须分别是 alpha、beta、rc；稳定版本使用 latest。发布参数来自受检查的 package.json，不执行输入框内的脚本。
 
-提示出现后粘贴 Token 并回车，输入不显示。脚本只配置认证，不发布；写入 `$HOME/.config/dsh-erp/npmrc`，文件权限 600、目录权限 700，不修改全局 `.npmrc`。该文件在仓库外，不进发布包。后续 npm 命令通过 `--userconfig "$HOME/.config/dsh-erp/npmrc"` 显式使用它，不输出内容。
+同版本重复运行只接受相同 TGZ 且 dist-tag 仍指向该版本；遇到不同内容、其他提交的 Git tag 或冲突附件时失败，不覆盖版本或附件。npm 成功而 GitHub 发布中断时，可在同一提交重跑补齐附件。此时不要为了改文档再把同一版本从新提交发布；后续变更应升级版本。
 
-已有环境注入工具也可把 Token 注入 `DSH_ERP_NPM_TOKEN` 后运行同一脚本。仅在另一个终端 `export` 不会改变现有代理进程的环境；脚本保存到专用文件后，发布进程才可读取。不要把 Token 放进命令行参数或提交到 Git。
+发布 Action 的编译和字节校验不代替本地业务验收；未配置 npm 授权时预演仍能运行，预演成功不代表 npm 发布权限已经验证。
 
-## 发布流程
+## 首次发布：一次性 Token
 
-本地运行 `npm run verify` 以及开发说明中的有界面测试。构建后打包，核对包名、版本、bundle、文件清单及 SHA256，提交发布来源，再发布已核对的 TGZ：
+npm Trusted Publisher 要绑定已存在的包；本包尚未创建，因此第一次选择 `auth=bootstrap-token`。工作流会拒绝用该模式给已经存在的包发布新版本，之后必须改用 trusted。
 
-```sh
-npm publish /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.3.tgz \
-  --userconfig "$HOME/.config/dsh-erp/npmrc" \
-  --registry https://registry.npmjs.org --access public --tag alpha --ignore-scripts
-```
+1. 用 `guosheng_047` 登录 npm，创建 Granular Access Token。Packages and scopes 选择 `Read and write (publish and stage)`，范围限定 `@guosheng_047` scope；新包不存在时选择 scope 权限。勾选 `Bypass two-factor authentication`，Organizations 为 No access，有效期建议 1 天。[npm 权限说明](https://docs.npmjs.com/creating-and-viewing-access-tokens/)
+2. 在本仓库 Settings → Environments → **npm-release** → Environment secrets 中添加 **NPM_TOKEN**，值为这个 Token。不需要在开发机配置环境变量，不需要把 Token 发给维护代理。
+3. 手动运行 Release Action，version 填 `0.1.0-alpha.3`，dry_run 取消，auth 选择 bootstrap-token。
+4. 首次成功后，按下一节配置 npm Trusted Publisher，然后撤销临时 Token 并删除 GitHub 中的 NPM_TOKEN Secret。
 
-发布后检查 registry 版本与 `alpha` 标签、下载产物并核对内容，再通过 DSH 安装 registry 版本验证。记录实际结果后，将文档中的待发布状态改为已发布。同版本内容不可覆盖；旧 GitHub Release 资产不修改。本地 Token 发布不宣称具备 OIDC provenance。
+Token 只注入首次发布步骤，npmrc 使用环境变量占位符并在该步骤退出时清理；构建、依赖安装及日常 OIDC 发布不接收 NPM_TOKEN。
 
-首次发布完成后，可以撤销临时 Token 并删除这个专用 npmrc。后续可单独配置 npm Trusted Publisher，绑定 `GuoMonth/dsh-erp` 的手动发布工作流；不会自动继承 `dsh-multi-tenant` 的授权，也不需要恢复每次 push/PR 的 CI。
+## 后续发布：Trusted Publishing
+
+在 npm 的 `@guosheng_047/dsh-erp` 包 Settings → Trusted Publisher 中选择 GitHub Actions：
+
+| 配置项 | 值 |
+| --- | --- |
+| Organization or user | GuoMonth |
+| Repository | dsh-erp |
+| Workflow filename | release.yml |
+| Environment name | npm-release |
+| Allowed actions | 允许直接 npm publish |
+
+这是包级授权，不能复用另一个仓库的绑定。配置后选 auth=trusted，使用 GitHub OIDC 短期身份及 npm provenance，不需要长期 npm Token。[npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)
+
+工作流使用固定 Node 24 基线和 npm 11.16.0。GitHub Actions 的 contents:write 用于创建版本 tag/Release，id-token:write 用于 OIDC；npm-release Environment 将首次 Secret 与发布任务关联。

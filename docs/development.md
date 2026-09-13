@@ -13,7 +13,7 @@ npm pack
 
 ## 本地交付检查
 
-项目采用本地验证作为合并与发布依据，不配置 GitHub Actions 自动 CI。公开仓库的标准 GitHub runner 免费；此次调整是为了减少排队和 push、PR、tag 的重复验证。自动工作流移除不减少测试范围，也不把历史测试结果当作后续代码的验证结果。
+项目采用本地验证作为合并与发布依据，不配置 push/PR 自动 CI。仅保留手动 [Release Action](npm-publishing.md)，执行构建、发布和产物校验。公开仓库的标准 GitHub runner 免费；此次调整是为了减少排队和 push、PR、tag 的重复验证。自动工作流移除不减少测试范围，也不把历史测试结果当作后续代码的验证结果。
 
 提交代码变更前运行 `npm run verify`。涉及浏览器会话、导航或 SCM 查询时，以及发布前，在 Linux 安装 Xvfb 后补充有界面验证：
 

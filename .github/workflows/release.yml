@@ -1,0 +1,95 @@
+name: Release npm package
+run-name: Release ${{ inputs.version }} (dry-run=${{ inputs.dry_run }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact package.json version already validated locally
+        required: true
+        type: string
+      dry_run:
+        description: Build and check only; do not publish or create a release
+        default: true
+        type: boolean
+      auth:
+        description: Use bootstrap-token only for the first npm publication
+        default: trusted
+        type: choice
+        options:
+          - trusted
+          - bootstrap-token
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: dsh-erp-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: npm-release
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Prepare npm for Trusted Publishing
+        run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+      - name: Install build dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile plugin
+        run: npm run build
+      - name: Check release identity and package
+        id: package
+        run: node scripts/release.mjs prepare
+      - name: Publish using Trusted Publishing
+        if: ${{ !inputs.dry_run && inputs.auth == 'trusted' && steps.package.outputs.publish_needed == 'true' }}
+        env:
+          RELEASE_TARBALL: ${{ steps.package.outputs.tarball }}
+          RELEASE_NPM_TAG: ${{ steps.package.outputs.npm_tag }}
+        run: npm publish "$RELEASE_TARBALL" --access public --tag "$RELEASE_NPM_TAG" --provenance --ignore-scripts --registry=https://registry.npmjs.org
+      - name: Bootstrap first publication using temporary token
+        if: ${{ !inputs.dry_run && inputs.auth == 'bootstrap-token' && steps.package.outputs.publish_needed == 'true' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_TARBALL: ${{ steps.package.outputs.tarball }}
+          RELEASE_NPM_TAG: ${{ steps.package.outputs.npm_tag }}
+          PACKAGE_EXISTS: ${{ steps.package.outputs.package_exists }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$PACKAGE_EXISTS" != "false" ]; then
+            echo 'Package already exists. Configure Trusted Publishing and use trusted mode.' >&2
+            exit 1
+          fi
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo 'Add the temporary NPM_TOKEN secret to the npm-release environment first.' >&2
+            exit 1
+          fi
+          umask 077
+          ERP_NPMRC=$(mktemp "$RUNNER_TEMP/erp-npmrc.XXXXXX")
+          trap 'rm -f "$ERP_NPMRC"' EXIT
+          printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > "$ERP_NPMRC"
+          npm publish "$RELEASE_TARBALL" --userconfig "$ERP_NPMRC" --access public --tag "$RELEASE_NPM_TAG" --provenance --ignore-scripts --registry=https://registry.npmjs.org
+      - name: Verify registry bytes and publish GitHub assets
+        if: ${{ !inputs.dry_run }}
+        run: node scripts/release.mjs finish
+      - name: Report result
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          RELEASE_TARBALL: ${{ steps.package.outputs.tarball }}
+        run: |
+          printf 'Version: %s\n\nDry run: %s\n\nPackage: %s\n\n' "$RELEASE_VERSION" "$DRY_RUN" "$RELEASE_TARBALL" >> "$GITHUB_STEP_SUMMARY"
+          cat artifacts/npm-release/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"
