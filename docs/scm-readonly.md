@@ -1,22 +1,22 @@
 # SCM/USA 只读首版
 
-`0.1.0-alpha.2` 面向一个经过实测的 SCM/USA 系统家族。宿主为 dsh `0.1.5-rc.2`，模型复用宿主配置，实测使用 `deepseek-official / deepseek-flash`。这是带明确适配范围的只读预览版；它不承诺任意 ERP 自动适配或全部页面自动操作。
+`0.1.0-alpha.3` 面向一个经过实测的 SCM/USA 系统家族。宿主为 dsh `0.1.5-rc.2`，模型复用宿主配置，实测使用 `deepseek-official / deepseek-flash`。这是带明确适配范围的只读预览版；它不承诺任意 ERP 自动适配或全部页面自动操作。
 
 ## 安装与开始
 
 需要 Node `>=24.18.0 <25`、本机图形桌面及可访问的 ERP 和模型服务。Linux 还需要 Chromium 的系统库。已验证平台为 Linux x64；Windows/macOS 桌面安装暂未验收。
 
-下载 [GitHub Release 安装包](https://github.com/GuoMonth/dsh-erp/releases/download/v0.1.0-alpha.2/dsh-erp-0.1.0-alpha.2.tgz)。本项目尚未发布到 npm；npm 上的同名包并非本次交付，请使用此 TGZ。在已有 dsh 环境安装到实际使用的 profile（以下为 web）：
+本轮准备发布 `@guosheng_047/dsh-erp@0.1.0-alpha.3`（npm `alpha` 标签），尚未完成 registry 发布。当前已发布的旧版 TGZ 仍见 [alpha.2](https://github.com/GuoMonth/dsh-erp/releases/tag/v0.1.0-alpha.2)。下面以新包的本地预编译 TGZ 为例；不要安装 npm 上无 scope 的 `dsh-erp`。在已有 dsh 环境安装到实际使用的 profile（以下为 web）：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/dsh-erp-0.1.0-alpha.2.tgz
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.3.tgz
 dsh web
 ```
 
 如果只有 Node，可用 npm 同时准备已验证宿主和安装工具：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/dsh-erp-0.1.0-alpha.2.tgz
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.3.tgz
 npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 ```
 
@@ -60,4 +60,6 @@ npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
 
 升级前调用 `erp_storage_backup`，再在同一 profile 用 `dsh plugin ... add <新包>` 替换；数据库迁移前也会自动备份。恢复到新数据目录的过程见 [存储说明](storage.md)。不承诺把新版数据库交给旧版直接读取。
 
-卸载使用 `dsh plugin --profile web remove dsh-erp`，不会自动删除知识、证据或浏览器配置。需要清空时，先退出宿主，核对自己设置的 dataDir 后单独删除；默认位置见存储说明。请勿删 dsh 的宿主数据目录。
+卸载使用 `dsh plugin --profile web remove @guosheng_047/dsh-erp`，不会自动删除知识、证据或浏览器配置。需要清空时，先退出宿主，核对自己设置的 dataDir 后单独删除；默认位置见存储说明。请勿删 dsh 的宿主数据目录。
+
+从 alpha.1/alpha.2 迁移时，先退出 dsh 并备份，再用同一 profile 执行 `dsh plugin --profile web remove dsh-erp` 移除旧包，然后安装新 scope 包。新旧包使用相同的数据目录和插件行 id，不要同时启用；移除旧包不会删除知识。

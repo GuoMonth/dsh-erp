@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.3 (prepared; npm publication pending)
+
+- Use the npm package name `@guosheng_047/dsh-erp` with public access and the alpha dist-tag. The unscoped npm name belongs to a different project.
+- Update the DSH bundle entry, installed-package smoke and migration instructions for the scoped package; retain the existing data directory.
+- Add a local terminal helper for configuring npm publishing authentication outside the repository. No automatic CI is added.
+
 ## 0.1.0-alpha.2
 
 - Rebuilt the precompiled TGZ from main after merging PR #28. Runtime code is unchanged from alpha.1.

@@ -67,7 +67,7 @@ WAL 的实测收益与边界：已提交、尚在 WAL 的观察可通过原生�
 下面是在可导入已安装 `dsh-erp` 的 Node 环境中的维护示例；目录必须替换为用户实际目录。在线插件已拥有库时，应通过 `ctx.erp.storage` 调用，不另开第二个客户端：
 
 ```js
-import { StorageClient, restoreBackup } from 'dsh-erp'
+import { StorageClient, restoreBackup } from '@guosheng_047/dsh-erp'
 
 const directory = '/absolute/local/path/dsh-erp-data'
 const store = new StorageClient({ directory })

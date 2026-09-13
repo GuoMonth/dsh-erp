@@ -1,9 +1,11 @@
 {
-  "name": "dsh-erp",
-  "version": "0.1.0-alpha.2",
+  "name": "@guosheng_047/dsh-erp",
+  "version": "0.1.0-alpha.3",
   "description": "Local ERP cognition and controlled operations for DeepSeek Harness",
   "type": "module",
   "license": "MIT",
+  "publishConfig": { "access": "public", "tag": "alpha", "registry": "https://registry.npmjs.org" },
+  "keywords": ["dsh-plugin", "deepseek-harness", "erp", "knowledge-graph", "local-first"],
   "repository": { "type": "git", "url": "git+https://github.com/GuoMonth/dsh-erp.git" },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

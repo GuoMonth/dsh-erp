@@ -13,7 +13,7 @@
 
 ## 当前状态
 
-`0.1.0-alpha.2` 是 SCM/USA 只读预览版：本机 Chromium 手动登录，读取全局菜单元数据并导入知识图谱，AI 解释菜单与业务域关联，持久化先广后深学习轮次，以及商品 → SPU 库存 → 关联采购/销售的可复用查询。仅支持已适配的接口，**不提供 ERP 写入工具**。
+当前准备 `@guosheng_047/dsh-erp@0.1.0-alpha.3` 的首次 npm 发布，尚未发布到 registry；已发布的 TGZ 为 [alpha.2](https://github.com/GuoMonth/dsh-erp/releases/tag/v0.1.0-alpha.2)。SCM/USA 只读预览版提供：本机 Chromium 手动登录，读取全局菜单元数据并导入知识图谱，AI 解释菜单与业务域关联，持久化先广后深学习轮次，以及商品 → SPU 库存 → 关联采购/销售的可复用查询。仅支持已适配的接口，**不提供 ERP 写入工具**。
 
 实测宿主为最新发布的 dsh `0.1.5-rc.2`，模型为真实 `deepseek-flash`。首批验证平台是 Linux x64 / Node `24.18.0`；容器测试显式关闭 Chromium 沙箱，产品默认启用。支持范围、结果与延期项见 [本版验收](docs/assessments/2026-09-12-v1-acceptance.md)。尚未发布到 npm，安装包通过 GitHub Release 分发。
 
@@ -50,6 +50,7 @@
 - [SCM 只读版安装与使用](docs/scm-readonly.md)：支持范围、上手、查询、恢复及限制。
 - [本版验收与里程碑处置](docs/assessments/2026-09-12-v1-acceptance.md)：实际证据及延期项。
 
+- [npm 发布配置](docs/npm-publishing.md)：包名、短期认证与本地发布流程。
 - [开发与本地验证](docs/development.md)：构建、安装、诊断工具、运行边界及恢复。
 - [本地存储与恢复](docs/storage.md)：数据目录、观察/检查点契约、一致性备份、迁移和验证结果。
 - [受控只读导航](docs/controlled-read-navigation.md)：实验入口、契约与许可、负向验证及适用限制。

@@ -22,7 +22,7 @@ try {
   run(npm, ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(scratch, packed.filename),
     '@deepseek-ai/dsh-system-prompt@0.1.5-rc.2', '@deepseek-ai/dsh-user-approval@0.1.5-rc.2'], { cwd: consumer })
   cpSync(join(root, 'tests/harness.mjs'), join(consumer, 'harness.mjs'))
-  writeFileSync(join(consumer, 'run.mjs'), "import * as plugin from 'dsh-erp'; import {exercise} from './harness.mjs'; console.log(JSON.stringify(await exercise(plugin)));\n")
+  writeFileSync(join(consumer, 'run.mjs'), "import * as plugin from '@guosheng_047/dsh-erp'; import {exercise} from './harness.mjs'; console.log(JSON.stringify(await exercise(plugin)));\n")
   console.log('Installed tarball:', run(process.execPath, [join(consumer, 'run.mjs')], { cwd: consumer }).trim())
 
   const home = join(scratch, 'home'); mkdirSync(home)
@@ -32,7 +32,7 @@ try {
   const cli = resolve(root, 'node_modules/@deepseek-ai/dsh/lib/bin.js')
   run(process.execPath, [cli, 'plugin', '--profile', 'headless', 'add', join(scratch, packed.filename)], { cwd: consumer, env })
   const manifest = JSON.parse(readFileSync(join(home, 'profiles/headless/package.json'), 'utf8'))
-  assert.ok(manifest.dsh.profile.bundles.includes('dsh-erp'))
+  assert.ok(manifest.dsh.profile.bundles.includes('@guosheng_047/dsh-erp'))
   cpSync(join(root, 'scripts/fixture-provider.mjs'), join(consumer, 'fixture-provider.mjs'))
   const patch = join(scratch, 'fixture.patch.yml')
   writeFileSync(patch, `- id: agent-default-model\n  config:\n    provider: erp-fixture\n    model: test-model\n- insert:\n    - id: erp-artifact-fixture\n      name: ${JSON.stringify(join(consumer, 'fixture-provider.mjs'))}\n`)
