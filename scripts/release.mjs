@@ -11,15 +11,33 @@ const registry = 'https://registry.npmjs.org'
 const outputDir = 'artifacts/npm-release'
 const hash = (data, algorithm = 'sha256', encoding = 'hex') => createHash(algorithm).update(data).digest(encoding)
 const run = (command, args) => execFileSync(command, args, { encoding: 'utf8', timeout: 120_000 })
+const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.(0|[1-9]\d*))?$/
+
+// Compare the release formats accepted by this repository without lexical ordering
+// (for example, alpha.10 must sort after alpha.9).
+function compareVersions(left, right) {
+  const parts = version => {
+    const match = versionPattern.exec(version)
+    assert.ok(match, `Unsupported registry version: ${version}`)
+    return [BigInt(match[1]), BigInt(match[2]), BigInt(match[3]),
+      BigInt({ alpha: 0, beta: 1, rc: 2 }[match[4]] ?? 3), BigInt(match[5] ?? 0)]
+  }
+  const a = parts(left)
+  const b = parts(right)
+  for (let index = 0; index < a.length; index++) {
+    if (a[index] !== b[index]) return a[index] > b[index] ? 1 : -1
+  }
+  return 0
+}
 
 export function releaseIdentity(pkg, expected, ref) {
   assert.equal(ref, 'refs/heads/main', 'Release must run from main')
   assert.equal(pkg.name, '@guosheng_047/dsh-erp')
   assert.equal(pkg.version, expected, 'Requested version must match package.json')
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.(0|[1-9]\d*))?$/.exec(pkg.version)
+  const match = versionPattern.exec(pkg.version)
   assert.ok(match, 'Use x.y.z or x.y.z-alpha/beta/rc.N')
-  const npmTag = match[4] ?? 'latest'
-  assert.equal(pkg.publishConfig?.tag, npmTag, 'Version and npm dist-tag must agree')
+  const npmTag = 'latest'
+  assert.equal(pkg.publishConfig?.tag, npmTag, 'Every release, including previews, must publish to latest')
   assert.equal(pkg.publishConfig?.access, 'public')
   assert.equal(pkg.publishConfig?.registry, registry)
   assert.equal(pkg.repository?.url, `git+https://github.com/${repository}.git`)
@@ -27,6 +45,8 @@ export function releaseIdentity(pkg, expected, ref) {
 }
 
 export function checkRegistry(metadata, identity, integrity) {
+  const latest = metadata?.['dist-tags']?.latest
+  if (latest) assert.ok(compareVersions(identity.version, latest) >= 0, 'Release would move latest backwards')
   const existing = metadata?.versions?.[identity.version]
   if (!existing) return { publishNeeded: true, packageExists: metadata !== null }
   assert.equal(existing.dist?.integrity, integrity, 'Published version has different bytes; bump the version')

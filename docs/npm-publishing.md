@@ -11,7 +11,11 @@
 3. 首次可保留 `dry_run=true`：只安装构建依赖、编译、打包，检查名称/版本、已有 tag/registry 产物；不向 npm 或 GitHub 发布。
 4. 正式执行时取消 dry_run，日常认证 `auth=trusted`。工作流发布同一个预编译 TGZ 到 npm，下载 registry TGZ 比对 SHA512，再建立 GitHub tag 和 Release，附 TGZ 与 SHA256SUMS。
 
-版本为 `x.y.z-alpha.N`、`beta.N` 或 `rc.N` 时，publishConfig.tag 须分别是 alpha、beta、rc；稳定版本使用 latest。发布参数来自受检查的 package.json，不执行输入框内的脚本。
+所有后续版本统一使用 `publishConfig.tag=latest`，包括 `x.y.z-alpha.N`、`beta.N`、`rc.N` 和正式版本。`latest` 表示本项目推荐的最新发布，不代表稳定版；GitHub Release 仍按版本号保留 prerelease 标记。Action 在 `npm publish --tag latest` 时直接更新默认安装版本，继续使用 Trusted Publishing，无须增加 Token 或执行独立的 `npm dist-tag add`。发布参数来自受检查的 package.json，不执行输入框内的脚本。
+
+发布前检查新版本不低于 registry 当前 `latest`，防止旧版本发布或重跑导致默认安装版本倒退。版本顺序按数字及 alpha → beta → rc → 正式版比较。发布后必须确认 `latest` 指向本次版本，并核验 TGZ 字节。历史 `alpha` 等标签不再自动更新，默认安装使用包名或 `@latest`；需要可复现安装时仍固定精确版本。
+
+迁移边界：合并此策略不会修改已发布的 alpha.6 或当前 registry 标签。下一次发布必须升级为未发布的新版本（例如 alpha.7），同步锁文件、CHANGELOG 和用户指南；不能把修改后的 alpha.6 重复发布。若必须将已发布的 alpha.6 设为 latest，维护者需要通过已登录 npm 的 `npm dist-tag add @guosheng_047/dsh-erp@0.1.0-alpha.6 latest` 单独调整。[npm 标签说明](https://docs.npmjs.com/adding-dist-tags-to-packages/)；[Trusted Publishing 独立标签操作跟踪](https://github.com/npm/cli/issues/8547)。
 
 同版本重复运行只接受相同 TGZ 且 dist-tag 仍指向该版本；遇到不同内容、其他提交的 Git tag 或冲突附件时失败，不覆盖版本或附件。registry 传播可能延迟；后置校验最多轮询约 2 分半，并请求重新验证缓存，不重试发布操作。npm 成功而 GitHub 发布中断时，可在同一提交重跑补齐附件。此时不要为了改文档再把同一版本从新提交发布；后续变更应升级版本。
 

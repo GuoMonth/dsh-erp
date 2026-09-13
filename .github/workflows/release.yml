@@ -1,5 +1,5 @@
 name: Release npm package
-run-name: Release ${{ inputs.version }} (dry-run=${{ inputs.dry_run }})
+run-name: Release ${{ inputs.version }} to latest (dry-run=${{ inputs.dry_run }})
 
 on:
   workflow_dispatch:
@@ -54,7 +54,8 @@ jobs:
       - name: Check release identity and package
         id: package
         run: node scripts/release.mjs prepare
-      - name: Publish using Trusted Publishing
+      # Set latest in the publish operation itself; OIDC cannot run npm dist-tag add.
+      - name: Publish to latest using Trusted Publishing
         if: ${{ !inputs.dry_run && inputs.auth == 'trusted' && steps.package.outputs.publish_needed == 'true' }}
         env:
           RELEASE_TARBALL: ${{ steps.package.outputs.tarball }}
@@ -90,6 +91,7 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run }}
           RELEASE_TARBALL: ${{ steps.package.outputs.tarball }}
+          RELEASE_NPM_TAG: ${{ steps.package.outputs.npm_tag }}
         run: |
-          printf 'Version: %s\n\nDry run: %s\n\nPackage: %s\n\n' "$RELEASE_VERSION" "$DRY_RUN" "$RELEASE_TARBALL" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Version: %s\n\nNpm tag: %s\n\nDry run: %s\n\nPackage: %s\n\n' "$RELEASE_VERSION" "$RELEASE_NPM_TAG" "$DRY_RUN" "$RELEASE_TARBALL" >> "$GITHUB_STEP_SUMMARY"
           cat artifacts/npm-release/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"
