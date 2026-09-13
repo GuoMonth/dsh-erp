@@ -1,6 +1,6 @@
 # 系统档案、登录与知识复用
 
-适用版本：0.1.0-alpha.6。源码文档可能先于发布；发布前通过本地 TGZ 验证。用户入口以 [English README](../README.md) 和[简体中文指南](README.zh-CN.md)为准。
+适用版本：0.1.0-alpha.7。源码文档可能先于发布；发布前通过本地 TGZ 验证。用户入口以 [English README](../README.md) 和[简体中文指南](README.zh-CN.md)为准。
 
 ## 用户流程和职责
 

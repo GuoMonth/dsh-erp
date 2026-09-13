@@ -20,14 +20,16 @@
 已有 DSH：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.6
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
 ```
 
 只有 Node：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.6
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
 ```
+
+从 alpha.7 开始，`@latest` 指向最新发布版本，包括预览版。以上示例固定本版本，便于复现安装。
 
 使用完整 scope 包名，npm 上无 scope 的 `dsh-erp` 属于其他项目。Adapt ERP 是产品名称，安装包名保持不变。源码文档可能先于发布：PR 验证可构建 TGZ 并以绝对路径安装；版本出现在 Releases 后再使用上述 npm 命令。
 

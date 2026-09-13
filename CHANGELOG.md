@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.7
 
-- Publish every future release, including Alpha/Beta/RC previews, directly to npm `latest` through Trusted Publishing. Reject releases that would move `latest` backwards, and retain GitHub prerelease labels. Existing npm versions and tags are not changed by merging this policy.
+- Publish every future release, including Alpha/Beta/RC previews, directly to npm `latest` through Trusted Publishing. Reject releases that would move `latest` backwards, and retain GitHub prerelease labels. The publication sets npm `latest`; historical `alpha` tags are no longer advanced. Runtime behavior is unchanged from alpha.6.
 
 ## 0.1.0-alpha.6
 

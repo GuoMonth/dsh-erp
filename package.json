@@ -1,6 +1,6 @@
 {
   "name": "@guosheng_047/dsh-erp",
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.7",
   "description": "Adapt ERP: learn your ERP through the browser and build private local knowledge in DeepSeek Harness",
   "type": "module",
   "license": "MIT",

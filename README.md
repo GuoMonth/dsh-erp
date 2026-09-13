@@ -20,14 +20,16 @@ The plugin starts without site-specific knowledge. It does not require a particu
 With DSH installed:
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.6
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
 ```
 
 With only Node installed:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.6
+npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
 ```
+
+From alpha.7 onward, `@latest` selects the newest published release, including previews. The examples pin this version for reproducibility.
 
 Use the full scoped name; the unscoped npm package `dsh-erp` is another project. Adapt ERP is the product name; the package name stays unchanged. Source documentation can precede publication: for PR testing, build a TGZ and replace the package spec with its absolute path. Use the npm command once the version appears in Releases.
 
