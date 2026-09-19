@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Bundle worker schema helpers and their licenses so isolated processes can start after DSH installs plugins with host-only peer resolution.
+
+- Pin the DSH host and plugin dependencies to **0.1.6-alpha.2** (prerelease). Browser Use and Computer Use providers remain opt-in and are not enabled by this dependency upgrade.
+
 ## 0.1.0-alpha.7
 
 - Publish every future release, including Alpha/Beta/RC previews, directly to npm `latest` through Trusted Publishing. Reject releases that would move `latest` backwards, and retain GitHub prerelease labels. The publication sets npm `latest`; historical `alpha` tags are no longer advanced. Runtime behavior is unchanged from alpha.6.

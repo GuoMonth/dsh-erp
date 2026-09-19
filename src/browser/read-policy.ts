@@ -1,7 +1,7 @@
 import { readFileSync, lstatSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { createHash } from 'node:crypto'
-import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
+import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '../schema-runtime.js'
 import type { InferValue } from '@deepseek-ai/dsh-tools'
 import { scopeSchema, scopeKey } from '../storage/contract.js'
 import { BrowserError, inSite, siteUrl } from './contract.js'

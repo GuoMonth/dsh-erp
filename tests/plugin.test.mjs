@@ -8,7 +8,7 @@ import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import * as plugin from '../dist/index.js'
 import { mount, exercise } from './harness.mjs'
 
-test('real rc2 tools, model service, schema and unload lifecycle', async () => { await exercise(plugin) })
+test('real DSH 0.1.6-alpha.2 tools, model service, schema and unload lifecycle', async () => { await exercise(plugin) })
 test('cancelling execution worker leaves independent durable storage usable', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-isolation-'))
   const host = await mount(plugin, undefined, { dataDir: join(root, 'data') })

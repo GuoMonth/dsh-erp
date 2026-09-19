@@ -52,6 +52,7 @@ export async function exercise(plugin) {
     const status = await host.run('erp_runtime_status')
     assert.equal(status.isError, false, JSON.stringify(status))
     assert.notEqual(status.value.pid, process.pid)
+    assert.equal(host.ctx.erp.diagnostics().dsh, '0.1.6-alpha.2')
     const model = await host.run('erp_model_probe', { provider: 'erp-test', model: 'fixture' })
     assert.equal(model.isError, false, JSON.stringify(model))
     assert.equal(model.value, 'ERP_MODEL_OK')

@@ -1,4 +1,4 @@
-export const DSH_TARGET = '0.1.5-rc.2'
+export const DSH_TARGET = '0.1.6-alpha.2'
 export const NODE_BASELINE = '24.18.0'
 
 export function assertRuntime(version = process.versions.node): void {

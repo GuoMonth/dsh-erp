@@ -8,28 +8,30 @@ The plugin starts without site-specific knowledge. It does not require a particu
 
 **Preview interaction policy:** page observation and local knowledge accumulation are automatic after you confirm your login scope. Every click, fill, selection or scroll asks for individual approval, including queries—an unfamiliar control may save data. This is AI-guided learning with confirmations, not unattended crawling or a transaction engine.
 
+The source targets **DSH `0.1.6-alpha.2` (prerelease)**. This upgrade is not yet an npm release; validate this source with a locally built TGZ. Browser Use / Computer Use providers are not enabled by this upgrade.
+
 ## Install
 
 | Requirement | Current baseline |
 | --- | --- |
 | Node.js | `>=24.18.0 <25` |
-| DSH | `0.1.5-rc.2`, with a model configured in DSH |
+| DSH | `0.1.6-alpha.2`, with a model configured in DSH |
 | Desktop | Linux x64, a graphical session and Chromium system libraries |
 | Other platforms | Windows/macOS desktop acceptance pending |
 
 With DSH installed:
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.7.tgz
 ```
 
 With only Node installed:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
+npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.7.tgz
 ```
 
-From alpha.7 onward, `@latest` selects the newest published release, including previews. The examples pin this version for reproducibility.
+Build this source with `npm ci --ignore-scripts && npm run build && npm pack`, then replace the absolute TGZ path above. The published alpha.7 package predates this DSH upgrade; it is not the artifact validated here. The npm `latest` tag may include previews and does not select this unmerged source.
 
 Use the full scoped name; the unscoped npm package `dsh-erp` is another project. Adapt ERP is the product name; the package name stays unchanged. Source documentation can precede publication: for PR testing, build a TGZ and replace the package spec with its absolute path. Use the npm command once the version appears in Releases.
 
@@ -59,7 +61,7 @@ Start DSH:
 ```sh
 dsh web
 # With only Node:
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
+npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 -- dsh web
 ```
 
 On a fresh DSH installation, acknowledge its preview notice, choose a workspace and configure a model in Settings. Ask it to check `erp_system_status` and open your ERP with `erp_connect`. Log in in the dedicated Chromium window, then confirm the observation scope in DSH. Passwords, codes and QR login stay with you; the plugin does not attach to your everyday browser or manage credentials.

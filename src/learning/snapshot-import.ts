@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
+import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '../schema-runtime.js'
 import { snapshotSchema } from '../browser/snapshot.js'
 import type { Snapshot } from '../browser/snapshot.js'
 import type { StorageClient } from '../storage/client.js'

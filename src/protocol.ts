@@ -1,4 +1,4 @@
-import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
+import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from './schema-runtime.js'
 import { browserStatusSchema, browserOpenSchema, captureSchema } from './browser/contract.js'
 import { actionSchema, snapshotSchema } from './browser/snapshot.js'
 import { readPolicyViewSchema, readGrantSchema, readEnableSchema, readNavigateSchema } from './browser/read-policy.js'
