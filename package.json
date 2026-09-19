@@ -65,22 +65,23 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-tools": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.1.6-alpha.2",
     "@deepseek-ai/schemastery": "3.18.2"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-tools": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-system-prompt": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-user-approval": "0.1.5-rc.2",
-    "@deepseek-ai/dsh-session": "0.1.5-rc.2",
+    "@deepseek-ai/dsh": "0.1.6-alpha.2",
+    "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
+    "@deepseek-ai/dsh-session": "0.1.6-alpha.2",
+    "@deepseek-ai/dsh-system-prompt": "0.1.6-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.1.6-alpha.2",
+    "@deepseek-ai/dsh-user-approval": "0.1.6-alpha.2",
     "@deepseek-ai/schemastery": "3.18.2",
     "@types/node": "24.13.4",
-    "typescript": "6.0.3",
-    "pnpm": "11.7.0"
+    "esbuild": "0.28.2",
+    "pnpm": "11.7.0",
+    "typescript": "6.0.3"
   },
   "dependencies": {
     "playwright": "1.63.0"

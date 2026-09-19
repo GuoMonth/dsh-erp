@@ -19,6 +19,8 @@ try {
   const names = packed.files.map(f => f.path)
   assert.ok(!names.some(n => /^(dist\/scm|docs\/(testing|assessments)|tests|artifacts)\//.test(n) || /(?:^|\/)(?:store\.sqlite|browser-profiles|evidence|exports)(?:[/.]|$)/.test(n)), 'Do not publish site adapters, benchmark data or user knowledge')
   assert.ok(names.includes('dist/browser/snapshot.js'))
+  assert.ok(names.includes('dist/schema-runtime.js'), 'Ship worker schema helpers without host peer resolution')
+  assert.ok(names.includes('dist/schema-runtime.LICENSE.txt'), 'Ship bundled dependency licenses')
   assert.ok(names.includes('docs/adaptive-learning.md'))
   assert.deepEqual(names.filter(name => /^readme(?:$|\.)/i.test(name)), ['README.md'], 'npm must have one root README to select')
   assert.ok(names.includes('docs/README.zh-CN.md'), 'Ship the Simplified Chinese guide')
@@ -29,7 +31,7 @@ try {
   const consumer = join(scratch, 'consumer'); mkdirSync(consumer)
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
   run(npm, ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(scratch, packed.filename),
-    '@deepseek-ai/dsh-system-prompt@0.1.5-rc.2', '@deepseek-ai/dsh-user-approval@0.1.5-rc.2'], { cwd: consumer })
+    '@deepseek-ai/dsh-system-prompt@0.1.6-alpha.2', '@deepseek-ai/dsh-user-approval@0.1.6-alpha.2'], { cwd: consumer })
   cpSync(join(root, 'tests/harness.mjs'), join(consumer, 'harness.mjs'))
   writeFileSync(join(consumer, 'run.mjs'), "import * as plugin from '@guosheng_047/dsh-erp'; import {exercise} from './harness.mjs'; console.log(JSON.stringify(await exercise(plugin)));\n")
   console.log('Installed tarball:', run(process.execPath, [join(consumer, 'run.mjs')], { cwd: consumer }).trim())
@@ -57,7 +59,7 @@ try {
   const match = output.match(/ERP_HOST_SMOKE_OK worker=(\d+)/)
   assert.ok(match, output)
   assert.throws(() => process.kill(Number(match[1]), 0), { code: 'ESRCH' })
-  console.log(`Real dsh rc2 CLI: plugin install, agent loop, IPC, model service, approval, SQLite, knowledge record/query, blank and connected Chromium sessions, generic UI learning and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider, browser sandbox disabled only for container fixture).`)
+  console.log(`Real dsh 0.1.6-alpha.2 CLI: plugin install, agent loop, IPC, model service, approval, SQLite, knowledge record/query, blank and connected Chromium sessions, generic UI learning and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider, browser sandbox disabled only for container fixture).`)
 } finally {
   if (siteProcess && siteProcess.exitCode === null) { siteProcess.kill('SIGTERM'); await once(siteProcess, 'exit') }
   if (process.env.ERP_KEEP_SMOKE === '1') console.log('Smoke artifacts:', scratch)

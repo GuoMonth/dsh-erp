@@ -1,4 +1,4 @@
-import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '@deepseek-ai/dsh-tools'
+import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '../schema-runtime.js'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 import { knowledgeContracts } from '../knowledge/contract.js'
 import { scopeSchema, StorageError } from './primitives.js'

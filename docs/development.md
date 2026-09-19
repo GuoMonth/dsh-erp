@@ -1,6 +1,6 @@
 # 开发与本地验证
 
-目标为 dsh `0.1.5-rc.2`，对应上游标签 `dsh-v0.1.5-rc.2`。当前验证基线 Node `24.18.0`，运行时要求 `>=24.18.0 <25`；后续 Node 24 安全更新需经过检查再推进基线。项目使用 npm 锁文件，不需要全局 TypeScript、Python 或数据库。
+目标为 dsh `0.1.6-alpha.2`，对应上游标签 `dsh-v0.1.6-alpha.2`。本轮验证使用 Node `24.21.0`，运行时要求 `>=24.18.0 <25`；Node 24 后续更新仍需经过项目检查。项目使用 npm 锁文件，不需要全局 TypeScript、Python 或数据库。
 
 ```sh
 npm ci --ignore-scripts
@@ -10,6 +10,8 @@ npm pack
 ```
 
 `verify` 包含类型检查、生命周期/协议/宿主服务测试及安装产物冒烟。开发依赖包含目标 dsh CLI 和 pnpm；插件产物仅包含预编译 JavaScript、声明文件、bundle patch、README 和许可证，不含测试适配器。第一次验证需要联网获取 registry 依赖，不是离线构建。开发中不要对同版本同路径的 tgz 反复重装并假定内容已更新；pnpm 可能复用缓存。使用唯一内容哈希文件名，或提升版本，并核对已安装 dist 与打包来源。发布版本的产物应保持不可变。
+
+本轮升级结果见 [DSH 0.1.6-alpha.2 验证](assessments/2026-09-19-dsh-016-alignment.md)。
 
 ## 本地交付检查
 
@@ -33,7 +35,7 @@ dsh plugin --profile headless add /absolute/path/guosheng_047-dsh-erp-0.1.0-alph
 dsh --profile headless "调用 erp_runtime_status 检查本地工作进程"
 ```
 
-dsh 的对话使用用户已有的模型配置。上述 profile 可换成用户实际使用的 profile，不建议把测试配置覆盖进日常 profile。`dsh plugin` 在 rc2 内部调用 pnpm；若机器只有 Node 与 dsh，可由 npm 临时准备明确版本的 pnpm：
+dsh 的对话使用用户已有的模型配置。上述 profile 可换成用户实际使用的 profile，不建议把测试配置覆盖进日常 profile。`dsh plugin` 在本轮锁定版本内部调用 pnpm；若机器只有 Node 与 dsh，可由 npm 临时准备明确版本的 pnpm：
 
 ```sh
 npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile headless add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.6.tgz

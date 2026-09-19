@@ -1,5 +1,7 @@
 # Adapt ERP · dsh-erp
 
+当前源码对齐 **DSH `0.1.6-alpha.2`（预发布版本）**。本轮升级尚未发布 npm，请使用源码构建的 TGZ 验证；本次不启用上游 Browser Use / Computer Use 提供方。
+
 [English](https://github.com/GuoMonth/dsh-erp/blob/main/README.md) · [npm](https://www.npmjs.com/package/@guosheng_047/dsh-erp) · [版本发布](https://github.com/GuoMonth/dsh-erp/releases) · [更新记录](https://github.com/GuoMonth/dsh-erp/blob/main/CHANGELOG.md)
 
 **通过浏览器学习你的 ERP，将知识保存在自己的电脑上。** Adapt ERP 是 DeepSeek Harness（DSH）的插件。配置自己的 ERP、自己登录，然后让 DSH 观察菜单、页面、字段和业务数据，建立有证据的知识，并在后续对话中复用、核验和补充。
@@ -13,23 +15,23 @@
 | 要求 | 当前基线 |
 | --- | --- |
 | Node.js | `>=24.18.0 <25` |
-| DSH | `0.1.5-rc.2`，模型在 DSH 中配置 |
+| DSH | `0.1.6-alpha.2`，模型在 DSH 中配置 |
 | 桌面 | Linux x64、图形会话及 Chromium 系统库 |
 | 其他平台 | Windows/macOS 桌面验收待完成 |
 
 已有 DSH：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.7.tgz
 ```
 
 只有 Node：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.7
+npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.7.tgz
 ```
 
-从 alpha.7 开始，`@latest` 指向最新发布版本，包括预览版。以上示例固定本版本，便于复现安装。
+执行 `npm ci --ignore-scripts && npm run build && npm pack` 构建本分支，然后替换上述 TGZ 绝对路径。已发布的 alpha.7 早于本轮 DSH 升级，不是本轮验证产物；npm `latest` 可能包含预览版，但不代表这份尚未合并的源码。
 
 使用完整 scope 包名，npm 上无 scope 的 `dsh-erp` 属于其他项目。Adapt ERP 是产品名称，安装包名保持不变。源码文档可能先于发布：PR 验证可构建 TGZ 并以绝对路径安装；版本出现在 Releases 后再使用上述 npm 命令。
 
@@ -59,7 +61,7 @@ npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 --package=pnpm@11.7.0 -- ds
 ```sh
 dsh web
 # 只有 Node 时：
-npm exec --yes --package=@deepseek-ai/dsh@0.1.5-rc.2 -- dsh web
+npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 -- dsh web
 ```
 
 首次使用 DSH 时，确认预览提示、选择工作区并在 Settings 配置模型。让它通过 `erp_system_status` 核对系统，使用 `erp_connect` 打开入口。你在独立 Chromium 窗口里登录，再在 DSH 确认观察范围。密码、验证码和网站扫码均由你处理；插件不接管日常浏览器，也不管理登录凭据。
