@@ -1,6 +1,6 @@
 # Adapt ERP · dsh-erp
 
-当前源码对齐 **DSH `0.1.6-alpha.2`（预发布版本）**。本轮升级尚未发布 npm，请使用源码构建的 TGZ 验证；本次不启用上游 Browser Use / Computer Use 提供方。
+**0.1.0-alpha.8** 对齐 **DSH `0.1.6-alpha.2`（预发布版本）**；本次不启用上游 Browser Use / Computer Use 提供方。
 
 [English](https://github.com/GuoMonth/dsh-erp/blob/main/README.md) · [npm](https://www.npmjs.com/package/@guosheng_047/dsh-erp) · [版本发布](https://github.com/GuoMonth/dsh-erp/releases) · [更新记录](https://github.com/GuoMonth/dsh-erp/blob/main/CHANGELOG.md)
 
@@ -22,16 +22,16 @@
 已有 DSH：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.7.tgz
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.8
 ```
 
 只有 Node：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.0-alpha.7.tgz
+npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.8
 ```
 
-执行 `npm ci --ignore-scripts && npm run build && npm pack` 构建本分支，然后替换上述 TGZ 绝对路径。已发布的 alpha.7 早于本轮 DSH 升级，不是本轮验证产物；npm `latest` 可能包含预览版，但不代表这份尚未合并的源码。
+npm `latest` 包含预览版；需要可复现安装时使用上述精确版本。alpha.7 早于 DSH 0.1.6 对齐，请同时升级宿主与插件。
 
 使用完整 scope 包名，npm 上无 scope 的 `dsh-erp` 属于其他项目。Adapt ERP 是产品名称，安装包名保持不变。源码文档可能先于发布：PR 验证可构建 TGZ 并以绝对路径安装；版本出现在 Releases 后再使用上述 npm 命令。
 

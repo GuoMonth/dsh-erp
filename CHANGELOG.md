@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.8
 
 - Bundle worker schema helpers and their licenses so isolated processes can start after DSH installs plugins with host-only peer resolution.
 
