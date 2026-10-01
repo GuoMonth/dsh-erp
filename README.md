@@ -6,7 +6,7 @@
 
 The plugin starts without site-specific knowledge. It does not require a particular ERP vendor, API path or login-token format. Compatibility depends on the site's interface and authentication; this preview does not claim successful operation on every ERP.
 
-**Preview interaction policy:** page observation and local knowledge accumulation are automatic after you confirm your login scope. Every click, fill, selection or scroll asks for individual approval, including queries—an unfamiliar control may save data. This is AI-guided learning with confirmations, not unattended crawling or a transaction engine.
+**Preview interaction policy:** native browser and desktop calls request individual DSH approval. Deskwork follows its task-owned page confirmation policy. Log in manually, build local knowledge on demand, and reobserve after operations. Shared experience never transfers operation authority.
 
 Version **0.1.0-alpha.9** targets **DSH `0.2.0-rc.2` (prerelease)**. Standard installation now uses native DSH Browser Use and supports opt-in Computer Use, with reusable experience exported as native Skills. This source candidate is not published yet.
 
@@ -59,9 +59,9 @@ For an entry such as `https://erp.example.com/app/login`, also set `baseUrl: "ht
 Start DSH:
 
 ```sh
-dsh web
+dsh --profile web
 # With only Node:
-npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 -- dsh web
+npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 -- dsh --profile web
 ```
 
 On a fresh DSH installation, acknowledge its preview notice, choose a workspace and configure a model. Ask for `erp_system_status` and `erp_native_status`, open the configured ERP with the native browser tools, and log in yourself. ERP reuses the host's Browser Use provider; otherwise it loads official Playwright MCP. Enable `computerUse: true` explicitly for the official native Cua Driver.
