@@ -8,7 +8,7 @@ The plugin starts without site-specific knowledge. It does not require a particu
 
 **Preview interaction policy:** native browser and desktop calls request individual DSH approval. Deskwork follows its task-owned page confirmation policy. Log in manually, build local knowledge on demand, and reobserve after operations. Shared experience never transfers operation authority.
 
-Version **0.1.0-alpha.9** targets **DSH `0.2.0-rc.2` (prerelease)**. Standard installation now uses native DSH Browser Use and supports opt-in Computer Use, with reusable experience exported as native Skills. This source candidate is not published yet.
+Version **0.1.0** targets **DSH `0.2.0-rc.2` (prerelease)**. Standard installation now uses native DSH Browser Use and supports opt-in Computer Use, with reusable experience exported as native Skills. Install the recommended release through npm `latest`; the upstream DSH runtime remains a prerelease.
 
 ## Install
 
@@ -22,16 +22,16 @@ Version **0.1.0-alpha.9** targets **DSH `0.2.0-rc.2` (prerelease)**. Standard in
 With DSH installed:
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.9
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
 With only Node installed:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.9
+npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
-The npm `latest` tag includes previews. Pin the exact version above for reproducible installation. Upgrade the host and plugin together. Use a local candidate TGZ until alpha.9 is published.
+The npm `latest` tag points to the recommended project release. Use `@guosheng_047/dsh-erp@0.1.0` when you need reproducible installation. Upgrade the host and plugin together.
 
 Use the full scoped name; the unscoped npm package `dsh-erp` is another project. Adapt ERP is the product name; the package name stays unchanged. Source documentation can precede publication: for PR testing, build a TGZ and replace the package spec with its absolute path. Use the npm command once the version appears in Releases.
 

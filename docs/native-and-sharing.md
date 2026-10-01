@@ -1,6 +1,6 @@
 # DSH 原生操作与经验分享
 
-源码候选 `0.1.0-alpha.9` 对齐 [DSH 0.2.0-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.0-rc.2)。两者均为预发布版本；本轮未发布 npm。安装候选需先 `npm pack`，再用 TGZ 绝对路径执行 DSH 标准插件安装。
+ERP `0.1.0` 对齐 [DSH 0.2.0-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.0-rc.2)。上游 DSH 仍为预发布版本。默认使用 `@guosheng_047/dsh-erp@latest` 执行 DSH 标准插件安装；需要固定制品时使用 `@0.1.0`。
 
 ## 原生操作
 
