@@ -54,6 +54,14 @@ erp-experience-<摘要>-<导出 ID>/
 
 ## 验证范围
 
-确定性测试覆盖跨用户导入、关系重绑定、重复导入保留修正、重启读取、大批量原子导入、损坏/循环/私密字段拒绝，以及原生 Skill 发现。真实 Chromium 覆盖官方 Playwright MCP 的确认拒绝、点击、重新观察、证据入库和 Session 释放。Linux x64 已实际加载 Cua Driver 原生二进制并读取无提示权限状态；真实桌面点击、截图、用户 macOS 和真实 ERP 业务验收仍待完成。
+确定性测试覆盖跨用户导入、关系重绑定、重复导入保留修正、重启读取、大批量原子导入、损坏/循环/私密字段拒绝，以及原生 Skill 发现。真实 Chromium 覆盖官方 Playwright MCP 的确认拒绝、点击、重新观察、证据入库和 Session 释放。
+
+Linux x64 已实际加载 Cua Driver 原生二进制并读取无提示权限状态。隔离 Xvfb 中的可见 Chromium 窗口完成原生 PNG 截图、后台点击和再次截图，另由 Playwright 读取页面确认点击的实际结果。该检查使用完整尺寸截图对应的窗口内坐标；缩小的预览坐标不能直接当作输入坐标。可在安装了 Xvfb 和 Chromium 的 Linux 上显式运行：
+
+```sh
+ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/computer-desktop.integration.mjs
+```
+
+该测试仅控制夹具窗口，不读取用户桌面。真实模型的视觉附件往返、用户 macOS 和真实 ERP 业务验收仍待完成。
 
 旧受控浏览器仍可通过 `browserMode: managed` 显式选择，其流程见[通用浏览器学习](adaptive-learning.md)。两条路径的观察和元素引用不能互换。

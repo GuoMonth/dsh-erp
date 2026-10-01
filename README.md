@@ -88,7 +88,7 @@ Observations and screenshots may be sent to your configured model provider. Nati
 
 Native browser and computer calls require individual DSH approval. Deskwork retains its task-owned browser confirmation policy. Native providers own live element references, browser sessions, attachments and cleanup; ERP URL matching controls evidence admission, not the tools' host-level capabilities. Imported claims remain historical until revalidated. No unattended transaction engine or multi-ERP automatic routing is provided.
 
-Linux x64 Chromium and native Cua Driver permission-status checks are verified. Real OS input, screenshots, user macOS and real ERP acceptance remain pending.
+Linux x64 Chromium and native Cua Driver checks are verified, including real window PNG capture, background clicking and independent outcome readback in an isolated Xvfb display. Real model vision roundtrips, user macOS and real ERP acceptance remain pending.
 
 ## Upgrade and remove
 

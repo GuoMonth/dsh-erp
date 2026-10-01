@@ -78,7 +78,7 @@ npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 -- dsh --profile web
 
 详见[原生操作与经验分享](native-and-sharing.md)。旧流程需显式设置 `browserMode: managed`，再使用[通用浏览器学习](adaptive-learning.md)中的工具。原生工具结果、截图和附件使用上游处理，不套用旧 DOM 快照脱敏器；原生操作能力并非站点沙箱。
 
-当前完成 Linux x64 真实 Chromium 操作及 Cua Driver 无提示权限检查。真实桌面点击、截图、用户 macOS 和真实业务验收尚未完成。
+当前完成 Linux x64 真实 Chromium 操作，以及隔离 Xvfb 中的 Cua Driver 窗口 PNG 截图、后台点击和独立结果回读。真实模型视觉附件往返、用户 macOS 和真实业务验收尚未完成。
 
 ## 升级与卸载
 
