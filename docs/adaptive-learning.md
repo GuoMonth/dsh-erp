@@ -1,6 +1,8 @@
 # Adapt ERP：通用浏览器学习
 
-适用版本：0.1.0-alpha.6。产品面向用户配置的 ERP，运行路径不依赖厂商接口或预装站点知识。SCM/USA 是历史验证对象，其固定适配代码仅保留在 `tests/fixtures/scm-alpha5/`，不参与默认运行或 npm 发布。
+本页描述 `browserMode: managed` 的受控浏览器路径。alpha.9 标准安装默认使用[DSH 原生操作与经验分享](native-and-sharing.md)，工具引用不可混用。
+
+最初适用版本：0.1.0-alpha.6。产品面向用户配置的 ERP，运行路径不依赖厂商接口或预装站点知识。SCM/USA 是历史验证对象，其固定适配代码仅保留在 `tests/fixtures/scm-alpha5/`，不参与默认运行或 npm 发布。
 
 ## 首次全面学习与持续使用
 

@@ -1,6 +1,6 @@
 # Adapt ERP · dsh-erp
 
-**0.1.0-alpha.8** 对齐 **DSH `0.1.6-alpha.2`（预发布版本）**；本次不启用上游 Browser Use / Computer Use 提供方。
+**0.1.0-alpha.9** 对齐 **DSH `0.2.0-rc.2`（预发布版本）**；标准安装复用原生 Browser Use，显式启用 Computer Use，并支持原生 Skill 经验分享。当前为未发布的源码候选，发布前使用本地 TGZ。
 
 [English](https://github.com/GuoMonth/dsh-erp/blob/main/README.md) · [npm](https://www.npmjs.com/package/@guosheng_047/dsh-erp) · [版本发布](https://github.com/GuoMonth/dsh-erp/releases) · [更新记录](https://github.com/GuoMonth/dsh-erp/blob/main/CHANGELOG.md)
 
@@ -15,23 +15,23 @@
 | 要求 | 当前基线 |
 | --- | --- |
 | Node.js | `>=24.18.0 <25` |
-| DSH | `0.1.6-alpha.2`，模型在 DSH 中配置 |
+| DSH | `0.2.0-rc.2`，模型在 DSH 中配置 |
 | 桌面 | Linux x64、图形会话及 Chromium 系统库 |
 | 其他平台 | Windows/macOS 桌面验收待完成 |
 
 已有 DSH：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.8
+npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.9
 ```
 
 只有 Node：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.8
+npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@0.1.0-alpha.9
 ```
 
-npm `latest` 包含预览版；需要可复现安装时使用上述精确版本。alpha.7 早于 DSH 0.1.6 对齐，请同时升级宿主与插件。
+npm `latest` 包含预览版；需要可复现安装时使用上述精确版本。同时升级宿主与插件；alpha.9 发布前使用本地候选 TGZ。
 
 使用完整 scope 包名，npm 上无 scope 的 `dsh-erp` 属于其他项目。Adapt ERP 是产品名称，安装包名保持不变。源码文档可能先于发布：PR 验证可构建 TGZ 并以绝对路径安装；版本出现在 Releases 后再使用上述 npm 命令。
 
@@ -61,56 +61,24 @@ npm `latest` 包含预览版；需要可复现安装时使用上述精确版本�
 ```sh
 dsh web
 # 只有 Node 时：
-npm exec --yes --package=@deepseek-ai/dsh@0.1.6-alpha.2 -- dsh web
+npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 -- dsh web
 ```
 
-首次使用 DSH 时，确认预览提示、选择工作区并在 Settings 配置模型。让它通过 `erp_system_status` 核对系统，使用 `erp_connect` 打开入口。你在独立 Chromium 窗口里登录，再在 DSH 确认观察范围。密码、验证码和网站扫码均由你处理；插件不接管日常浏览器，也不管理登录凭据。
+首次使用 DSH 时，确认预览提示、选择工作区并在 Settings 配置模型。让它通过 `erp_system_status` 核对系统，使用当前原生浏览器工具打开入口。你自行登录并核对账号、公司和角色。密码、验证码和网站扫码均由你处理；插件不管理登录凭据。
 
-## 第一次全面学习
+## 原生学习与分享
 
-可以发送：
+先调用 `erp_system_status` 和 `erp_native_status`，使用宿主原生 Browser Use 打开配置入口，自行登录并核对账号、公司与角色。原生快照之后立即用 `erp_native_observation_save` 保存证据，再记录菜单、业务域与关联。每次操作后重新观察，学习队列和本地知识可跨对话复用。
 
-```text
-使用 Adapt ERP，先检查配置好的系统及已有知识。
-打开 ERP，等我自己登录并确认账号和企业。
-开始全面学习：先建立全局菜单框架，再按功能页面、Tab、字段和窗口深入。
-依据证据理解业务域，并建立与菜单的关联。持续保存探索队列和发现。
-页面交互先请求确认，可能产生写入的失败不要自动重试。
-分别报告已观察、待处理和阻塞部分。
-```
+没有宿主提供方时加载官方 Playwright MCP；Deskwork 复用当前 Electron 网站页面。配置 `computerUse: true` 可显式加载官方 Cua Driver Native，适用于原生窗口或视觉控件，需要操作系统权限及逐次确认。
 
-DSH 驱动以下循环：
+分享时说“把当前 ERP 的经验导出成 Skill”，一次 `erp_experience_export` 返回标准 Skill 目录。检查自由文本后将整个目录交给别人。接收者说“将这个 Skill 的 references/knowledge.json 导入当前 ERP”，一次确认后由 `erp_experience_import` 重绑定本地知识关系，标记待核验并进入原生 Skill 目录。
 
-1. `erp_system_status → erp_connect → 人工登录 → erp_browser_status → 确认 erp_browser_resume`。
-2. `erp_browser_snapshot` 保存可见文字、表格、菜单、字段和选项样本；`erp_learning_import_snapshot` 形成初步界面知识，不依赖厂商菜单 API。
-3. AI 决定下一步，通过 `erp_learning_start/status/extend/finish_unit` 维护队列；使用 `erp_browser_action` 请求对精确目标的单次交互确认。动作返回新证据和新的临时引用。
-4. `erp_knowledge_record` 保存解释、菜单与业务域关联及学到的方法。后续任务先检索知识，再观察当前页面，按新证据修订。
+不复制账号、登录、原始观察、字段样本和发送者确认；重复导入保留接收者修正。名称和描述仍可能包含私密信息，分享前需检查。导入经验不授予操作权限，应在自己的 ERP 上重新验证。
 
-“全面”指当前账号可访问结构的整体探索，不是下载全部订单或证明所有可能状态。新发现可加入队列，暂停后保留进度。规划由 DSH 模型驱动，安装或登录本身不会启动独立的自动后台爬虫。初步导入只记录可见结构和选项样本，菜单层级、业务含义及跨页关系仍需 AI 依据证据建立。
+详见[原生操作与经验分享](native-and-sharing.md)。旧流程需显式设置 `browserMode: managed`，再使用[通用浏览器学习](adaptive-learning.md)中的工具。原生工具结果、截图和附件使用上游处理，不套用旧 DOM 快照脱敏器；原生操作能力并非站点沙箱。
 
-后续可以问：
-
-- “只用已有知识说明库存流程，展示菜单关联和证据。”
-- “在这个 ERP 页面查找商品 `<编码>`，查看库存和相关订单，记录步骤与不确定性。”
-- “继续未完成的探索，复核变化的字段，并导出 Markdown 和 JSON。”
-
-第二个例子是模型规划的界面任务，不是内置的商品/订单 API，也不保证完成库存对账。
-
-## 知识属于用户本机
-
-每个系统在数据根目录下对应 `systems/<固定ID>/`，保存 SQLite、证据、导出和私有浏览器资料。`erp_system_status` 返回准确范围和位置。保持配置与目录不变，新对话无需登录即可查询已有知识；实时数据需要当前登录，过去的余额或订单仍是历史观察。
-
-**npm 发布不包含用户知识、浏览器登录资料、测试站点或验收答案。** 安装包只提供学习工具、通用结构和用户指南。SCM/USA 已回到开发测试基准中。分享知识是用户主动导出的独立动作，不属于插件发布。Markdown/JSON 是可读视图，SQLite 保留修订及证据关联。
-
-DSH 使用的观察可能发送给所配置的模型供应商。快照排除密码、隐藏、文件输入、明显凭据字段及 `data-erp-private` 区域，但脱敏不能保证发现所有敏感内容；表格与普通字段可能包含业务数据。交互工具不接受账号密码管理任务。
-
-## 控制与限制
-
-- 每次页面交互单独请求 DSH 确认，包括写入按钮和自动保存输入框；拒绝后不发送交互。观察许可不授予操作权限。
-- 操作绑定短期快照引用，不接受模型提供的选择器、JavaScript 或请求 URL。目标变化、导航、过期版本和重复引用均拒绝。动作失败可能已经影响网站，应先检查结果再决定下一步。
-- 观察许可最多 10 分钟，人工输入/导航会暂停。动作确认包括读取结果并开启新的有时限观察窗口；重启后重新检查登录和授权。
-- 每实例一个配置系统、一个浏览器页面。支持应用内 iframe；跨域 iframe、Canvas、封闭 Shadow DOM、多窗口登录及扫码/SSO 可能需要人工处理，尚未广泛验收。原生浏览器对话框由人处理。
-- 快照是有界、非事务性采样。不提供多步骤业务事务、自动重试、无人值守写入或多个 ERP 自动选库。
+当前完成 Linux x64 真实 Chromium 操作及 Cua Driver 无提示权限检查。真实桌面点击、截图、用户 macOS 和真实业务验收尚未完成。
 
 ## 升级与卸载
 

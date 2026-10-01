@@ -14,6 +14,7 @@ import { registerLearningTools } from './learning/tools.js'
 import { registerKnowledgeTools } from './knowledge/tools.js'
 import { resolveSystem, systemBrowserInput } from './system.js'
 import type { SystemConfig, SystemProfile } from './system.js'
+import { registerNativeLearning } from './native-learning.js'
 
 export type { KnowledgeWrite, KnowledgeRecord, KnowledgeView, Verification } from './knowledge/contract.js'
 export { StorageClient, restoreBackup } from './storage/client.js'
@@ -21,7 +22,7 @@ export type { Observation } from './storage/contract.js'
 
 export const name = 'dsh-erp'
 export const inject = ['tools', 'llm']
-export interface Config { system?: SystemConfig; dataDir?: string; browserHeadless?: boolean; browserResourcesDir?: string; browserSandbox?: boolean; browserReadPolicyFile?: string }
+export interface Config { system?: SystemConfig; dataDir?: string; browserHeadless?: boolean; browserResourcesDir?: string; browserSandbox?: boolean; browserReadPolicyFile?: string; browserMode?: 'managed' | 'native'; browserExecutablePath?: string; browserEndpoint?: string; computerUse?: boolean }
 const systemConfig = z.object({ url: z.string().required().description('ERP entry URL; log in manually in the opened browser.'),
   baseUrl: z.string().description('Application root ending in /; required for entry paths such as /login.'),
   name: z.string(), account: z.string().default('default'), tenant: z.string(), role: z.string() })
@@ -29,6 +30,7 @@ const systemConfig = z.object({ url: z.string().required().description('ERP entr
 delete systemConfig.meta.default
 export const Config: z<Config> = z.object({ system: systemConfig,
   dataDir: z.string(), browserReadPolicyFile: z.string(), browserHeadless: z.boolean().default(false), browserResourcesDir: z.string(), browserSandbox: z.boolean().default(true),
+  browserMode: z.union(['managed', 'native']), browserExecutablePath: z.string(), browserEndpoint: z.string(), computerUse: z.boolean().default(false),
 })
 
 declare module '@deepseek-ai/cordis' {
@@ -79,7 +81,7 @@ export class ErpRuntime extends Service {
         let finished = false
         for await (const chunk of this.ctx.llm.stream({ provider, model, signal: combined,
           messages: [createUserMessage({
-            source: { kind: 'plugin', plugin: name, form: 'notice', summary: 'ERP model connection probe' },
+            source: { kind: 'user' },
             content: [{ type: 'text', text: 'Reply with exactly ERP_MODEL_OK. This is a connection test with no business data.' }],
           })],
           maxTokens: 64,
@@ -116,7 +118,8 @@ export class ErpRuntime extends Service {
 export function apply(ctx: Context, config: Config = {}): void {
   assertRuntime()
   const runtime = new ErpRuntime(ctx, config)
-  registerBrowserTools(ctx, runtime.browser)
+  if (config.browserMode === 'native') registerNativeLearning(ctx, runtime.storage, runtime.system)
+  else registerBrowserTools(ctx, runtime.browser)
   registerKnowledgeTools(ctx, runtime.storage)
   registerLearningTools(ctx, runtime.storage)
   ctx.tools.register(defineTool({ name: 'erp_system_status',
@@ -125,7 +128,10 @@ export function apply(ctx: Context, config: Config = {}): void {
     execute: async (_args, exec) => {
       exec.signal.throwIfAborted()
       return runtime.system ? { state: 'configured', ...runtime.system, knowledgeAvailableWithoutLogin: true,
-        next: 'Use the returned scope for local knowledge. For fresh browser evidence call erp_connect, wait for manual login, then request erp_browser_resume confirmation and erp_browser_snapshot. Explore menus breadth-first, then pages/tabs/fields and business domains. Page interactions require individual approval; local learning does not. No ERP-specific APIs are preconfigured.' }
+        interaction: config.browserMode === 'native' ? 'dsh-native' : 'erp-managed',
+        next: config.browserMode === 'native'
+          ? 'Use the configured entry URL with DSH native Browser Use; log in manually. Native operations require approval. Take a fresh native snapshot, then erp_native_observation_save for evidence-backed learning with erp_knowledge_record and the local queue. Use explicitly enabled Computer Use for native windows or visual controls. Shared experience is unverified; reobserve before applying it.'
+          : 'Use the returned scope for local knowledge. For fresh browser evidence call erp_connect, wait for manual login, then request erp_browser_resume confirmation and erp_browser_snapshot. Explore menus breadth-first, then pages/tabs/fields and business domains. Page interactions require individual approval; local learning does not. No ERP-specific APIs are preconfigured.' }
         : { state: 'unconfigured', directory: runtime.storage.directory,
           next: 'Set system.url in the erp row of your DSH patch and restart DSH. No URL or credentials should be supplied to browser tools. Legacy local knowledge remains accessible by its original scope; no browser connection is enabled.' }
     },

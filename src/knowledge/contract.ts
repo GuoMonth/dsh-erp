@@ -55,6 +55,9 @@ const page = { type: 'object', additionalProperties: false, properties: {
   items: { type: 'array', items: viewSchema, required: true }, hasMore: { type: 'boolean', required: true }, nextAfter: str,
 } } as const
 export const knowledgeContracts = {
+  knowledgeImport: { input: { type: 'object', additionalProperties: false, properties: {
+    scope, bundleId: str, records: commitParameters.records,
+  } }, output: { type: 'array', items: knowledgeRecordSchema } },
   knowledgeCommit: { input: { type: 'object', additionalProperties: false, properties: {
     ...commitParameters, origin: { type: 'string', enum: ['ai', 'user'], required: true },
   } }, output: { type: 'array', items: knowledgeRecordSchema } },

@@ -1,6 +1,6 @@
 {
   "name": "@guosheng_047/dsh-erp",
-  "version": "0.1.0-alpha.8",
+  "version": "0.1.0-alpha.9",
   "description": "Adapt ERP: learn your ERP through the browser and build private local knowledge in DeepSeek Harness",
   "type": "module",
   "license": "MIT",
@@ -31,7 +31,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./cordis.patch.yml": "./cordis.patch.yml"
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js"
+    }
   },
   "files": [
     "dist",
@@ -44,7 +48,8 @@
     "docs/system-configuration.md",
     "docs/adaptive-learning.md",
     "docs/storage.md",
-    "docs/knowledge.md"
+    "docs/knowledge.md",
+    "docs/native-and-sharing.md"
   ],
   "engines": {
     "node": ">=24.18.0 <25"
@@ -64,26 +69,40 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
-    "@deepseek-ai/dsh-tools": "0.1.6-alpha.2",
-    "@deepseek-ai/schemastery": "3.18.2"
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "3.18.4",
+    "@deepseek-ai/dsh-skill": "0.2.0-rc.2"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.2",
-    "@deepseek-ai/dsh": "0.1.6-alpha.2",
-    "@deepseek-ai/dsh-llm": "0.1.6-alpha.2",
-    "@deepseek-ai/dsh-session": "0.1.6-alpha.2",
-    "@deepseek-ai/dsh-system-prompt": "0.1.6-alpha.2",
-    "@deepseek-ai/dsh-tools": "0.1.6-alpha.2",
-    "@deepseek-ai/dsh-user-approval": "0.1.6-alpha.2",
-    "@deepseek-ai/schemastery": "3.18.2",
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-user-approval": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "3.18.4",
     "@types/node": "24.13.4",
     "esbuild": "0.28.2",
     "pnpm": "11.7.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "@deepseek-ai/dsh-skill": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tool-skill": "0.2.0-rc.2"
   },
   "dependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "@deepseek-ai/dsh-browser-use": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-experimental-browser-use-playwright-mcp": "0.2.0-rc.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-skill": {
+      "optional": true
+    }
+  },
+  "optionalDependencies": {
+    "@deepseek-ai/dsh-computer-use": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-experimental-computer-use-cua-driver-native": "0.2.0-rc.2"
   }
 }

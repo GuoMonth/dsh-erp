@@ -12,7 +12,7 @@ function* textChunks(text) {
   yield { type: 'finish', reason: { kind: 'stop' } }
 }
 class Fixture extends LlmAdapter {
-  constructor(scope) { super(); this.scope = scope }
+  constructor(scope, url, native) { super(); this.scope = scope; this.url = url; this.native = native }
   async *stream(options) {
     options.signal.throwIfAborted()
     const messages = options.messages
@@ -20,12 +20,37 @@ class Fixture extends LlmAdapter {
       yield* textChunks('ERP_MODEL_OK')
       return
     }
-    const results = messages.flatMap(m => m.content.filter(b => b.type === 'tool-result'))
+    const results = messages.filter(m => m.role === 'tool')
     for (const result of results) assert.notEqual(result.isError, true, JSON.stringify(result))
     const scope = this.scope
     const record = { id: 'cli-menu', kind: 'menu', name: 'Synthetic menu', aliases: ['测试'], description: 'Unverified fixture hypothesis',
       expectedVersion: 0, stage: 'interpreted', flags: ['needs-review'], lifecycle: 'active', evidence: [], dependencies: [] }
     const parsed = i => { const text = results[i]?.content.find(b => b.type === 'text')?.text; return text ? JSON.parse(text.slice(text.indexOf('{'))) : {} }
+    if (this.native) {
+      const observation = results.length > 4 ? parsed(4) : {}
+      const exported = results.length > 6 ? parsed(6) : {}
+      const specs = [
+        ['erp_runtime_status', {}], ['erp_native_status', {}],
+        ['mcp__playwright-mcp__browser_navigate', { url: this.url }],
+        ['mcp__playwright-mcp__browser_snapshot', {}], ['erp_native_observation_save', {}],
+        ['erp_knowledge_record', { scope, records: [{ ...record, id: 'native-cli-menu', stage: 'observed',
+          evidence: [{ observationId: observation.id, quote: 'Suite ERP' }] }] }],
+        ['erp_experience_export', { scope }], ['erp_experience_import', { scope, path: exported.importFile }],
+        ['erp_knowledge_search', { scope, query: 'Synthetic menu', after: '', limit: 50 }],
+      ]
+      if (results.length >= specs.length) {
+        assert.equal(parsed(1).browserProvider, 'playwright-mcp')
+        assert.equal(parsed(7).state, 'needs-review')
+        assert.ok(parsed(8).items.some(item => item.record.id.startsWith('shared-')))
+        assert.ok(messages.some(message => JSON.stringify(message.content).includes('erp-experience-')), 'shared experience must enter the native model-visible Skill catalog')
+        yield* textChunks(`ERP_NATIVE_SMOKE_OK worker=${parsed(0).pid}`); return
+      }
+      const [name, args] = specs[results.length], id = ToolCallId(`erp-native-smoke-${results.length}`), argumentsText = JSON.stringify(args)
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield { type: 'tool-call-delta', index: 0, id, name, argumentsDelta: argumentsText }
+      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id, name, arguments: argumentsText } }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }; return
+    }
     const connected = parsed(15), snapshot = parsed(17), actionResult = parsed(19)
     const menu = snapshot.controls?.find(c => c.kind === 'menuitem' || c.kind === 'treeitem')
     const specs = [
@@ -84,6 +109,6 @@ class Fixture extends LlmAdapter {
   }
 }
 export function apply(ctx) {
-  ctx.llm.registerAdapter(['erp-fixture'], new Fixture(ctx.erp.system.scope))
-  ctx.on('approval/request', (request, next) => ['erp_approval_probe', 'erp_browser_resume', 'erp_browser_action'].includes(request.toolName) ? Promise.resolve('allowed-once') : next())
+  ctx.llm.registerAdapter(['erp-fixture'], new Fixture(ctx.erp.system.scope, ctx.erp.system.entryUrl, !!ctx.get('browserUse')))
+  ctx.on('approval/request', (request, next) => request.toolName.startsWith('mcp__playwright-mcp__') || ['erp_experience_import', 'erp_approval_probe', 'erp_browser_resume', 'erp_browser_action'].includes(request.toolName) ? Promise.resolve('allowed-once') : next())
 }
