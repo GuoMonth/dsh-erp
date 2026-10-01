@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { createHash } from 'node:crypto'
 import type { Scope } from '../storage/primitives.js'
 import { checkedId, scopeKey, canonicalScope, StorageError } from '../storage/primitives.js'
 import type { KnowledgeInput, KnowledgeRecord, KnowledgeView, KnowledgeWrite, Verification } from './contract.js'
@@ -107,8 +108,37 @@ export class KnowledgeStore {
       createdAt: previous?.createdAt ?? now, recordedAt: now }
   }
   commit(input: KnowledgeInput<'knowledgeCommit'>): KnowledgeRecord[] {
+    return this.write(input, 50)
+  }
+  import(input: KnowledgeInput<'knowledgeImport'>): KnowledgeRecord[] {
+    if (!/^[a-f0-9]{64}$/.test(input.bundleId)
+      || createHash('sha256').update(JSON.stringify(input.records)).digest('hex') !== input.bundleId) fail('EXPERIENCE_INTEGRITY_MISMATCH')
+    const ids = new Map(input.records.map(r => [r.id, `shared-${input.bundleId.slice(0, 16)}-${r.id}`]))
+    const remap = (ref: Ref): Ref => {
+      const id = ids.get(ref.id)
+      if (!id) fail('EXPERIENCE_REFERENCE_NOT_FOUND')
+      return { id, version: 1 }
+    }
+    const records: KnowledgeWrite[] = input.records.map(r => ({
+      ...r, id: ids.get(r.id)!, expectedVersion: 0, stage: 'interpreted', lifecycle: 'active',
+      flags: ['needs-review'], evidence: [], dependencies: r.dependencies.map(remap),
+      context: { ...(r.context?.pageType ? { pageType: r.context.pageType } : {}),
+        detail: `Imported shared experience ${input.bundleId}; reobserve this ERP. No transferred evidence, verification or operation authority.` },
+      ...(r.definition ? { definition: { ...r.definition, observedValues: [], completeness: 'unknown' } } : {}),
+      ...(r.from ? { from: remap(r.from) } : {}), ...(r.to ? { to: remap(r.to) } : {}),
+    }))
     const scope = scopeKey(input.scope)
-    if (!input.records.length || input.records.length > 50) fail('KNOWLEDGE_BATCH_LIMIT')
+    const existing = records.map(r => this.record(scope, r.id))
+    if (existing.some(Boolean)) {
+      if (!existing.every(Boolean)) fail('EXPERIENCE_IMPORT_CONFLICT')
+      // Reimport never replaces local edits or reuses another person's confirmations.
+      return existing as KnowledgeRecord[]
+    }
+    return this.write({ scope: input.scope, records, origin: 'ai' }, 2000)
+  }
+  private write(input: KnowledgeInput<'knowledgeCommit'>, maximum: number): KnowledgeRecord[] {
+    const scope = scopeKey(input.scope)
+    if (!input.records.length || input.records.length > maximum) fail('KNOWLEDGE_BATCH_LIMIT')
     if (new Set(input.records.map(r => r.id)).size !== input.records.length) fail('KNOWLEDGE_DUPLICATE_ID')
     return this.transaction(() => {
       const records = input.records.map(record => this.prepare(scope, structuredClone(record), input.origin, input.scope))

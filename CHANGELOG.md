@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.9 (source candidate)
+
+- Align with DSH 0.2.0-rc.2, Cordis 4.0.4 and Schemastery 3.18.4. Standard installation reuses native Browser Use or loads official Playwright MCP; Computer Use uses opt-in official Cua Driver Native.
+- Retain same-Agent fresh native snapshots as learning evidence; providers own tools, Session resources and attachments. Keep the controlled browser as an explicit managed option.
+- Export reusable experience as native Skill directories; import atomically into the recipient scope as needs-review, preserve local edits on identical reimport and exclude evidence, account metadata, samples and confirmations.
+- Source candidate only; no new npm publication or real desktop/ERP acceptance claim.
+
 ## 0.1.0-alpha.8
 
 - Bundle worker schema helpers and their licenses so isolated processes can start after DSH installs plugins with host-only peer resolution.

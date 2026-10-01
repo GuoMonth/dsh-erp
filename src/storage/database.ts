@@ -260,6 +260,7 @@ export class StoreDatabase {
         observations: Number(this.db.prepare('SELECT count(*) AS n FROM observations').get()!.n), tasks: Number(this.db.prepare('SELECT count(*) AS n FROM tasks').get()!.n),
         evidenceFiles: Number(this.db.prepare('SELECT count(*) AS n FROM evidence').get()!.n) }; break
       case 'knowledgeCommit': output = this.knowledge.commit(input as Input<'knowledgeCommit'>); break
+      case 'knowledgeImport': output = this.knowledge.import(input as Input<'knowledgeImport'>); break
       case 'knowledgeGet': output = this.knowledge.get(input as Input<'knowledgeGet'>); break
       case 'knowledgeSearch': output = this.knowledge.search(input as Input<'knowledgeSearch'>); break
       case 'knowledgeNeighbors': output = this.knowledge.neighbors(input as Input<'knowledgeNeighbors'>); break

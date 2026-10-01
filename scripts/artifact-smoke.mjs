@@ -11,14 +11,16 @@ const scratch = mkdtempSync(join(tmpdir(), 'dsh-erp-artifact-'))
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 function run(command, args, options = {}) {
   try { return execFileSync(command, args, { encoding: 'utf8', timeout: 180_000, ...options }) }
-  catch (error) { throw new Error(`Artifact command failed: ${command} ${args.join(' ')}\n${error.stdout ?? ''}\n${error.stderr ?? ''}`) }
+  catch (error) { throw new Error(`Artifact command failed: ${command} ${args.join(' ')}\n${error.message}\n${error.stdout ?? ''}\n${error.stderr ?? ''}`) }
 }
 let siteProcess
+let nativeBrowser
 try {
   const packed = JSON.parse(run(npm, ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], { cwd: root }))[0]
   const names = packed.files.map(f => f.path)
   assert.ok(!names.some(n => /^(dist\/scm|docs\/(testing|assessments)|tests|artifacts)\//.test(n) || /(?:^|\/)(?:store\.sqlite|browser-profiles|evidence|exports)(?:[/.]|$)/.test(n)), 'Do not publish site adapters, benchmark data or user knowledge')
   assert.ok(names.includes('dist/browser/snapshot.js'))
+  for (const file of ['dist/native.js', 'dist/native-learning.js', 'dist/knowledge/sharing.js', 'docs/native-and-sharing.md']) assert.ok(names.includes(file), file)
   assert.ok(names.includes('dist/schema-runtime.js'), 'Ship worker schema helpers without host peer resolution')
   assert.ok(names.includes('dist/schema-runtime.LICENSE.txt'), 'Ship bundled dependency licenses')
   assert.ok(names.includes('docs/adaptive-learning.md'))
@@ -31,7 +33,7 @@ try {
   const consumer = join(scratch, 'consumer'); mkdirSync(consumer)
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
   run(npm, ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(scratch, packed.filename),
-    '@deepseek-ai/dsh-system-prompt@0.1.6-alpha.2', '@deepseek-ai/dsh-user-approval@0.1.6-alpha.2'], { cwd: consumer })
+    '@deepseek-ai/dsh-system-prompt@0.2.0-rc.2', '@deepseek-ai/dsh-user-approval@0.2.0-rc.2'], { cwd: consumer })
   cpSync(join(root, 'tests/harness.mjs'), join(consumer, 'harness.mjs'))
   writeFileSync(join(consumer, 'run.mjs'), "import * as plugin from '@guosheng_047/dsh-erp'; import {exercise} from './harness.mjs'; console.log(JSON.stringify(await exercise(plugin)));\n")
   console.log('Installed tarball:', run(process.execPath, [join(consumer, 'run.mjs')], { cwd: consumer }).trim())
@@ -54,13 +56,26 @@ try {
   // Exercise the persistent user configuration path documented in README, without a system --patch overlay.
   const userPatch = join(home, 'profiles/headless/cordis.patch.yml')
   const previousPatch = readFileSync(userPatch, 'utf8')
-  writeFileSync(userPatch, (previousPatch.replace(/^\s*\[\]\s*$/m, '') + '\n') + `- id: erp\n  config:\n    system:\n      url: ${siteUrl}\n      account: reader\n    browserHeadless: true\n    browserSandbox: false\n    browserResourcesDir: ${JSON.stringify(dirname(dirname(dirname(chromium.executablePath()))))}\n`)
+  writeFileSync(userPatch, (previousPatch.replace(/^\s*\[\]\s*$/m, '') + '\n') + `- id: erp\n  config:\n    system:\n      url: ${siteUrl}\n      account: reader\n    browserMode: managed\n    browserHeadless: true\n    browserSandbox: false\n    browserResourcesDir: ${JSON.stringify(dirname(dirname(dirname(chromium.executablePath()))))}\n`)
   const output = run(process.execPath, [cli, '--profile', 'headless', '--patch', patch, 'Verify ERP plugin diagnostics'], { cwd: consumer, env })
   const match = output.match(/ERP_HOST_SMOKE_OK worker=(\d+)/)
   assert.ok(match, output)
   assert.throws(() => process.kill(Number(match[1]), 0), { code: 'ESRCH' })
-  console.log(`Real dsh 0.1.6-alpha.2 CLI: plugin install, agent loop, IPC, model service, approval, SQLite, knowledge record/query, blank and connected Chromium sessions, generic UI learning and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider, browser sandbox disabled only for container fixture).`)
+  const profile = join(scratch, 'native-browser')
+  nativeBrowser = await chromium.launchPersistentContext(profile, { executablePath: chromium.executablePath(), headless: true,
+    args: ['--no-sandbox', '--remote-debugging-port=0'] })
+  const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]
+  const nativePatch = readFileSync(userPatch, 'utf8').replace('browserMode: managed', `browserMode: native\n    browserEndpoint: "http://127.0.0.1:${port}"`)
+  writeFileSync(userPatch, nativePatch)
+  const nativeOutput = run(process.execPath, [cli, '--profile', 'headless', '--patch', patch, 'Verify native ERP sharing'], { cwd: consumer, env })
+  const nativeMatch = nativeOutput.match(/ERP_NATIVE_SMOKE_OK worker=(\d+)/)
+  assert.ok(nativeMatch, nativeOutput)
+  assert.throws(() => process.kill(Number(nativeMatch[1]), 0), { code: 'ESRCH' })
+  assert.ok(nativeBrowser.browser().isConnected(), 'native Session cleanup must preserve host-owned browser')
+  console.log('Packed native entry: official Browser Use, fresh evidence, experience export/import, native Skill discovery and Session cleanup passed.')
+  console.log(`Real dsh 0.2.0-rc.2 CLI: plugin install, agent loop, IPC, model service, approval, SQLite, knowledge record/query, blank and connected Chromium sessions, generic UI learning and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider, browser sandbox disabled only for container fixture).`)
 } finally {
+  await nativeBrowser?.close()
   if (siteProcess && siteProcess.exitCode === null) { siteProcess.kill('SIGTERM'); await once(siteProcess, 'exit') }
   if (process.env.ERP_KEEP_SMOKE === '1') console.log('Smoke artifacts:', scratch)
   else rmSync(scratch, { recursive: true, force: true })
