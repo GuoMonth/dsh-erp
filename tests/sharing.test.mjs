@@ -95,6 +95,16 @@ test('sharing omits stale relationships instead of rebinding them to a changed c
   assert.ok(all.items.every(item => item.record.kind !== 'relation'))
   await assert.rejects(f.import.import('relative.json', receiver, new AbortController().signal), { code: 'EXPERIENCE_ABSOLUTE_PATH_REQUIRED' })
 })
+test('partially existing imported IDs reject the whole bundle and preserve local knowledge', async t => {
+  const f = await fixture(t)
+  await f.first.call('knowledgeCommit', { scope: sender, origin: 'ai', records: [node('first'), node('second')] })
+  const exported = await f.export.export(sender, new AbortController().signal)
+  const reserved = `shared-${exported.bundleId.slice(0, 16)}-item-0001`
+  await f.second.call('knowledgeCommit', { scope: receiver, origin: 'user', records: [node(reserved, 'menu', { description: 'Keep this local claim.' })] })
+  await assert.rejects(f.import.import(exported.importFile, receiver, new AbortController().signal), { code: 'EXPERIENCE_IMPORT_CONFLICT' })
+  const all = await f.second.call('knowledgeSearch', { scope: receiver, query: '', after: '', limit: 50 })
+  assert.equal(all.items.length, 1); assert.equal(all.items[0].record.description, 'Keep this local claim.')
+})
 test('large imports commit once and cyclic or private bundles fail without partial local writes', async t => {
   const f = await fixture(t)
   for (let start = 0; start < 75; start += 25) await f.first.call('knowledgeCommit', { scope: sender, origin: 'ai', records: Array.from({ length: 25 }, (_, i) => node(`menu-${i + start}`)) })
