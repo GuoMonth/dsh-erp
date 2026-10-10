@@ -6,6 +6,8 @@ ERP `0.1.0` 对齐 [DSH 0.2.0-rc.2](https://github.com/deepseek-ai/deepseek-harn
 
 标准插件入口为 `@guosheng_047/dsh-erp/native`，继续使用 DSH 的工具、Agent、Session、审批、附件和 Skill 服务。已有 Browser Use 提供方时直接复用；没有时加载官方 Playwright MCP，不额外实现浏览器操作协议。Deskwork 使用自己的 Electron 页面和任务确认，由宿主注册 `deskwork` 提供方；不会另开一套浏览器。
 
+Deskwork 模式从宿主通用 `DESKWORK_SITE_CONTEXT` 读取网站身份、名称和 URL，由 ERP 插件生成 `system` 配置；知识存储默认位于 `DESKWORK_DATA_DIRECTORY/plugins/erp`。显式 `system` 和 `dataDir` 优先。安装探测没有网站上下文时不生成业务配置；脱离 Deskwork 的 DSH 模式继续使用原配置。宿主不需要识别 ERP 包名或注入业务字段。
+
 独立 DSH 配置：
 
 ```yaml

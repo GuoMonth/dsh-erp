@@ -8,6 +8,8 @@ The plugin starts without site-specific knowledge. It does not require a particu
 
 **Preview interaction policy:** native browser and desktop calls request individual DSH approval. Deskwork follows its task-owned page confirmation policy. Log in manually, build local knowledge on demand, and reobserve after operations. Shared experience never transfers operation authority.
 
+In Deskwork, the native plugin reads the host's generic website context and owns its ERP configuration and local storage. Explicit `system` and `dataDir` settings take precedence. It reuses the host browser provider; standalone DSH configuration is unchanged. See [native integration](docs/native-and-sharing.md).
+
 Version **0.1.0** targets **DSH `0.2.0-rc.2` (prerelease)**. Standard installation now uses native DSH Browser Use and supports opt-in Computer Use, with reusable experience exported as native Skills. Install the recommended release through npm `latest`; the upstream DSH runtime remains a prerelease.
 
 ## Install

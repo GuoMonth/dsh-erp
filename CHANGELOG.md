@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 — pending publication
+
+- Read Deskwork's generic website context and own the derived ERP configuration and storage. Explicit settings win; standalone DSH retains its configured behavior.
+- Wait for the host browser services before starting the Deskwork native entry, so the plugin reuses the existing task browser instead of launching another provider.
+- Validate the context boundary and test the packed consumer jointly with DSH Deskwork against DSH 0.2.0-rc.2.
+
 ## 0.1.0 — 2026-10-01
 
 - Align with DSH 0.2.0-rc.2, Cordis 4.0.4 and Schemastery 3.18.4. Standard installation reuses native Browser Use or loads official Playwright MCP; Computer Use uses opt-in official Cua Driver Native.

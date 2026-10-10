@@ -1,6 +1,6 @@
 {
   "name": "@guosheng_047/dsh-erp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Adapt ERP: learn your ERP through the browser and build private local knowledge in DeepSeek Harness",
   "type": "module",
   "license": "MIT",
@@ -92,6 +92,7 @@
     "@deepseek-ai/dsh-tool-skill": "0.2.0-rc.2"
   },
   "dependencies": {
+    "zod": "4.5.4",
     "playwright": "1.63.0",
     "@deepseek-ai/dsh-browser-use": "0.2.0-rc.2",
     "@deepseek-ai/dsh-experimental-browser-use-playwright-mcp": "0.2.0-rc.2"
