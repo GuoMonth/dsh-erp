@@ -10,7 +10,7 @@ The plugin starts without site-specific knowledge. It does not require a particu
 
 In Deskwork, the native plugin reads the host's generic website context and owns its ERP configuration and local storage. Explicit `system` and `dataDir` settings take precedence. It reuses the host browser provider; standalone DSH configuration is unchanged. See [native integration](docs/native-and-sharing.md).
 
-Version **0.1.0** targets **DSH `0.2.0-rc.2` (prerelease)**. Standard installation now uses native DSH Browser Use and supports opt-in Computer Use, with reusable experience exported as native Skills. Install the recommended release through npm `latest`; the upstream DSH runtime remains a prerelease.
+Version **0.1.1** targets **DSH `0.2.0-rc.2` (prerelease)**. Standard installation uses native DSH Browser Use and supports opt-in Computer Use, with reusable experience exported as native Skills. In Deskwork, the plugin uses the current website context and existing task browser; explicit plugin settings take precedence. Install the recommended release through npm `latest`; the upstream DSH runtime remains a prerelease.
 
 ## Install
 
@@ -33,7 +33,7 @@ With only Node installed:
 npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
-The npm `latest` tag points to the recommended project release. Use `@guosheng_047/dsh-erp@0.1.0` when you need reproducible installation. Upgrade the host and plugin together.
+The npm `latest` tag points to the recommended project release. Use `@guosheng_047/dsh-erp@0.1.1` when you need reproducible installation. Upgrade the host and plugin together.
 
 Use the full scoped name; the unscoped npm package `dsh-erp` is another project. Adapt ERP is the product name; the package name stays unchanged. Source documentation can precede publication: for PR testing, build a TGZ and replace the package spec with its absolute path. Use the npm command once the version appears in Releases.
 

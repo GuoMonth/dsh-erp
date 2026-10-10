@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 — pending publication
+## 0.1.1 — 2026-10-10
 
 - Read Deskwork's generic website context and own the derived ERP configuration and storage. Explicit settings win; standalone DSH retains its configured behavior.
 - Wait for the host browser services before starting the Deskwork native entry, so the plugin reuses the existing task browser instead of launching another provider.

@@ -1,6 +1,6 @@
 # DSH 原生操作与经验分享
 
-ERP `0.1.0` 对齐 [DSH 0.2.0-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.0-rc.2)。上游 DSH 仍为预发布版本。默认使用 `@guosheng_047/dsh-erp@latest` 执行 DSH 标准插件安装；需要固定制品时使用 `@0.1.0`。
+ERP `0.1.1` 对齐 [DSH 0.2.0-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.0-rc.2)。上游 DSH 仍为预发布版本。默认使用 `@guosheng_047/dsh-erp@latest` 执行 DSH 标准插件安装；需要固定制品时使用 `@0.1.1`。在 Deskwork 中复用当前网站上下文及任务浏览器，显式插件配置优先。
 
 ## 原生操作
 
