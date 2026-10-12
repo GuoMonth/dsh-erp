@@ -1,65 +1,31 @@
-# npm 与 GitHub Release 发布
+# 发布到 npm 与 GitHub
 
-包名为 `@guosheng_047/dsh-erp`。首个 npm 版本 `0.1.0-alpha.3` 已于 2026-09-13 发布，公开访问，带 `alpha` 标签及 provenance。[发布记录](https://github.com/GuoMonth/dsh-erp/actions/runs/34751683419)。首次发布时 npm 还自动建立了指向同版本的 latest；本版本仍为预览版，安装示例使用精确版本。无 scope 的 npm 包 `dsh-erp` 不属于本仓库。
+[English](npm-publishing.en.md) · [指南目录](index.zh-CN.md)
 
-## 日常发布
+包名为 `@guosheng_047/dsh-erp`。所有版本发布到 npm `latest`；Alpha/Beta/RC 在 GitHub 保留预发布标记。无 scope 的 `dsh-erp` 属于其他项目。
 
-使用 [Release npm package](https://github.com/GuoMonth/dsh-erp/actions/workflows/release.yml)。工作流仅 `workflow_dispatch` 手动触发，且只从 `main` 发布；没有 push、PR、tag 自动触发，也不在 Action 中重复运行完整测试或下载 Chromium。
+## 发布
 
-1. 在本地完成 [交付检查](development.md#本地交付检查)，记录对应提交的命令和结果。更新 package.json、package-lock.json、CHANGELOG 和安装示例，将变更合并到 main。
-2. 打开 Actions → Release npm package → Run workflow，选择 main，填写与 package.json 完全一致的 `version`。
-3. 首次可保留 `dry_run=true`：只安装构建依赖、编译、打包，检查名称/版本、已有 tag/registry 产物；不向 npm 或 GitHub 发布。
-4. 正式执行时取消 dry_run，日常认证 `auth=trusted`。工作流发布同一个预编译 TGZ 到 npm，下载 registry TGZ 比对 SHA512，再建立 GitHub tag 和 Release，附 TGZ 与 SHA256SUMS。
+1. 完成[本地检查](development.md#检查)，更新版本、锁文件、更新记录和两种语言的用户指南，将评审后的变更合并到 `main`。
+2. 在 `main` 运行 [Release npm package](https://github.com/GuoMonth/dsh-erp/actions/workflows/release.yml)，填写精确版本。`dry_run=true` 用于检查构建与打包。
+3. 正式发布设置 `dry_run=false`、`auth=trusted`。工作流发布带 provenance 的同一 TGZ，核验 registry 字节，再创建 tag 和附带 TGZ、校验值的 GitHub Release。
+4. 核对 Release 与 npm 标签，记录源码提交和验证结果。
 
-所有后续版本统一使用 `publishConfig.tag=latest`，包括 `x.y.z-alpha.N`、`beta.N`、`rc.N` 和正式版本。`latest` 表示本项目推荐的最新发布，不代表稳定版；GitHub Release 仍按版本号保留 prerelease 标记。Action 在 `npm publish --tag latest` 时直接更新默认安装版本，继续使用 Trusted Publishing，无须增加 Token 或执行独立的 `npm dist-tag add`。发布参数来自受检查的 package.json，不执行输入框内的脚本。
+Action 仅手动触发，负责构建和产物检查；行为由本地测试验证。发布包排除测试夹具、验收答案、数据库、观察和登录资料。
 
-发布前检查新版本不低于 registry 当前 `latest`，防止旧版本发布或重跑导致默认安装版本倒退。版本顺序按数字及 alpha → beta → rc → 正式版比较。发布后必须确认 `latest` 指向本次版本，并核验 TGZ 字节。历史 `alpha` 等标签不再自动更新，默认安装使用包名或 `@latest`；需要可复现安装时仍固定精确版本。
+## 重试
 
-迁移边界：合并此策略不会修改已发布的 alpha.6 或当前 registry 标签。下一次发布必须升级为未发布的新版本（例如 alpha.7），同步锁文件、CHANGELOG 和用户指南；不能把修改后的 alpha.6 重复发布。若必须将已发布的 alpha.6 设为 latest，维护者需要通过已登录 npm 的 `npm dist-tag add @guosheng_047/dsh-erp@0.1.0-alpha.6 latest` 单独调整。[npm 标签说明](https://docs.npmjs.com/adding-dist-tags-to-packages/)；[Trusted Publishing 独立标签操作跟踪](https://github.com/npm/cli/issues/8547)。
+工作流拒绝 `latest` 倒退、同版本不同字节、源码 tag 或附件冲突。部分成功后从原提交、原产物重试，不以同版本发布修改后的内容。registry 传播最多等待约 2.5 分钟，不重复发布。
 
-同版本重复运行只接受相同 TGZ 且 dist-tag 仍指向该版本；遇到不同内容、其他提交的 Git tag 或冲突附件时失败，不覆盖版本或附件。registry 传播可能延迟；后置校验最多轮询约 2 分半，并请求重新验证缓存，不重试发布操作。npm 成功而 GitHub 发布中断时，可在同一提交重跑补齐附件。此时不要为了改文档再把同一版本从新提交发布；后续变更应升级版本。
+## Trusted Publisher
 
-发布 Action 的编译和字节校验不代替本地业务验收；未配置 npm 授权时预演仍能运行，预演成功不代表 npm 发布权限已经验证。
+当前包使用 GitHub OIDC，npm 绑定如下：
 
-## 首次发布：一次性 Token
-
-npm Trusted Publisher 要绑定已存在的包；本包已完成首次创建；以下保留首次配置步骤，第一次选择 `auth=bootstrap-token`。工作流会拒绝用该模式给已经存在的包发布新版本，之后必须改用 trusted。
-
-1. 用 `guosheng_047` 登录 npm，创建 Granular Access Token。Packages and scopes 选择 `Read and write (publish and stage)`，范围限定 `@guosheng_047` scope；新包不存在时选择 scope 权限。勾选 `Bypass two-factor authentication`，Organizations 为 No access，有效期建议 1 天。[npm 权限说明](https://docs.npmjs.com/creating-and-viewing-access-tokens/)
-2. 在本仓库 Settings → Environments → **npm-release** → Environment secrets 中添加 **NPM_TOKEN**，值为这个 Token。不需要在开发机配置环境变量，不需要把 Token 发给维护代理。
-3. 手动运行 Release Action，version 填 `0.1.0-alpha.3`，dry_run 取消，auth 选择 bootstrap-token。
-4. 首次成功后，按下一节配置 npm Trusted Publisher，然后撤销临时 Token 并删除 GitHub 中的 NPM_TOKEN Secret。
-
-Token 只注入首次发布步骤，npmrc 使用环境变量占位符并在该步骤退出时清理；构建、依赖安装及日常 OIDC 发布不接收 NPM_TOKEN。
-
-## 后续发布：Trusted Publishing
-
-在 npm 的 `@guosheng_047/dsh-erp` 包 Settings → Trusted Publisher 中选择 GitHub Actions：
-
-| 配置项 | 值 |
+| 设置 | 值 |
 | --- | --- |
 | Organization or user | GuoMonth |
 | Repository | dsh-erp |
-| Workflow filename | release.yml |
-| Environment name | npm-release |
-| Allowed actions | 允许直接 npm publish |
+| Workflow | release.yml |
+| Environment | npm-release |
 
-这是包级授权，不能复用另一个仓库的绑定。配置后选 auth=trusted，使用 GitHub OIDC 短期身份及 npm provenance，不需要长期 npm Token。[npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)
-
-工作流使用固定 Node 24 基线和 npm 11.16.0。GitHub Actions 的 contents:write 用于创建版本 tag/Release，id-token:write 用于 OIDC；npm-release Environment 将首次 Secret 与发布任务关联。
-
-## 首次发布实测记录
-
-2026-09-13：首次 Token 未满足双因素认证要求，npm 返回 EOTP；用户更新 Token 后发布成功。registry 传播超过原 15 秒等待窗口，后置校验曾失败；原提交重跑后识别已有相同产物、跳过发布，并成功创建 GitHub Release。最终运行是上述发布记录的 attempt 3。后续等待窗口已扩展为约 2 分半。
-
-发布提交为 `096416a6dc25e91edc6ff5443910c77dee9b6ff2`，TGZ SHA256 为 `f5aa9be3e6e50b3c0eb9e3c81a4721b9aa60132871777d697a192fb4b61f5576`。npm registry 与 GitHub TGZ 内容一致。Linux x64 / Node 24.18.0 下，从 registry 下载的独立消费者验证及真实 DSH rc2 按包名安装、固定模型运行、SQLite/知识/浏览器诊断、退出清理和卸载均通过；未重复执行真实模型/ERP 在线验收。后续文档与等待策略变更不改写已发布安装包。
-
-## alpha.5 发布文档与升级检查
-
-alpha.4 已完成 Trusted Publishing 实发，记录见[安装验收](assessments/2026-09-13-installation.md)。alpha.5 的 PR 不自动触发发布；合并后再手动运行现有 Action，不增加 CI。
-
-发布前核对 README、中文指南和 CHANGELOG 的版本与 package.json 一致，安装包只保留一个英文根 README，包含 system-configuration.md。两份用户指南必须说明配置文件位置、完整入口与 Base URL、人工登录、已保存知识与实时数据区别，以及旧知识不自动迁移。安装 alpha.4 不会获得这些新行为；PR 验证使用预编译 TGZ。发布后按精确 alpha.5 从 npm 安装并核验版本、配置状态和本地目录，再记录 registry/GitHub 字节与用户流程结果。不要把源码测试记作发布包或真实扫码验收。
-
-## alpha.6 发布契约
-
-品牌为 Adapt ERP，npm 包名保持不变。运行包使用通用浏览器学习，不再发布固定 SCM 适配器。files 白名单只保留用户指南，测试 fixture/基准答案和用户知识禁止进入 TGZ；build 清空 dist。发布说明须明确逐次交互确认、私有知识、alpha.5 知识兼容以及尚未完成真实模型/未知 ERP 全面验收。历史发布记录仅为对应版本证据，不能替代本版验收。
+Action 的 `contents: write` 用于 tag/Release，`id-token: write` 用于 OIDC，无需长期 npm Token。`bootstrap-token` 仅保留用于创建新包，对当前已存在的包会被拒绝。详见 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)。

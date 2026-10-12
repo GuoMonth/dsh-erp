@@ -1,8 +1,8 @@
 # 浏览器会话与被动观察
 
-本页说明通用人工会话与被动观察。alpha.6 普通用户使用[通用学习入口](adaptive-learning.md)，通过 erp_connect 打开入口，确认后使用包含表格/字段的快照和逐次确认的交互；本页描述保留的窄范围被动标签工具。新增的独立实验入口见 [受控只读导航](controlled-read-navigation.md)，默认未配置，不改变本页人工窗口的操作边界。
+本页说明 `browserMode: managed` 下的窄范围被动观察。一般使用见[通用学习入口](adaptive-learning.md)，通过 erp_connect 打开入口，确认后使用包含表格/字段的快照和逐次确认的交互；本页描述保留的窄范围被动标签工具。新增的独立实验入口见 [受控只读导航](controlled-read-navigation.md)，默认未配置，不改变本页人工窗口的操作边界。
 
-本增量推进 #5/#7 的基础接口，并接通“页面观察 → SQLite 证据 → 重启读取”。目标仍为 Node 24.18.0 / dsh 0.1.5 rc2；浏览器基础锁定 Playwright `1.63.0` 和其 Chromium revision `1243`（153.0.8010.12）。通用自动页面探索尚未开放；本次按 Read only 交付，原真实写入计划延期。
+此接口读取可见标签并保存证据，不执行页面动作。交互使用[受控浏览器](adaptive-learning.md)，标准安装使用[原生模式](native-and-sharing.md)。
 
 ## 当前使用流程
 

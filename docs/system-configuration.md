@@ -1,78 +1,35 @@
-# 系统档案、登录与知识复用
+# 配置 ERP
 
-适用版本：0.1.0-alpha.9。原生操作与跨用户分享见[专项指南](native-and-sharing.md)；下文的 connect/resume 和浏览器资料说明仅适用于显式 `browserMode: managed`。源码文档可能先于发布；发布前通过本地 TGZ 验证。用户入口以 [English README](../README.md) 和[简体中文指南](README.zh-CN.md)为准。
+[English](system-configuration.en.md) · [指南目录](index.zh-CN.md)
 
-## 用户流程和职责
+配置写在当前 DSH profile 的 `cordis.patch.yml` 中。文件位置与安装见[快速开始](README.zh-CN.md#配置-erp)。修改后重启 DSH。
 
-安装 → 用户配置 ERP 入口 → 插件打开专用浏览器 → 用户登录 → 用户核对身份并确认观察 → 建立菜单框架、关联业务域并保存知识。
-
-配置写在实际 DSH profile 的 `cordis.patch.yml`，例如默认 `~/.dsh/profiles/web/cordis.patch.yml`；设置 `DSH_HOME` 时使用该目录下的 `profiles/web/cordis.patch.yml`。默认文件含注释和 `[]` 时，用配置块替换 `[]`，不能在其后直接追加。合并已有 `id: erp` 的 config，保留其他插件配置。配置变更后退出并重启 DSH。
+## 网站与身份
 
 ```yaml
 - id: erp
   config:
     system:
-      url: "https://erp.example.com/app/#/login"
-      name: "我的供应链"
-      account: "工作账号"
-      tenant: "公司甲"
-      role: "采购"
+      url: "https://erp.example.com/app/login"
+      baseUrl: "https://erp.example.com/app/"
+      name: "My ERP"
+      account: "work-account"
+      tenant: "company-a"
+      role: "purchasing"
 ```
 
-仅 `url` 必填；名称默认域名，account 默认 `default`。account/tenant/role 是用户确认的本地身份标签，不是账号密码，也不能用其证明 ERP 权限。切换业务身份前修改配置；不要让两个真实账号复用同一个默认身份标签。插件不自动识别企业或角色，没有新的设置页面、账号管理器或扫码组件。
+只有 `url` 必填。入口路径不以 `/` 结尾时，还需填写 `baseUrl`。Base URL 必须以 `/` 结尾，并在同源路径范围内包含入口。路径与 hash 路由原样保留；拒绝内嵌账号密码和查询参数，包括 hash 中的查询参数。使用 SSO 时填写长期入口，在浏览器中完成登录。
 
-`url` 为原样打开的入口，支持路径与 hash。默认仅在路径以 `/` 结尾时去除 hash 推导应用 Base URL。对于 `/app/login` 等入口，用户需另填 `baseUrl: "https://erp.example.com/app/"`。Base URL 不能带 hash/查询参数，必须以 `/` 结尾；入口须位于同源及该路径范围。入口也不接受查询参数、hash 中的查询参数、内嵌账号密码或非 HTTP(S) 协议。需要 SSO 时配置长期入口，在浏览器中完成跳转；多标签登录结束后只保留一个应用内页面。跨域 SSO、扫码和复杂窗口流程尚未专门验收。
+名称默认域名，账号默认 `default`。账号、公司和角色标签用于隔离本地知识。不同身份使用不同标签，并与实际登录身份核对。`erp_system_status` 返回知识和学习工具需要的精确 scope。
 
-## 对话与授权
+每个插件实例配置一个 ERP。规范化 Base URL 对应一个持久 ID。改名保留 ID；更换域名或应用路径会选择另一系统，改回原 Base URL 可找回原 ID。
 
-每次 ERP 任务先调用 `erp_system_status`：返回名称、固定 ID、配置范围、实际目录和后续指引。存储、知识和学习工具继续使用精确 scope 契约，由模型复制状态返回的 scope；运行时拒绝与配置不符的范围，不允许模型自由选择账号或 URL。
+## Deskwork
 
-工具序列：`erp_system_status → erp_connect → 用户登录 → erp_browser_status → erp_browser_resume → erp_browser_snapshot`。connect 不接收参数，只打开当前配置的入口，不拼接 `/#/login`。状态与授权仍分开：打开窗口只返回 manual；缺少密码框不证明登录身份正确；插件不再读取任何厂商固定令牌。确认身份后允许有时限的可见页面观察，每次页面交互由 erp_browser_action 单独请求确认。
+插件从 `DESKWORK_SITE_CONTEXT` 读取网站身份、名称和 URL，默认数据目录为 `DESKWORK_DATA_DIRECTORY/plugins/erp`。显式填写的 `system`、`dataDir` 覆盖这些默认值。独立使用 DSH 时按上面的 profile 配置。
 
-新对话自动使用同一份用户配置，不需要重新提供地址。保存的菜单认知、业务解释、证据和显式探索检查点可在不打开浏览器时查询。开始或续接已有学习任务仍由 DSH 工具调用驱动，安装/登录本身不会自动执行完整四层探索。
+## 浏览器选项
 
-历史库存或订单结果是有观察时间的样本，不是实时事实；回答应说明依据的观察时间。实时业务查询需要当前登录及重新确认的读取许可。浏览器资料可能保留部分登录态，但 sessionStorage、登录和权限有效期均不能保证跨重启；读取许可不落盘复用。多人/多对话共用一个实例时共用同一个配置和浏览器，正在执行的浏览器任务返回 busy，尚无每对话独立浏览器。
+默认[原生模式](native-and-sharing.md)复用宿主浏览器提供方，或加载官方 Playwright MCP。`browserExecutablePath` 指定已安装的 Chromium；`browserEndpoint` 连接已有浏览器；`computerUse: true` 启用官方 Cua Driver Native。
 
-## 持久化模型
-
-```text
-<data root>/
-  store.sqlite                 # 如存在，是升级前的旧知识库，保持原位
-  systems/
-    by-url/<base hash>.json     # Base URL → 固定系统 ID
-    erp_<UUID>/
-      system.json              # 非凭据元数据；DSH patch 是当前配置来源
-      store.sqlite             # 知识、关系、历史、观察索引、任务
-      evidence/
-      exports/
-      backups/
-      browser-profiles/<scope hash>/
-      browser-resources/       # 未配置共享资源目录时
-```
-
-数据根目录解析见[存储说明](storage.md)。系统 ID 随首次登记生成并保存，不是名称或 URL 本身。URL 索引与 ID 分离，为未来显式迁移/别名留入口。相同规范化 Base URL（含应用路径）的不同登录 hash 共用档案；名称修改不改变 ID。不同应用路径、协议、端口或域名默认是不同系统。改回原 Base URL 找回原 ID。不要手改索引或复制浏览器登录资料。
-
-知识按系统目录隔离，系统内继续按固定站点 ID、账号、可选企业和角色隔离。跨身份经验复用使用 erp_experience_export/import，重新绑定接收者 scope 并标记待核验，不复制证据或确认。SQLite 是权威数据，Markdown/JSON 导出是当前视图，不能直接编辑后自动回写。浏览器凭据资料不进入知识导出或数据库备份。
-
-保持相同数据根目录和完整配置即可跨对话、重启使用。当前 SQLite 采用单所有者排他锁，一个存储不能被多个独立 DSH 进程同时打开。备份工具备份当前系统的 SQLite 和证据；迁移电脑时另外保留 DSH 配置和系统 ID 索引，不要只复制活动 SQLite 文件。完整恢复采用原有验证备份接口，恢复目标不允许覆盖。
-
-## 升级和旧知识
-
-1. 使用原版本/原配置执行 `erp_storage_backup`，保留备份和原 scope；退出 DSH。
-2. 安装 alpha.5 并配置 system 后，新数据写入系统目录。原根目录数据不移动、不重归属，`erp_system_status.legacyDataPresent` 提示其存在。
-3. 如需访问旧知识，退出 DSH，暂时移除 system 配置，再启动；使用原 scope 查询、导出或备份旧库。该模式禁止连接浏览器。
-4. 恢复 system 配置并重启，回到新系统知识库。
-
-自动旧库导入暂缓：旧库可能含多个站点、企业和角色，不能凭当前 URL 推断归属。今后的导入必须显式选择源 scope、目标系统与身份，先备份，再校验证据/版本关系及迁移后的可读性。当前没有自动合并工具，不承诺新旧知识自动连续。
-
-## 多 ERP 扩展约定
-
-本版每实例只有一个配置系统，不实现自动选库。后续系统列表复用固定 ID、名称、别名、应用范围和身份范围，不改变知识节点模型。优先级为：用户明确指定名称/别名 → 当前对话绑定 → 唯一系统；多个候选不能确定时询问一次。系统选择必须绑定在对话上下文，不能使用一个会被其他对话覆盖的全局变量。
-
-AI 可根据名称和业务描述推荐候选，普通“库存/采购”关键词不足以授权切换；运行时工具调用必须解析为明确系统 ID 和身份范围。跨系统比较分别读取并标注来源，不合并证据或授权。域名迁移、多个 URL 指向同一 ERP、旧数据导入和身份共享均需要显式流程。
-
-## 通用运行路径与升级
-
-alpha.6 采用 browser-learning-v1，通过页面快照和逐次确认的交互进行学习，不依赖固定 API 或登录令牌。详见[通用学习](adaptive-learning.md)。从 alpha.5 升级保留系统 ID 和知识目录，只更新系统描述中的 adapter 字段；不会自动把历史 SCM 结论变成当前 UI 已验证方法。旧 erp_scm_* 与 SCM 菜单导入工具移除，历史记录仍可查询，使用前需重新观察页面。
-
-知识默认只保存在用户本机。测试站点、测试答案和用户知识不进入 npm 安装包；学习工具、通用数据结构和用户指南随代码发布。多 ERP 路由仍按上一节规划，尚未实现。
+使用独立的[受控浏览器](adaptive-learning.md)时设置 `browserMode: managed`。它的工具和元素引用与原生模式不同。本地存储、迁移和备份见[存储指南](storage.md)。

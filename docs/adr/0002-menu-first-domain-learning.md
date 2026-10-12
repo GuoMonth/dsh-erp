@@ -2,7 +2,7 @@
 
 日期：2026-09-11。状态：已接受。
 
-本决策补充 [ADR 0001](0001-local-first-ai-erp.md) 的学习策略，不改变 Node 24、SQLite、本机浏览器和 dsh 原生代理的技术基线。执行范围见 [第一版规划](../v1-plan.md)，模型和状态的权威定义见 [学习模型](../learning-model.md)。
+本决策补充 [ADR 0001](0001-local-first-ai-erp.md) 的学习策略，不改变 Node 24、SQLite、本机浏览器和 dsh 原生代理的技术基线。当前知识契约见[知识指南](../knowledge.md)。
 
 ## 背景
 
