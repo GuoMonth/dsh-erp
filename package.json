@@ -49,7 +49,12 @@
     "docs/adaptive-learning.md",
     "docs/storage.md",
     "docs/knowledge.md",
-    "docs/native-and-sharing.md"
+    "docs/native-and-sharing.md",
+    "docs/system-configuration.en.md",
+    "docs/adaptive-learning.en.md",
+    "docs/storage.en.md",
+    "docs/knowledge.en.md",
+    "docs/native-and-sharing.en.md"
   ],
   "engines": {
     "node": ">=24.18.0 <25"
@@ -61,11 +66,12 @@
     }
   },
   "scripts": {
+    "docs:check": "node scripts/check-docs.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "smoke": "npm run build && node scripts/artifact-smoke.mjs",
-    "verify": "npm run typecheck && npm test && npm run smoke",
+    "verify": "npm run docs:check && npm run typecheck && npm test && npm run smoke",
     "prepack": "npm run build"
   },
   "peerDependencies": {

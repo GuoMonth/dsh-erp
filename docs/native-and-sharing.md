@@ -1,69 +1,38 @@
-# DSH 原生操作与经验分享
+# 原生操作与经验分享
 
-ERP `0.1.1` 对齐 [DSH 0.2.0-rc.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.0-rc.2)。上游 DSH 仍为预发布版本。默认使用 `@guosheng_047/dsh-erp@latest` 执行 DSH 标准插件安装；需要固定制品时使用 `@0.1.1`。在 Deskwork 中复用当前网站上下文及任务浏览器，显式插件配置优先。
+[English](native-and-sharing.en.md) · [指南目录](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.zh-CN.md)
 
-## 原生操作
+## 观察、操作、保存
 
-标准插件入口为 `@guosheng_047/dsh-erp/native`，继续使用 DSH 的工具、Agent、Session、审批、附件和 Skill 服务。已有 Browser Use 提供方时直接复用；没有时加载官方 Playwright MCP，不额外实现浏览器操作协议。Deskwork 使用自己的 Electron 页面和任务确认，由宿主注册 `deskwork` 提供方；不会另开一套浏览器。
+标准安装加载 `@guosheng_047/dsh-erp/native`，复用 DSH 工具、会话、审批、附件和 Skill。Deskwork 提供任务浏览器；独立 DSH 复用已有 Browser Use 提供方，或加载官方 Playwright MCP。
 
-Deskwork 模式从宿主通用 `DESKWORK_SITE_CONTEXT` 读取网站身份、名称和 URL，由 ERP 插件生成 `system` 配置；知识存储默认位于 `DESKWORK_DATA_DIRECTORY/plugins/erp`。显式 `system` 和 `dataDir` 优先。安装探测没有网站上下文时不生成业务配置；脱离 Deskwork 的 DSH 模式继续使用原配置。宿主不需要识别 ERP 包名或注入业务字段。
+1. 调用 `erp_system_status`、`erp_native_status`，打开配置入口，由你登录。
+2. 获取原生快照，随即调用 `erp_native_observation_save`。只接受同一 Agent 最近成功的快照；其他操作会使它失效。
+3. 用 `erp_knowledge_record` 记录知识，引用已保存的观察 ID 和原文。未完成工作保存在学习队列中。
+4. 操作后重新获取快照，核对结果。已保存的观察是历史证据，元素引用不能复用。
 
-独立 DSH 配置：
+Playwright 工具保留上游名称与参数，当前点击工具使用 `target`。浏览器提供方管理会话和元素引用；结束附加会话会释放连接，保留外部浏览器。
 
-```yaml
-- id: erp
-  config:
-    system:
-      url: "https://erp.example.com/app/"
-      account: "my-work-account"
-    # browserExecutablePath: "/absolute/path/to/chromium"
-    # browserEndpoint: "http://127.0.0.1:9222"
-    # computerUse: true
-```
+原生浏览器和桌面调用逐次请求 DSH 确认；Deskwork 使用任务页面确认规则。ERP 的 URL 校验限制证据入库，原生工具仍有宿主级访问能力。截图和工具结果沿用 DSH 附件处理，可能包含私人信息。
 
-先调用 `erp_system_status`、`erp_native_status`，按配置入口导航，自行登录并核对公司、账号与角色。Playwright 工具保留上游名称和参数；当前点击工具使用 `target`，不要套用旧版 `ref` 参数。浏览器会话、窗口和临时元素引用由原生提供方维护。连接外部浏览器时，结束 Session 释放连接但保留宿主浏览器。
+`computerUse: true` 加载官方 Cua Driver Native，需要可选依赖和操作系统权限；已有提供方时直接复用。权限检查可用 `cua_driver_native__check_permissions` 的 `prompt: false`；保存窗口证据还需确认该窗口属于配置的 ERP。
 
-网页观察后，立即调用 `erp_native_observation_save`，再用返回的证据 ID 和原文引文调用 `erp_knowledge_record`。此工具只接收同一个 Agent 最近成功的快照结果，不能提交模型编造的观察文字。执行其他操作会使旧快照失效；保存的文字是历史证据，不是活元素引用。继续使用 `erp_learning_start/status/extend/finish_unit` 保存探索队列；原生文本快照的结构理解和知识记录由模型完成，不沿用旧 DOM 自动导入器。
+## 分享 Skill
 
-`computerUse: true` 显式加载官方 Cua Driver Native，需要其可选 npm 依赖和操作系统权限。复用已注册的 Computer Use 提供方时不会再注册第二个。它适合原生窗口或视觉控件；不把桌面坐标当作可分享的固定操作步骤。首次检查权限可用 `cua_driver_native__check_permissions` 的 `prompt: false`；其余原生工具每次请求 DSH 确认，保存窗口证据时还需确认其属于配置的 ERP。
-
-原生工具本身具有宿主级能力，ERP URL 校验只约束证据入库；它不把原生浏览器或桌面工具变成站点沙箱。截图和工具结果沿用 DSH 原生附件/模型能力规则。实际原生截图未套用旧版 ERP DOM 快照的脱敏器，应核对画面是否包含私人信息。
-
-## 一次调用导出、导入
-
-分享者可直接说：“把这个 ERP 积累的经验导出成可分享的 Skill。”模型查询 `erp_system_status` 后，用精确 scope 调用 `erp_experience_export`。返回 Skill 目录、导入文件、记录数量、省略数量和名称预览。
+说“把这个 ERP 的经验导出为 Skill”。`erp_experience_export` 返回目录：
 
 ```text
-erp-experience-<摘要>-<导出 ID>/
+erp-experience-<summary>-<export-ID>/
   SKILL.md
   references/knowledge.json
 ```
 
-分享整个目录即可。支持原生 Skill 的其他 DSH 可将它放入配置的 Skill 根目录，使用普通 `skill` 工具加载并阅读引用；不必安装另一套知识平台。插件不会上传、发消息或发布这个目录。
+检查两个文件后分享整个目录。导出保留名称、描述、类型和有效关系，排除结构化身份、URL、字段样本、原始观察、截图、登录资料和确认。自由文本仍可能包含私人信息；插件不会上传目录。
 
-接收者配置并自行登录自己的 ERP，将目录放在本机，再说：“导入这个 Skill 的 references/knowledge.json，作为当前 ERP 待核验的经验。”模型取接收者 scope，调用 `erp_experience_import`，展示准确文件路径与范围并请求一次确认。DSH Web 使用其原生审批界面；Deskwork 使用原生确认对话框作为 DSH approval answerer。无审批服务或无人响应时拒绝导入。
+## 导入 Skill
 
-导入后，知识节点和关系在单个事务中写入接收者范围，同时自动进入 DSH 原生 Skill 目录。菜单、业务域与方法可以用 `erp_knowledge_search/neighbors` 查询；重新观察接收者页面后再判断哪些经验适用。
+配置接收方 ERP，要求导入本地 `references/knowledge.json`。`erp_experience_import` 针对文件和 scope 请求一次确认，在一个事务中写入知识，并注册原生 Skill。
 
-## 分享边界
+输入必须是普通 JSON 文件的绝对路径，最多 16 MB、2000 条记录。导入校验引用和关系，不执行发送者的 Skill 或代码。记录标为 `interpreted`、`needs-review`。相同内容重复导入保留本地修正；内容变化时产生另一组记录。
 
-- 导出保留名称、别名、描述、知识类型、字段类型和有效关系；省略过期关系及依赖缺失的记录，不擅自把旧关系绑定到新解释。
-- 排除发送者 scope、原始节点 ID、结构化 URL、字段样本、观察证据、截图、用户确认与登录资料。自由文本仍可能包含客户名、地址等私人信息，分享前检查 `SKILL.md` 和 JSON。
-- 导入只读取有界 JSON，校验格式、引用与关系，不执行对方的 `SKILL.md` 或代码；本地 Skill 说明由插件重新生成。文件必须为绝对路径、普通文件，最多 16 MB、2000 条记录。
-- 所有导入记录重新标为 `interpreted`、`needs-review`；不携带发送者确认，不授予读写或登录权限。账号、权限和 ERP 版本差异需要重新验证。
-- 相同内容重复导入不会覆盖本地修正、确认及其他知识。改变的经验生成另一组导入记录；本版没有自动跨版本合并。
-- 分享是当前知识的可复用投影，分页可能发生并发变化；引用版本不匹配时省略相关记录。它不是备份。完整本机恢复继续使用 `erp_storage_backup`。
-
-## 验证范围
-
-确定性测试覆盖跨用户导入、关系重绑定、重复导入保留修正、重启读取、大批量原子导入、损坏/循环/私密字段拒绝，以及原生 Skill 发现。真实 Chromium 覆盖官方 Playwright MCP 的确认拒绝、点击、重新观察、证据入库和 Session 释放。
-
-Linux x64 已实际加载 Cua Driver 原生二进制并读取无提示权限状态。隔离 Xvfb 中的可见 Chromium 窗口完成原生 PNG 截图、后台点击和再次截图，另由 Playwright 读取页面确认点击的实际结果。该检查使用完整尺寸截图对应的窗口内坐标；缩小的预览坐标不能直接当作输入坐标。可在安装了 Xvfb 和 Chromium 的 Linux 上显式运行：
-
-```sh
-ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/computer-desktop.integration.mjs
-```
-
-该测试仅控制夹具窗口，不读取用户桌面。真实模型的视觉附件往返、用户 macOS 和真实 ERP 业务验收仍待完成。
-
-旧受控浏览器仍可通过 `browserMode: managed` 显式选择，其流程见[通用浏览器学习](adaptive-learning.md)。两条路径的观察和元素引用不能互换。
+使用前在接收方页面上复核经验。导入不授予登录或操作权限。Skill 导出用于分享，恢复数据使用[存储备份](storage.md)。测试命令与覆盖范围见[开发指南](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.md)。
