@@ -1,6 +1,6 @@
 # Local knowledge
 
-[简体中文](knowledge.md) · [Guides](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.md)
+[简体中文](knowledge.md) · [Guides](index.md)
 
 Knowledge uses the exact scope returned by `erp_system_status`: system, account, optional company and role. It remains readable without a browser login. Current business data requires a fresh observation.
 

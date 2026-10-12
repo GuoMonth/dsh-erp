@@ -1,6 +1,6 @@
 # Adapt ERP
 
-[English](https://github.com/GuoMonth/dsh-erp/blob/main/README.md) · [版本发布](https://github.com/GuoMonth/dsh-erp/releases)
+[English](../README.md) · [版本发布](https://github.com/GuoMonth/dsh-erp/releases)
 
 通过浏览器学习你的 ERP，把知识留在自己的电脑上。Adapt ERP 是 DeepSeek Harness（DSH）插件：你负责登录，DSH 观察页面，保存的知识可在后续对话中继续使用。初次安装没有你的站点知识。
 
@@ -58,4 +58,4 @@ npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web remove @guoshen
 
 ## 文档
 
-[指南目录](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.zh-CN.md) · [开发](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.md) · [更新记录](../CHANGELOG.md) · [MIT](../LICENSE) · [第三方声明](../NOTICE.md)
+[指南目录](index.zh-CN.md) · [开发](development.md) · [更新记录](../CHANGELOG.md) · [MIT](../LICENSE) · [第三方声明](../NOTICE.md)

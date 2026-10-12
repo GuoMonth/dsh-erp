@@ -12,4 +12,4 @@
 | 开发与测试 | [开发](development.md) |
 | 发布安装包 | [发布](npm-publishing.md) |
 
-[历史评估](assessments/)和[决策](adr/)保留原版本与日期。当前行为以以上指南为准，旧规划可从 Git 历史查阅。
+[历史评估](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments)和[决策](https://github.com/GuoMonth/dsh-erp/tree/main/docs/adr)保留原版本与日期。当前行为以以上指南为准，旧规划可从 Git 历史查阅。

@@ -1,6 +1,6 @@
 # Configure an ERP
 
-[简体中文](system-configuration.md) · [Guides](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.md)
+[简体中文](system-configuration.md) · [Guides](index.md)
 
 Configuration lives in the active DSH profile's `cordis.patch.yml`. See the [quick start](../README.md#set-up-your-erp) for the file location and installation. Restart DSH after editing.
 

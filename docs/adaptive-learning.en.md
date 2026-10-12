@@ -1,6 +1,6 @@
 # Managed browser
 
-[简体中文](adaptive-learning.md) · [Guides](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.md)
+[简体中文](adaptive-learning.md) · [Guides](index.md)
 
 Set `browserMode: managed` to use the plugin's separate browser. Standard installation uses [native tools](native-and-sharing.en.md). The two modes have different element references.
 

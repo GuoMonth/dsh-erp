@@ -1,6 +1,6 @@
 # 原生操作与经验分享
 
-[English](native-and-sharing.en.md) · [指南目录](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.zh-CN.md)
+[English](native-and-sharing.en.md) · [指南目录](index.zh-CN.md)
 
 ## 观察、操作、保存
 
@@ -35,4 +35,4 @@ erp-experience-<summary>-<export-ID>/
 
 输入必须是普通 JSON 文件的绝对路径，最多 16 MB、2000 条记录。导入校验引用和关系，不执行发送者的 Skill 或代码。记录标为 `interpreted`、`needs-review`。相同内容重复导入保留本地修正；内容变化时产生另一组记录。
 
-使用前在接收方页面上复核经验。导入不授予登录或操作权限。Skill 导出用于分享，恢复数据使用[存储备份](storage.md)。测试命令与覆盖范围见[开发指南](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.md)。
+使用前在接收方页面上复核经验。导入不授予登录或操作权限。Skill 导出用于分享，恢复数据使用[存储备份](storage.md)。测试命令与覆盖范围见[开发指南](development.md)。

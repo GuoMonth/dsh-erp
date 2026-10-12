@@ -1,6 +1,6 @@
 # 存储与恢复
 
-[English](storage.en.md) · [指南目录](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.zh-CN.md)
+[English](storage.en.md) · [指南目录](index.zh-CN.md)
 
 每个配置的 ERP 在 `systems/<持久ID>/` 下保存 SQLite、证据、导出和备份。`erp_system_status` 返回实际目录。`systems/by-url/` 将应用地址映射到 ID；换电脑时一并保留。
 

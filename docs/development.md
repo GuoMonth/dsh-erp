@@ -2,7 +2,7 @@
 
 [English](development.en.md) · [指南目录](index.zh-CN.md)
 
-使用 [.nvmrc](../.nvmrc) 和 [package.json](../package.json) 固定的 Node、npm 版本。DSH 依赖与 `DSH_TARGET` 锁定同一上游 RC；更改时同步锁文件和两种语言。
+使用 [.nvmrc](https://github.com/GuoMonth/dsh-erp/blob/main/.nvmrc) 和 [package.json](../package.json) 固定的 Node、npm 版本。DSH 依赖与 `DSH_TARGET` 锁定同一上游 RC；更改时同步锁文件和两种语言。
 
 ## 检查
 
@@ -28,7 +28,7 @@ SCM 夹具是冻结的回归基准，不是生产集成。原生桌面变更可�
 ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/computer-desktop.integration.mjs
 ```
 
-文档变更检查链接、锚点和翻译，无需运行完整运行时测试。PR 记录实际命令、源码身份和未测范围。真实模型视觉、用户 macOS 和当前真实 ERP 业务验收仍待完成。[历史评估](assessments/)只适用于各自日期和版本，新业务验证按[测试指南](testing/README.md)准备。
+文档变更检查链接、锚点和翻译，无需运行完整运行时测试。PR 记录实际命令、源码身份和未测范围。真实模型视觉、用户 macOS 和当前真实 ERP 业务验收仍待完成。[历史评估](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments)只适用于各自日期和版本，新业务验证按[测试指南](https://github.com/GuoMonth/dsh-erp/blob/main/docs/testing/README.md)准备。
 
 ## 本地安装包
 

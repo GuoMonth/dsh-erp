@@ -1,6 +1,6 @@
 # Storage and recovery
 
-[简体中文](storage.md) · [Guides](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.md)
+[简体中文](storage.md) · [Guides](index.md)
 
 Each configured ERP stores SQLite, evidence, exports and backups under `systems/<stable-ID>/`. `erp_system_status` reports the actual directory. The URL index in `systems/by-url/` maps application bases to IDs; preserve it when moving to another machine.
 

@@ -1,6 +1,6 @@
 # 受控浏览器
 
-[English](adaptive-learning.en.md) · [指南目录](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.zh-CN.md)
+[English](adaptive-learning.en.md) · [指南目录](index.zh-CN.md)
 
 设置 `browserMode: managed` 使用插件独立浏览器。标准安装使用[原生工具](native-and-sharing.md)，两种模式的元素引用不同。
 

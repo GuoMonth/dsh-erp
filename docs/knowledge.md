@@ -1,6 +1,6 @@
 # 本地知识
 
-[English](knowledge.en.md) · [指南目录](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.zh-CN.md)
+[English](knowledge.en.md) · [指南目录](index.zh-CN.md)
 
 知识使用 `erp_system_status` 返回的精确 scope：系统、账号，以及可选的公司和角色。无需浏览器登录即可读取已保存知识；当前业务数据需要重新观察。
 

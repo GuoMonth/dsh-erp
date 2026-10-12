@@ -1,6 +1,6 @@
 # Adapt ERP
 
-[简体中文](https://github.com/GuoMonth/dsh-erp/blob/main/docs/README.zh-CN.md) · [Releases](https://github.com/GuoMonth/dsh-erp/releases)
+[简体中文](docs/README.zh-CN.md) · [Releases](https://github.com/GuoMonth/dsh-erp/releases)
 
 Learn your ERP through its browser interface and keep the knowledge on your machine. Adapt ERP is a DeepSeek Harness (DSH) plugin: you sign in, DSH observes the pages, and saved knowledge carries into later conversations. It starts with no knowledge of your site.
 
@@ -58,4 +58,4 @@ Stop DSH before removing the plugin. Removal retains your data.
 
 ## Documentation
 
-[Guides](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.md) · [Development](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.en.md) · [Changelog](CHANGELOG.md) · [MIT](LICENSE) · [Third-party notices](NOTICE.md)
+[Guides](docs/index.md) · [Development](docs/development.en.md) · [Changelog](CHANGELOG.md) · [MIT](LICENSE) · [Third-party notices](NOTICE.md)

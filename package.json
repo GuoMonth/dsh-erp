@@ -54,7 +54,13 @@
     "docs/adaptive-learning.en.md",
     "docs/storage.en.md",
     "docs/knowledge.en.md",
-    "docs/native-and-sharing.en.md"
+    "docs/native-and-sharing.en.md",
+    "docs/index.md",
+    "docs/index.zh-CN.md",
+    "docs/development.md",
+    "docs/development.en.md",
+    "docs/npm-publishing.md",
+    "docs/npm-publishing.en.md"
   ],
   "engines": {
     "node": ">=24.18.0 <25"

@@ -2,7 +2,7 @@
 
 [简体中文](development.md) · [Guides](index.md)
 
-Use the Node and npm versions in [.nvmrc](../.nvmrc) and [package.json](../package.json). DSH dependencies and `DSH_TARGET` pin the same upstream RC; keep the lockfile and both languages in step when changing it.
+Use the Node and npm versions in [.nvmrc](https://github.com/GuoMonth/dsh-erp/blob/main/.nvmrc) and [package.json](../package.json). DSH dependencies and `DSH_TARGET` pin the same upstream RC; keep the lockfile and both languages in step when changing it.
 
 ## Checks
 
@@ -28,7 +28,7 @@ The SCM fixture is a frozen regression baseline, not production integration. For
 ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/computer-desktop.integration.mjs
 ```
 
-Documentation changes need link, anchor and translation review; they do not require the full runtime suite. PRs record actual commands, source identity and untested cases. Live-model vision, user macOS and current real-ERP business acceptance remain pending. Historical [assessments](assessments/) apply only to their dated versions; plan new business checks with the [test guide](testing/README.md).
+Documentation changes need link, anchor and translation review; they do not require the full runtime suite. PRs record actual commands, source identity and untested cases. Live-model vision, user macOS and current real-ERP business acceptance remain pending. Historical [assessments](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments) apply only to their dated versions; plan new business checks with the [test guide](https://github.com/GuoMonth/dsh-erp/blob/main/docs/testing/README.md).
 
 ## Local package
 

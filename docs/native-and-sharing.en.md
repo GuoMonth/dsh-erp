@@ -1,6 +1,6 @@
 # Native operation and sharing
 
-[简体中文](native-and-sharing.md) · [Guides](https://github.com/GuoMonth/dsh-erp/blob/main/docs/index.md)
+[简体中文](native-and-sharing.md) · [Guides](index.md)
 
 ## Observe, operate, save
 
@@ -35,4 +35,4 @@ Configure the recipient's ERP and ask to import the local `references/knowledge.
 
 The input must be an absolute path to a regular JSON file: at most 16 MB and 2000 records. Import validates references and relationships; it does not execute the sender's Skill or code. Records are marked `interpreted` and `needs-review`. Reimporting identical content preserves local corrections; changed content creates a separate set of records.
 
-Check imported experience on the recipient's pages before using it. It grants no login or operation permission. Skill export is for sharing; use [storage backup](storage.en.md) for recovery. Test commands and coverage are in [development](https://github.com/GuoMonth/dsh-erp/blob/main/docs/development.en.md).
+Check imported experience on the recipient's pages before using it. It grants no login or operation permission. Skill export is for sharing; use [storage backup](storage.en.md) for recovery. Test commands and coverage are in [development](development.en.md).
