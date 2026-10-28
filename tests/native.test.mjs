@@ -18,6 +18,8 @@ import Agents from '@deepseek-ai/dsh-agent'
 import Loop from '@deepseek-ai/dsh-agent-loop'
 import Projections from '@deepseek-ai/dsh-session-projection'
 import Approval from '@deepseek-ai/dsh-user-approval'
+import Fs from '@deepseek-ai/dsh-fs-local'
+import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
 import ComputerUse from '@deepseek-ai/dsh-computer-use'
 import * as NativeComputer from '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'
 import * as NativeErp from '../dist/native.js'
@@ -38,7 +40,8 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   const url = `http://127.0.0.1:${server.address().port}/erp/`
   const modules = new Map([
     ['prompt', SystemPrompt], ['tools', Tools], ['llm', Llm], ['sessions', Sessions],
-    ['agents', Agents], ['loop', Loop], ['projections', Projections], ['approval', Approval], ['erp', NativeErp],
+    ['agents', Agents], ['loop', Loop], ['projections', Projections], ['approval', Approval],
+    ['fs', Fs], ['workingDirectory', WorkingDirectory], ['erp', NativeErp],
   ])
   const profile = join(root, 'browser-profile')
   browserContext = await chromium.launchPersistentContext(profile, { executablePath: chromium.executablePath(), headless: true, args: ['--no-sandbox', '--remote-debugging-port=0'] })
