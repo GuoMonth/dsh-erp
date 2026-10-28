@@ -35,7 +35,7 @@ ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/
 使用唯一 TGZ 路径并核对安装字节，pnpm 可能缓存复用的路径。在隔离的 DSH profile 中安装：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.1.tgz
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.2.tgz
 ```
 
 `erp_runtime_status`、`erp_storage_status` 检查本地进程与存储；`erp_model_probe` 调用已有模型路由，`erp_approval_probe` 检查无副作用审批，均不批准后续业务操作。完成本地验证后，通过手动 [Release Action](npm-publishing.md) 发布。

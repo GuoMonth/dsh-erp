@@ -35,7 +35,7 @@ Documentation changes need link, anchor and translation review; they do not requ
 Use a unique tarball path and verify the installed bytes; pnpm may cache a reused path. Install into an isolated DSH profile:
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.1.tgz
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.2.tgz
 ```
 
 `erp_runtime_status` and `erp_storage_status` report local process/storage health. `erp_model_probe` calls an existing model route; `erp_approval_probe` checks a no-op approval. Neither approves later business operations. Routine publication uses the manual [Release Action](npm-publishing.en.md), after local validation.

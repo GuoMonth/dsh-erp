@@ -4,23 +4,23 @@
 
 通过浏览器学习你的 ERP，把知识留在自己的电脑上。Adapt ERP 是 DeepSeek Harness（DSH）插件：你负责登录，DSH 观察页面，保存的知识可在后续对话中继续使用。初次安装没有你的站点知识。
 
-当前版本 **0.1.1**，使用 **DSH 0.2.0-rc.2**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面测试覆盖 Linux x64；Windows/macOS 验收待完成。
+当前版本 **0.1.2**，使用 **DSH 0.2.1-rc.3**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面测试覆盖 Linux x64；Windows/macOS 验收待完成。
 
 ## 安装
 
 已有 DSH，并已配置模型：
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
 只有 Node：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.3 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
-使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.1`。浏览器提供方会准备 Chromium；Linux 还需要图形会话和 Chromium 系统库。
+使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.2`。浏览器提供方会准备 Chromium；Linux 还需要图形会话和 Chromium 系统库。
 
 ## 配置 ERP
 
@@ -51,7 +51,7 @@ npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 --package=pnpm@11.7.0 -- ds
 调用 `erp_storage_backup`，退出 DSH，重复安装命令并重启，保留原配置和数据目录。早期 Alpha 版本迁移与恢复见[存储指南](storage.md)。
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web remove @guosheng_047/dsh-erp
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web remove @guosheng_047/dsh-erp
 ```
 
 卸载前退出 DSH。卸载保留本地数据。

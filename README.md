@@ -4,23 +4,23 @@
 
 Learn your ERP through its browser interface and keep the knowledge on your machine. Adapt ERP is a DeepSeek Harness (DSH) plugin: you sign in, DSH observes the pages, and saved knowledge carries into later conversations. It starts with no knowledge of your site.
 
-Current release: **0.1.1**, for **DSH 0.2.0-rc.2** (upstream prerelease). Requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64; Windows/macOS acceptance is pending.
+Current release: **0.1.2**, for **DSH 0.2.1-rc.3** (upstream prerelease). Requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64; Windows/macOS acceptance is pending.
 
 ## Install
 
 With DSH installed and a model configured:
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
 With only Node installed:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.0-rc.2 --package=pnpm@11.7.0 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.3 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
-Use the full package name. For a fixed release, replace `@latest` with `@0.1.1`. The browser provider prepares Chromium; Linux also needs a graphical session and Chromium system libraries.
+Use the full package name. For a fixed release, replace `@latest` with `@0.1.2`. The browser provider prepares Chromium; Linux also needs a graphical session and Chromium system libraries.
 
 ## Set up your ERP
 
@@ -51,7 +51,7 @@ Saved knowledge can be read without logging in; current balances and orders need
 Call `erp_storage_backup`, stop DSH, repeat the installation command and restart. Keep the same configuration and data root. Older Alpha migrations and recovery are covered in [storage](docs/storage.en.md).
 
 ```sh
-npm exec --yes --package=pnpm@11.7.0 -- dsh plugin --profile web remove @guosheng_047/dsh-erp
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web remove @guosheng_047/dsh-erp
 ```
 
 Stop DSH before removing the plugin. Removal retains your data.

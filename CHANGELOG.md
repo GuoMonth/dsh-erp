@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 — 2026-10-28
+
+- Align with DSH 0.2.1-rc.3, Cordis 4.0.5 and Schemastery 3.18.5. The native entry keeps using official Browser Use, Playwright MCP and the opt-in Cua Driver.
+- Verify the packed consumer and the installed CLI against the same DSH prerelease used by DSH Deskwork 0.2.3.
+- No ERP workflow change: configuration, storage, approval boundaries and Skill sharing remain as documented in 0.1.1.
+
 ## 0.1.1 — 2026-10-10
 
 - Read Deskwork's generic website context and own the derived ERP configuration and storage. Explicit settings win; standalone DSH retains its configured behavior.
