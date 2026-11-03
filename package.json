@@ -106,7 +106,6 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
-    "zod": "4.5.4",
     "playwright": "1.63.0",
     "@deepseek-ai/dsh-browser-use": "0.2.1-rc.5",
     "@deepseek-ai/dsh-experimental-browser-use-playwright-mcp": "0.2.1-rc.5"

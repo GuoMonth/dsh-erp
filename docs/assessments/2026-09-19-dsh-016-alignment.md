@@ -2,6 +2,8 @@
 
 日期：2026-09-19；基准 main 86624d82377e802dda30ec3c5e24d94a842d319f；任务：[跨仓库 Issue #24](https://github.com/GuoMonth/dsh-deskwork/issues/24)。
 
+此评估记录的 Deskwork 适配已从当前代码移除。不要按本文配置 `DESKWORK_*`，当前插件也不依赖 dsh-deskwork。
+
 ## 版本与运行边界
 
 目标宿主固定 **DSH 0.1.6-alpha.2（预发布）**，对应[官方发布](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.6-alpha.2)。当日 npm alpha 为此版本，latest/next 仍为 0.1.5-rc.2。peer/devDependencies、运行诊断、安装指南和发布说明生成器统一标记精确版本，lockfile 全部 250 个 DSH 条目均为此版本。

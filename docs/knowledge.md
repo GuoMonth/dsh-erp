@@ -12,6 +12,10 @@
 
 记录阶段为 `discovered`、`observed`、`interpreted`，另有 `blocked`、`conflict`、`needs-review` 标记；生命周期为 `active`、`retired`。用户确认绑定具体版本的命题和条件，不授予业务权限。
 
+## 默认读取
+
+探索完成一层后，默认读取是 `erp_index_read`：先返回各层紧凑摘要，再返回一页有证据的叶子记录。省略节点时读取最新一层的叶子。`after` 从空字符串开始，按 `nextAfter` 和 `hasMore` 翻页，每页 1–20 条。完整记录用 `erp_knowledge_get`。搜索、邻居和历史是查找路径。更新比读取少：`erp_knowledge_record` 只修订本地知识，不改变 ERP。层级摘要留在本机索引中，不进入分享的 Skill。ERP 业务写入走浏览器动作的 `effect: mutate`，并需要一次 DSH 批准。
+
 ## 工具
 
 | 工具 | 用途 |
@@ -20,7 +24,8 @@
 | `erp_knowledge_record` | 保存带证据的 AI 解释 |
 | `erp_knowledge_correct` | 保存经用户确认的修正 |
 | `erp_knowledge_confirm` | 确认具体版本的命题 |
-| `erp_knowledge_get/search/neighbors` | 查询记录与关系 |
+| `erp_index_read` | 默认读取摘要和一页叶子 |
+| `erp_knowledge_get/search/neighbors` | 查询单条记录、名称和关系 |
 | `erp_knowledge_history/verifications` | 读取修订与确认 |
 
 每次写入 1–50 条记录，在一个事务中提交。新 ID 使用 `expectedVersion: 0`，更新使用当前版本。版本冲突时先回查，再决定修改。检索和历史分页使用返回的游标与 `hasMore`；并发变化可能影响后续页。

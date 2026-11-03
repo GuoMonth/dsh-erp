@@ -147,7 +147,7 @@ test('v2 upgrade preserves observations and checkpoints; failed v3 migration res
     else {
       await store.open()
       try {
-        assert.equal((await store.execute('status', {})).schemaVersion, 3)
+        assert.equal((await store.execute('status', {})).schemaVersion, 4)
         assert.equal((await store.execute('observation', { scope, id: 'old' })).text, 'Purchasing')
         assert.deepEqual((await store.execute('task', { scope, id: 'round-1' })).frontier, ['menu-1'])
         assert.equal((await store.execute('knowledgeSearch', { scope, query: 'Purchasing', after: '', limit: 10 })).items.length, 0)
@@ -157,7 +157,7 @@ test('v2 upgrade preserves observations and checkpoints; failed v3 migration res
     assert.equal(JSON.parse(await readFile(join(directory, 'backups', backup, 'manifest.json'), 'utf8')).schemaVersion, 2)
     const check = new DatabaseSync(join(directory, 'store.sqlite'))
     try {
-      assert.equal(check.prepare('PRAGMA user_version').get().user_version, failure ? 2 : 3)
+      assert.equal(check.prepare('PRAGMA user_version').get().user_version, failure ? 2 : 4)
       assert.equal(check.prepare('SELECT count(*) AS n FROM observations').get().n, 1)
       if (failure) assert.equal(check.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='knowledge_records'").get().n, 0)
     } finally { check.close() }

@@ -6,7 +6,7 @@ Each configured ERP stores SQLite, evidence, exports and backups under `systems/
 
 ## Data root
 
-An explicit absolute `dataDir` takes precedence. Deskwork supplies its default as described in [configuration](system-configuration.en.md). Standalone defaults are:
+An explicit absolute `dataDir` takes precedence. Otherwise the defaults are:
 
 | Environment | Directory |
 | --- | --- |

@@ -31,7 +31,7 @@ Call erp_system_status to obtain your own configured scope. Read references/know
 
 Prefer DSH native Browser Use for web pages and explicitly enabled Computer Use for native windows or visual controls. Log in yourself. Obtain fresh observations and the required approval before actions. Never replay old element tokens, coordinates or confirmations. A delivered action does not prove a saved result.
 
-If Adapt ERP is installed, import this bundle once using erp_experience_import with the absolute path to references/knowledge.json and your local scope. Then query erp_knowledge_search and erp_knowledge_neighbors on demand; imported records start as needs-review. Without the plugin, read the reference file and validate its claims directly with the host's native tools. Do not assume the sender's menu availability, tenant, role or ERP release applies to you.
+If Adapt ERP is installed, import this bundle once using erp_experience_import with the absolute path to references/knowledge.json and your local scope. After a local index exists, read erp_index_read before opening full records. Query erp_knowledge_search and erp_knowledge_neighbors when a summary is not enough; imported records start as needs-review. Without the plugin, read the reference file and validate its claims directly with the host's native tools. Do not assume the sender's menu availability, tenant, role or ERP release applies to you. A local revision does not change the ERP.
 `
 
 async function readBundle(path: string, signal: AbortSignal): Promise<Bundle> {
@@ -77,7 +77,7 @@ export class ExperienceSharing {
     let after = ''
     do {
       const page = await this.storage.call('knowledgeSearch', { scope, query: '', after, limit: 50 }, signal)
-      items.push(...page.items.filter(item => item.record.lifecycle === 'active'))
+      items.push(...page.items.filter(item => item.record.lifecycle === 'active' && item.record.kind !== 'summary'))
       if (items.length > 2000) throw new StorageError('EXPERIENCE_RECORD_LIMIT')
       after = page.hasMore ? page.nextAfter : ''
     } while (after)

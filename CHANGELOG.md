@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Replace model-supplied exploration units with a controller-owned breadth-first walk that stops at depth 3. Each finished level writes one summary before the next level starts. Level 1 can be a snapshot; opening a page still requires approval.
+- Keep SQLite. After initialization, the default read is compact summaries plus one page of evidence-backed leaves. Local revisions stay separate from ERP mutations, which require a DSH approval.
+- Remove the Deskwork adapter, including site-context injection and deskwork tool branches. Native Browser Use, Playwright MCP, approval and skills remain the host path.
+- Render short Markdown for tool results and set presentResult titles. An OpenUI payload is attached only when a host service is present.
+- Normalize native snapshots into browser-learning-v1 documents so they can be imported.
+- Keep one schema, the existing DSH ValueSchemaSpec. This change does not claim compatibility with earlier exploration queues or Deskwork hosts.
+
 ## 0.1.3 — 2026-11-03
 
 - Align with DSH 0.2.1-rc.5 only. Cordis stays 4.0.5 and Schemastery stays 3.18.5. rc.4 keeps ACP diagnostics off stdout; rc.5 improves thinking display. Plugin APIs used here are unchanged.

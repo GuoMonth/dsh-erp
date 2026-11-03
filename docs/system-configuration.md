@@ -24,10 +24,6 @@
 
 每个插件实例配置一个 ERP。规范化 Base URL 对应一个持久 ID。改名保留 ID；更换域名或应用路径会选择另一系统，改回原 Base URL 可找回原 ID。
 
-## Deskwork
-
-插件从 `DESKWORK_SITE_CONTEXT` 读取网站身份、名称和 URL，默认数据目录为 `DESKWORK_DATA_DIRECTORY/plugins/erp`。显式填写的 `system`、`dataDir` 覆盖这些默认值。独立使用 DSH 时按上面的 profile 配置。
-
 ## 浏览器选项
 
 默认[原生模式](native-and-sharing.md)复用宿主浏览器提供方，或加载官方 Playwright MCP。`browserExecutablePath` 指定已安装的 Chromium；`browserEndpoint` 连接已有浏览器；`computerUse: true` 启用官方 Cua Driver Native。

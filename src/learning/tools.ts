@@ -1,32 +1,54 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { markdown, openUiHost, presentTitle } from '../present.js'
 import { scopeSchema } from '../storage/contract.js'
 import type { StorageClient } from '../storage/client.js'
 import { LearningRuntime } from './runtime.js'
+import type { ExplorationView } from './runtime.js'
 import { importSnapshot } from './snapshot-import.js'
 const str = { type: 'string', required: true } as const
 const scope = { ...scopeSchema, required: true } as const
 const id = { scope, id: str }
-const render = (_args: unknown, value: unknown) => [{ type: 'text' as const, text: JSON.stringify(value) }]
-const output = { schema: { type: 'json' as const }, render }
+function lines(view: ExplorationView | null): string[] {
+  if (!view) return ['No exploration round is stored for this id.']
+  const next = view.next
+    ? `Next is ${view.next.label} at level ${view.next.level}${view.next.requiresApproval ? ', and opening that page needs approval' : ', from the snapshot already saved'}.`
+    : `Level ${view.coverage.level} is ${view.state}.`
+  return [next, `${view.summaries.length} level summaries are stored. Depth stops at 3.`]
+}
 export function registerLearningTools(ctx: Context, storage: StorageClient) {
   const runtime = new LearningRuntime(storage)
+  const openui = () => openUiHost(ctx)
+  const output = (title: string) => ({ schema: { type: 'json' as const },
+    render: (_args: unknown, value: unknown) => markdown(title, lines(value as ExplorationView | null), value, openui()) })
   ctx.tools.register(defineTool({ name: 'erp_learning_import_snapshot',
-    description: 'Build menu/page/control/field knowledge from a saved generic browser snapshot, starting with no site-specific knowledge. Preserve evidence and revisions, observed select values (completeness unknown), and user corrections. Repeated import is idempotent. Does not infer a complete menu hierarchy, business domains or visited linked pages. Add evidence-backed domains, menu links and learned query methods with erp_knowledge_record; discovery expands the durable queue with erp_learning_extend.',
-    parameters: { scope, observationId: str }, output, execute: (a, e) => importSnapshot(storage, a.scope, a.observationId, e.signal),
+    description: 'Build menu/page/control/field leaves from a saved browser-learning-v1 snapshot. Preserve evidence, observed select values (completeness unknown), and user corrections. Repeated import is idempotent. This does not choose the exploration frontier; erp_learning_begin owns that queue. Does not infer a complete menu hierarchy or business domains.',
+    parameters: { scope, observationId: str },
+    output: { schema: { type: 'json' }, render: (_args, value) => markdown('Snapshot leaves', ['Visible structure was saved as evidence-backed leaves. The controller still owns the frontier.'], value, openui()) },
+    presentResult: presentTitle('Snapshot leaves'),
+    execute: (args, exec) => importSnapshot(storage, args.scope, args.observationId, exec.signal),
   }))
-  ctx.tools.register(defineTool({ name: 'erp_learning_extend',
-    description: 'Append newly discovered menus/pages/tabs/behavior tasks to an existing learning round using its exact version. New lower-level tasks precede pending deeper work. Does not reopen completed tasks or grant browser permissions. Use stable task IDs, maximum 200 additions per call / 2000 total; coverage counts known tasks only.',
-    parameters: { ...id, expectedVersion: { type: 'integer', required: true }, units: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
-      id: str, level: { type: 'integer', required: true }, label: str,
-    } } } }, output, execute: (a, e) => runtime.extend(a.scope, a.id, a.expectedVersion, a.units, e.signal),
-  }))
-  ctx.tools.register(defineTool({ name: 'erp_learning_start', description: 'Persist a finite breadth-first learning round. Provide explicit tasks: level1 global structure, level2 functional pages, level3 fields/tabs/windows, level4 behavior. Lower levels always settle before higher levels. No browser actions or permissions are created. ID must be new; use status to resume.', parameters: { ...id, units: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: { id: str, level: { type: 'integer', required: true }, label: str } } } }, output,
-    execute: (a,e) => runtime.start(a.scope,a.id,a.units,e.signal) }))
-  ctx.tools.register(defineTool({ name: 'erp_learning_status', description: 'Return next pending unit, durable revision, coverage and recorded gaps. Ended rounds may contain blocked units; never describe that as complete ERP coverage.', parameters: id, output,
-    execute: (a,e) => runtime.status(a.scope,a.id,e.signal) }))
-  ctx.tools.register(defineTool({ name: 'erp_learning_finish_unit', description: 'Settle ONLY the current next unit using exact checkpoint version. observed requires saved same-scope evidence; blocked requires a concrete reason. Evidence existence is checked, semantic correctness still needs review. No automatic browser action replay.', parameters: { ...id, expectedVersion: { type: 'integer', required: true }, unitId: str, outcome: { type: 'string', enum: ['observed','blocked'], required: true }, observationIds: { type: 'array', items: { type: 'string' }, required: true }, reason: str }, output,
-    execute: (a,e) => runtime.finish(a.scope,a.id,a.expectedVersion,a.unitId,a.outcome,a.observationIds,a.reason,e.signal) }))
-  ctx.tools.register(defineTool({ name: 'erp_learning_pause', description: 'Pause or explicitly resume a durable learning round by exact version; does not restore a browser grant or replay actions.', parameters: { ...id, expectedVersion: { type: 'integer', required: true }, resume: { type: 'boolean', required: true } }, output,
-    execute: (a,e) => runtime.pause(a.scope,a.id,a.expectedVersion,a.resume,e.signal) }))
+  ctx.tools.register(defineTool({ name: 'erp_learning_begin',
+    description: 'Start a controller-owned breadth-first exploration round. The frontier begins at one entry snapshot. Do not supply units. Depth stops at 3: entry snapshot, then approved page opens, then visible fields, tabs and windows. After each level the controller writes one summary before the next level. No browser permission is created.',
+    parameters: id, output: output('Exploration'), presentResult: presentTitle('Exploration'),
+    execute: (args, exec) => runtime.begin(args.scope, args.id, exec.signal) }))
+  ctx.tools.register(defineTool({ name: 'erp_learning_status',
+    description: 'Return the controller-owned next step, durable revision, coverage and level summaries. An ended round can contain blocked steps. Never describe it as complete ERP coverage. Depth stops at 3.',
+    parameters: id, output: output('Exploration'), presentResult: presentTitle('Exploration'),
+    execute: (args, exec) => runtime.status(args.scope, args.id, exec.signal) }))
+  ctx.tools.register(defineTool({ name: 'erp_learning_accept',
+    description: 'Give the controller the saved browser-learning-v1 observation for its current step. The controller imports leaves, and when the level is finished it writes the summary and opens the next level. Level 1 can be the entry snapshot. Opening a later page still needs a separate approval. Do not send a unit id.',
+    parameters: { ...id, expectedVersion: { type: 'integer', required: true }, observationId: str },
+    output: output('Exploration step'), presentResult: presentTitle('Exploration step'),
+    execute: (args, exec) => runtime.accept(args.scope, args.id, args.expectedVersion, args.observationId, exec.signal) }))
+  ctx.tools.register(defineTool({ name: 'erp_learning_block',
+    description: 'Block only the controller current step with a concrete reason. No observation is required. The controller then continues or writes the level summary. This does not grant a browser action.',
+    parameters: { ...id, expectedVersion: { type: 'integer', required: true }, reason: str },
+    output: output('Exploration step'), presentResult: presentTitle('Exploration step'),
+    execute: (args, exec) => runtime.block(args.scope, args.id, args.expectedVersion, args.reason, exec.signal) }))
+  ctx.tools.register(defineTool({ name: 'erp_learning_pause',
+    description: 'Pause or explicitly resume a controller-owned round by its exact version. Does not restore a browser grant or replay actions.',
+    parameters: { ...id, expectedVersion: { type: 'integer', required: true }, resume: { type: 'boolean', required: true } },
+    output: output('Exploration'), presentResult: presentTitle('Exploration'),
+    execute: (args, exec) => runtime.pause(args.scope, args.id, args.expectedVersion, args.resume, exec.signal) }))
 }

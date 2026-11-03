@@ -24,10 +24,6 @@ The name defaults to the hostname; account defaults to `default`. Account, compa
 
 One plugin instance has one configured ERP. A stable ID is stored for each normalized base URL. Renaming the ERP keeps its ID; changing the domain or application path selects a different system. Returning to the original base finds the original ID.
 
-## Deskwork
-
-The plugin reads `DESKWORK_SITE_CONTEXT` for the website identity, name and URL. Its default data root is `DESKWORK_DATA_DIRECTORY/plugins/erp`. Explicit `system` and `dataDir` settings override these defaults. Outside Deskwork, use the profile configuration above.
-
 ## Browser options
 
 The default [native mode](native-and-sharing.en.md) reuses the host browser provider or loads official Playwright MCP. `browserExecutablePath` selects an installed Chromium; `browserEndpoint` attaches to an existing browser. `computerUse: true` enables the official native Cua Driver.

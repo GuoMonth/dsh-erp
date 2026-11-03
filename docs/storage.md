@@ -6,7 +6,7 @@
 
 ## 数据目录
 
-显式填写的绝对路径 `dataDir` 优先。Deskwork 默认目录见[配置指南](system-configuration.md)，独立 DSH 的默认目录如下：
+显式填写的绝对路径 `dataDir` 优先。未填写时使用下面的默认目录：
 
 | 环境 | 目录 |
 | --- | --- |

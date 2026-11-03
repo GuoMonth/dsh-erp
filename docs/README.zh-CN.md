@@ -36,11 +36,9 @@ npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- d
 
 只有 `url` 必填。`account` 是本地身份标签，不是密码。运行 `dsh --profile web`，让它用 `erp_system_status` 核对配置，再打开 ERP，由你登录。登录路径、公司和角色设置见[配置指南](system-configuration.md)。
 
-在 Deskwork 中，将插件绑定到网站即可使用该网站的上下文和任务浏览器；显式填写的 `system`、`dataDir` 优先。
-
 ## 学习与复用
 
-让 DSH 先梳理菜单，再了解页面和业务关系。观察与知识保存在本机。原生浏览器和桌面调用逐次确认；Deskwork 按任务规则确认。操作后在页面上核对结果。
+让 DSH 先对入口做快照，再在你批准后打开页面。探索停在第 3 层。每一层结束后会保存一段摘要；之后的回答应先读这些摘要和一页记录。原生浏览器和桌面调用逐次确认。本地知识修订不会改变 ERP。操作后在页面上核对结果。
 
 将有用的经验导出为 Skill，检查文本后把目录交给其他用户。接收者需在自己的 ERP 中复核导入知识。详见[原生操作与分享](native-and-sharing.md)。
 

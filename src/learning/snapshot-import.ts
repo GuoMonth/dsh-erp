@@ -7,11 +7,27 @@ import type { Scope } from '../storage/primitives.js'
 import type { KnowledgeWrite } from '../knowledge/contract.js'
 
 const key = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 24)
+export function isMenuControl(control: { kind: string; group: string }): boolean {
+  return ['menuitem', 'treeitem'].includes(control.kind) || ['nav', 'aside', 'navigation', 'menu'].includes(control.group)
+}
+export function controlKey(snapshotUrl: string, control: { frameUrl: string; group: string; href: string; name: string; kind: string }): string {
+  const identity = isMenuControl(control)
+    ? `${new URL(control.frameUrl).origin}:${control.group}:${control.href || control.name}`
+    : `${snapshotUrl}:${control.frameUrl}:${control.group}:${control.kind}:${control.name}`
+  return key(identity)
+}
+export function parseSnapshot(text: string): Snapshot {
+  let snapshot: unknown
+  try { snapshot = JSON.parse(text) } catch { throw new Error('UI_OBSERVATION_SHAPE') }
+  if (validateJsonSchemaValue(valueSchemaSpecToJsonSchema(snapshotSchema), snapshot, '').length) throw new Error('UI_OBSERVATION_SHAPE')
+  return snapshot as Snapshot
+}
 export async function importSnapshot(storage: StorageClient, scope: Scope, observationId: string, signal: AbortSignal) {
   const observation = await storage.call('observation', { scope, id: observationId }, signal)
-  if (!observation || JSON.parse(observation.context).source !== 'browser-learning-v1') throw new Error('UI_OBSERVATION_REQUIRED')
-  const snapshot = JSON.parse(observation.text) as Snapshot
-  if (validateJsonSchemaValue(valueSchemaSpecToJsonSchema(snapshotSchema), snapshot, '').length) throw new Error('UI_OBSERVATION_SHAPE')
+  let source = ''
+  try { source = JSON.parse(observation?.context ?? '').source } catch { source = '' }
+  if (!observation || source !== 'browser-learning-v1') throw new Error('UI_OBSERVATION_REQUIRED')
+  const snapshot = parseSnapshot(observation.text)
   const ids: string[] = [], menuIds: string[] = []
   const put = async (input: Omit<KnowledgeWrite, 'expectedVersion'>) => {
     const previous = await storage.call('knowledgeGet', { scope, id: input.id }, signal)
@@ -30,18 +46,18 @@ export async function importSnapshot(storage: StorageClient, scope: Scope, obser
   for (const c of snapshot.controls) {
     signal.throwIfAborted()
     if (!c.name) { unnamed++; continue }
-    const menu = ['menuitem', 'treeitem'].includes(c.kind) || ['nav', 'aside', 'navigation', 'menu'].includes(c.group)
-    const kind = menu ? 'menu' : c.kind === 'tab' ? 'tab' : 'control'
-    const identity = menu ? `${new URL(c.frameUrl).origin}:${c.group}:${c.href || c.name}` : `${snapshot.url}:${c.frameUrl}:${c.group}:${c.kind}:${c.name}`
-    const id = `ui-${kind}-` + key(identity)
+    const menu = isMenuControl(c)
+    const kind = menu ? 'menu' : c.kind === 'tab' ? 'tab' : c.kind === 'window' ? 'window' : 'control'
+    const id = `ui-${kind}-` + controlKey(snapshot.url, c)
     const node = await put({ ...common(c.name), id, kind, name: c.name, context: { url: c.frameUrl, detail: `Visible ${c.kind}; group ${c.group || 'page'}. Target refs are temporary, not reusable commands.` } })
     if (menu) menuIds.push(id)
     else {
       await put({ ...common(c.name), id: 'ui-edge-' + key(pageId + id), name: 'contains', kind: 'relation', from: page, to: node, predicate: 'contains' })
       if (c.kind === 'field') {
-        const field = await put({ ...common(c.name), id: 'ui-field-' + key(identity), kind: 'field', name: c.name,
+        const fieldKey = controlKey(snapshot.url, c)
+        const field = await put({ ...common(c.name), id: 'ui-field-' + fieldKey, kind: 'field', name: c.name,
           definition: { valueType: 'string', observedValues: [...new Set([...c.options, ...(c.value ? [c.value] : [])])].slice(0, 100), completeness: 'unknown' } })
-        await put({ ...common(c.name), id: 'ui-field-edge-' + key(identity), kind: 'relation', name: 'represents', from: node, to: field, predicate: 'represents' })
+        await put({ ...common(c.name), id: 'ui-field-edge-' + fieldKey, kind: 'relation', name: 'represents', from: node, to: field, predicate: 'represents' })
       }
     }
   }

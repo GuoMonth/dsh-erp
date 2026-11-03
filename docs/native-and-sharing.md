@@ -4,16 +4,16 @@
 
 ## 观察、操作、保存
 
-标准安装加载 `@guosheng_047/dsh-erp/native`，复用 DSH 工具、会话、审批、附件和 Skill。Deskwork 提供任务浏览器；独立 DSH 复用已有 Browser Use 提供方，或加载官方 Playwright MCP。
+标准安装加载 `@guosheng_047/dsh-erp/native`，复用 DSH 工具、会话、审批、附件和 Skill。已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。
 
 1. 调用 `erp_system_status`、`erp_native_status`，打开配置入口，由你登录。
 2. 获取原生快照，随即调用 `erp_native_observation_save`。只接受同一 Agent 最近成功的快照；其他操作会使它失效。
-3. 用 `erp_knowledge_record` 记录知识，引用已保存的观察 ID 和原文。未完成工作保存在学习队列中。
+3. 保存的快照会转成可导入的 `browser-learning-v1` 证据。用 `erp_learning_begin` 把前沿交给控制器；用 `erp_knowledge_record` 记录本地修订，并引用观察 ID 和原文。
 4. 操作后重新获取快照，核对结果。已保存的观察是历史证据，元素引用不能复用。
 
 Playwright 工具保留上游名称与参数，当前点击工具使用 `target`。浏览器提供方管理会话和元素引用；结束附加会话会释放连接，保留外部浏览器。
 
-原生浏览器和桌面调用逐次请求 DSH 确认；Deskwork 使用任务页面确认规则。ERP 的 URL 校验限制证据入库，原生工具仍有宿主级访问能力。截图和工具结果沿用 DSH 附件处理，可能包含私人信息。
+原生浏览器和桌面调用逐次请求 DSH 确认。打开页面和 ERP 业务写入都需要这次确认；本地知识修订不会改变 ERP。ERP 的 URL 校验限制证据入库，原生工具仍有宿主级访问能力。截图和工具结果沿用 DSH 附件处理，可能包含私人信息。
 
 `computerUse: true` 加载官方 Cua Driver Native，需要可选依赖和操作系统权限；已有提供方时直接复用。权限检查可用 `cua_driver_native__check_permissions` 的 `prompt: false`；保存窗口证据还需确认该窗口属于配置的 ERP。
 

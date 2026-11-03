@@ -12,7 +12,7 @@ import { checkedId } from './primitives.js'
 import { knowledgeMigration } from '../knowledge/migration.js'
 import { KnowledgeStore } from '../knowledge/store.js'
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 const HASH = /^[a-f0-9]{64}$/
 const sha = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex')
 export const migrations = [
@@ -23,6 +23,17 @@ export const migrations = [
   `CREATE VIRTUAL TABLE observations_fts USING fts5(id UNINDEXED, title, text, tokenize='trigram');
    INSERT INTO observations_fts(id,title,text) SELECT id,json_extract(payload,'$.title'),json_extract(payload,'$.text') FROM observations;`,
   knowledgeMigration,
+  `CREATE TABLE index_nodes (
+    scope TEXT NOT NULL, id TEXT NOT NULL, round_id TEXT NOT NULL, level INTEGER NOT NULL CHECK(level BETWEEN 1 AND 3),
+    parent_id TEXT, title TEXT NOT NULL, summary TEXT NOT NULL, leaf_count INTEGER NOT NULL, record_version INTEGER NOT NULL,
+    PRIMARY KEY(scope, id)
+  ) STRICT;
+  CREATE INDEX index_nodes_scope ON index_nodes(scope, level, id);
+  CREATE TABLE index_leaves (
+    scope TEXT NOT NULL, node_id TEXT NOT NULL, record_id TEXT NOT NULL, ordinal INTEGER NOT NULL,
+    PRIMARY KEY(scope, node_id, record_id)
+  ) STRICT;
+  CREATE INDEX index_leaves_page ON index_leaves(scope, node_id, record_id);`,
 ]
 function durableWrite(path: string, data: Uint8Array | string): void {
   const fd = openSync(path, 'wx', 0o600)
@@ -158,18 +169,78 @@ export class StoreDatabase {
     return row ? JSON.parse(String(row.payload)) as Output<'observe'> : null
   }
   private checkpoint(input: Input<'checkpoint'>): Output<'checkpoint'> {
+    return this.transaction(() => this.checkpointUnlocked(input))
+  }
+  private checkpointUnlocked(input: Input<'checkpoint'>): Output<'checkpoint'> {
     checkedId(input.id)
     if (input.frontier.length > 10_000 || JSON.stringify(input.cursor).length > 1_000_000 || !Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 0 || input.expectedVersion >= Number.MAX_SAFE_INTEGER) throw new StorageError('INVALID_CHECKPOINT')
     const scope = scopeKey(input.scope)
+    const previous = this.db.prepare('SELECT version FROM tasks WHERE scope=? AND id=?').get(scope, input.id)
+    if (Number(previous?.version ?? 0) !== input.expectedVersion) throw new StorageError('CHECKPOINT_CONFLICT')
+    const value: Output<'checkpoint'> = { id: input.id, scope: canonicalScope(input.scope), version: input.expectedVersion + 1,
+      state: input.state, frontier: input.frontier, cursor: input.cursor, reason: input.reason }
+    this.db.prepare('INSERT INTO tasks(id,scope,version,payload) VALUES(?,?,?,?) ON CONFLICT(id,scope) DO UPDATE SET version=excluded.version,payload=excluded.payload')
+      .run(input.id, scope, value.version, JSON.stringify(value))
+    return value
+  }
+  private indexLeaves(scope: string, observationIds: string[], kinds: string[]): string[] {
+    if (!observationIds.length || !kinds.length) return []
+    const observations = observationIds.map(() => '?').join(',')
+    const kindSlots = kinds.map(() => '?').join(',')
+    return this.db.prepare(`SELECT DISTINCT r.id AS id FROM knowledge_evidence e JOIN knowledge_records r ON r.scope=e.scope AND r.id=e.id
+      WHERE e.scope=? AND e.observation_id IN (${observations}) AND r.kind IN (${kindSlots}) ORDER BY r.id LIMIT 2000`)
+      .all(scope, ...observationIds, ...kinds).map(row => String(row.id))
+  }
+  private learningAdvance(input: Input<'learningAdvance'>): Output<'learningAdvance'> {
+    const leafKinds = new Set(['menu', 'page', 'tab', 'control', 'window', 'field', 'relation', 'domain', 'object', 'rule', 'operation'])
+    const summary = input.summary
+    if (summary && (summary.level < 1 || summary.level > 3 || summary.record.kind !== 'summary'
+      || summary.record.id !== `summary-${input.id}-L${summary.level}` || summary.observationIds.length > 50
+      || !summary.leafKinds.length || summary.leafKinds.some(kind => !leafKinds.has(kind)))) throw new StorageError('INVALID_INDEX_NODE')
     return this.transaction(() => {
-      const previous = this.db.prepare('SELECT version FROM tasks WHERE scope=? AND id=?').get(scope, input.id)
-      if (Number(previous?.version ?? 0) !== input.expectedVersion) throw new StorageError('CHECKPOINT_CONFLICT')
-      const value: Output<'checkpoint'> = { id: input.id, scope: canonicalScope(input.scope), version: input.expectedVersion + 1,
-        state: input.state, frontier: input.frontier, cursor: input.cursor, reason: input.reason }
-      this.db.prepare('INSERT INTO tasks(id,scope,version,payload) VALUES(?,?,?,?) ON CONFLICT(id,scope) DO UPDATE SET version=excluded.version,payload=excluded.payload')
-        .run(input.id, scope, value.version, JSON.stringify(value))
-      return value
+      const checkpoint = this.checkpointUnlocked(input)
+      if (!summary) return { checkpoint, summary: null, leafCount: 0 }
+      for (const observationId of summary.observationIds) checkedId(observationId)
+      if (summary.parentId) checkedId(summary.parentId)
+      const [record] = this.knowledge.writeInTransaction({ scope: input.scope, origin: 'ai', records: [summary.record] })
+      if (!record) throw new StorageError('INVALID_INDEX_NODE')
+      const scope = scopeKey(input.scope)
+      const leaves = this.indexLeaves(scope, summary.observationIds, summary.leafKinds)
+      this.db.prepare('INSERT INTO index_nodes(scope,id,round_id,level,parent_id,title,summary,leaf_count,record_version) VALUES(?,?,?,?,?,?,?,?,?)')
+        .run(scope, record.id, input.id, summary.level, summary.parentId ?? null, record.name, record.description, leaves.length, record.version)
+      const insert = this.db.prepare('INSERT INTO index_leaves(scope,node_id,record_id,ordinal) VALUES(?,?,?,?)')
+      leaves.forEach((leafId, ordinal) => insert.run(scope, record.id, leafId, ordinal))
+      return { checkpoint, summary: record, leafCount: leaves.length }
     })
+  }
+  private indexRead(input: Input<'indexRead'>): Output<'indexRead'> {
+    if (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 20) throw new StorageError('INDEX_READ_LIMIT')
+    if (input.after) checkedId(input.after)
+    if (input.nodeId) checkedId(input.nodeId)
+    const scope = scopeKey(input.scope)
+    const guidance = 'Default read is compact summaries plus one page of evidence-backed leaves. Full records, history and updates are separate.'
+    const rows = this.db.prepare('SELECT id,round_id,level,parent_id,title,summary,leaf_count,record_version FROM index_nodes WHERE scope=? ORDER BY level,id LIMIT 31').all(scope)
+    const summaries = rows.slice(0, 30).map(row => ({
+      id: String(row.id), level: Number(row.level), title: String(row.title), summary: String(row.summary),
+      leafCount: Number(row.leaf_count), roundId: String(row.round_id), recordVersion: Number(row.record_version),
+      ...(row.parent_id ? { parentId: String(row.parent_id) } : {}),
+    }))
+    const empty = { items: [], hasMore: false, nextAfter: '' }
+    if (!rows.length) return { initialized: false, readPath: 'summaries-and-leaves', guidance, summariesTruncated: false, summaries, leaves: empty }
+    const nodeId = input.nodeId ?? String(this.db.prepare('SELECT id FROM index_nodes WHERE scope=? ORDER BY rowid DESC LIMIT 1').get(scope)!.id)
+    if (!this.db.prepare('SELECT 1 AS ok FROM index_nodes WHERE scope=? AND id=?').get(scope, nodeId)) throw new StorageError('INDEX_NODE_NOT_FOUND')
+    const leafRows = this.db.prepare('SELECT record_id FROM index_leaves WHERE scope=? AND node_id=? AND record_id>? ORDER BY record_id LIMIT ?')
+      .all(scope, nodeId, input.after, input.limit + 1)
+    const selected = leafRows.slice(0, input.limit)
+    const items = selected.map(row => {
+      const payload = this.db.prepare('SELECT r.payload FROM knowledge_records n JOIN knowledge_revisions r USING(scope,id,version) WHERE n.scope=? AND n.id=?').get(scope, String(row.record_id))
+      if (!payload) throw new StorageError('INDEX_LEAF_MISSING')
+      const record = JSON.parse(String(payload.payload)) as { id: string; kind: Output<'indexRead'>['leaves']['items'][number]['kind']; name: string; stage: Output<'indexRead'>['leaves']['items'][number]['stage']; version: number; description: string }
+      return { id: record.id, kind: record.kind, name: record.name, stage: record.stage, version: record.version,
+        description: record.description.length > 240 ? `${record.description.slice(0, 239)}…` : record.description }
+    })
+    return { initialized: true, readPath: 'summaries-and-leaves', guidance, summariesTruncated: rows.length > 30, summaries,
+      leaves: { items, hasMore: leafRows.length > input.limit, nextAfter: selected.length ? String(selected.at(-1)!.record_id) : '' } }
   }
   private search(input: Input<'search'>): Output<'search'> {
     if (!input.query.trim() || input.query.length > 500 || input.limit < 1 || input.limit > 100) throw new StorageError('INVALID_SEARCH')
@@ -279,6 +350,8 @@ export class StoreDatabase {
       case 'backup': output = await this.makeBackup(); break
       case 'restore': output = this.restore(input as Input<'restore'>); break
       case 'check': output = this.check(); break
+      case 'learningAdvance': output = this.learningAdvance(input as Input<'learningAdvance'>); break
+      case 'indexRead': output = this.indexRead(input as Input<'indexRead'>); break
       case 'rebuildIndex': this.transaction(() => {
         this.db.exec("DELETE FROM observations_fts; INSERT INTO observations_fts(id,title,text) SELECT id,json_extract(payload,'$.title'),json_extract(payload,'$.text') FROM observations;")
         this.db.exec("DELETE FROM knowledge_fts; INSERT INTO knowledge_fts(scope,id,text) SELECT scope,id,search_text FROM knowledge_records;")

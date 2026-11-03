@@ -64,7 +64,7 @@ export async function exercise(plugin) {
     assert.equal(denied.isError, true)
     const storage = await host.run('erp_storage_status')
     assert.equal(storage.isError, false, JSON.stringify(storage))
-    assert.equal(storage.value.schemaVersion, 3)
+    assert.equal(storage.value.schemaVersion, 4)
     assert.equal(storage.value.journalMode, 'wal')
     const scope = (await host.run('erp_system_status')).value.scope
     const saved = await host.ctx.erp.storage.call('observe', { id: 'packaged-observation', scope,

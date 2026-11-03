@@ -4,16 +4,16 @@
 
 ## Observe, operate, save
 
-Standard installation loads `@guosheng_047/dsh-erp/native`. It reuses DSH tools, Sessions, approvals, attachments and Skills. Deskwork supplies its task browser; standalone DSH reuses an existing Browser Use provider or loads official Playwright MCP.
+Standard installation loads `@guosheng_047/dsh-erp/native`. It reuses DSH tools, Sessions, approvals, attachments and Skills. An existing Browser Use provider is reused; otherwise official Playwright MCP is loaded.
 
 1. Call `erp_system_status` and `erp_native_status`, open the configured entry and sign in manually.
 2. Take a native snapshot, then immediately call `erp_native_observation_save`. Only the same Agent's latest successful snapshot is accepted; another operation invalidates it.
-3. Record knowledge with `erp_knowledge_record`, citing the saved observation ID and an exact quote. Use the learning queue to keep unfinished work.
+3. A saved snapshot is normalized into importable `browser-learning-v1` evidence. Use `erp_learning_begin` so the controller owns the frontier, and `erp_knowledge_record` for a local revision that cites the observation ID and an exact quote.
 4. After an operation, take a fresh snapshot and check the outcome. Saved observations are historical evidence; their element references cannot be reused.
 
 Playwright tools keep their upstream names and arguments; the current click tool uses `target`. Browser providers own sessions and element references. Ending an attached session releases the connection and retains the external browser.
 
-Native browser and desktop calls request individual DSH approval. Deskwork follows its task-owned page confirmation policy. ERP's URL checks limit evidence admission; native tools retain host-level access. Screenshots and tool results follow DSH attachment handling and may contain private information.
+Native browser and desktop calls request individual DSH approval. Opening a page and an ERP business write both need that approval; a local knowledge revision does not change the ERP. ERP's URL checks limit evidence admission; native tools retain host-level access. Screenshots and tool results follow DSH attachment handling and may contain private information.
 
 `computerUse: true` loads the official native Cua Driver, requiring its optional package and OS permissions. It reuses an existing provider when available. A permissions check can use `cua_driver_native__check_permissions` with `prompt: false`; saving window evidence also requires confirmation that it belongs to the configured ERP.
 
