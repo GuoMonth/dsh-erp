@@ -2,13 +2,16 @@
 
 ## Unreleased
 
-- Returning to ERP 助手 lists saved sites and continues the last one that is still listed. Continue restores that site's conversation and opens its entry URL. The first visit, with no sites, is only the setup form.
-- The site form checks the entry URL, keeps the account label optional, and can edit a row. A new account label or application root is another index. Removing a row, or replacing its identity, does not move other conversations onto a different site.
-- `erp_index_read` leads with the local level summary and one page of evidence before a live observation. An unbound conversation still cannot read another site's index.
-- Desktop entry for DSH 0.2.1-rc.5. The installed row is the package root, so the client half can register. Chinese UI shows ERP 助手; English UI shows Adapt ERP. The npm name stays `@guosheng_047/dsh-erp`.
-- Opening a site focuses that site's conversation and opens its entry URL in the official sidebar Browser for a manual login. The guide has no password field.
-- Several sites can be added, listed and switched. Each site keeps its own session binding and its own knowledge scope. An unbound conversation does not read another site's index.
-- No Deskwork dependency and no npm publish in this change.
+## 0.1.4 — 2026-11-03
+
+- Desktop install on DSH 0.2.1-rc.5 adds a left-nav workspace. Chinese UI shows ERP 助手. English UI shows Adapt ERP. The npm name stays `@guosheng_047/dsh-erp`. The installed row is the package root, so the client half can register. The tools-only 0.1.3 package does not show this entry.
+- Opening a site focuses that site's conversation in the middle and opens its entry URL in the official sidebar Browser. Sign in yourself. The form has no password field, and a request that includes one is rejected.
+- Several sites can be added, listed, and switched. Each site keeps its own conversation and its own knowledge scope. A conversation that is not bound to a site does not read another site's index.
+- Returning to ERP 助手 lists the saved sites and offers Continue for the last one that is still listed. Continue restores that conversation and opens its entry URL. With no sites, the page is only the setup form. If the last site was removed, Continue does not open a different one.
+- The setup form checks the entry URL, keeps the account label optional, and can edit a row. A new account label or application root is another index. Removing a row, or replacing its identity, does not move other conversations onto a different site.
+- `erp_index_read` leads with the local level summary and one page of evidence before a live observation.
+- Unload removes the desktop API route. The host keeps the site list and the last-opened site. The package exports `./package.json`. Display names still come from one locale registration.
+- Peers stay on DSH 0.2.1-rc.5. Cordis stays 4.0.5 and Schemastery stays 3.18.5. There is no Deskwork dependency. This version does not continue an exploration queue an older build accepted from the model.
 
 ## 0.1.3 — 2026-11-03
 

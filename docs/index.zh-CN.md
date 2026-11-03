@@ -2,11 +2,11 @@
 
 [English](index.md) · [场景与快速开始](README.zh-CN.md)
 
-Adapt ERP 在 DeepSeek Harness 里学习一套浏览器 ERP，并把结果留在运行 dsh 的这台机器上。先读[场景](README.zh-CN.md#助手还不认识这套-erp-时)，再读[安装](README.zh-CN.md#安装)和[第一次会话](README.zh-CN.md#快速开始)。[索引](README.zh-CN.md#索引如何工作)是控制器持有的深度 3 漫游，存在本地 SQLite 里，读取时是摘要加一页证据。ERP 写入留在获批的浏览器动作上。标准路径是原生 dsh。不依赖 Deskwork。插件自带浏览器是显式选项。
+Adapt ERP 是 DeepSeek Harness 里的 ERP 桌面工作区。中文界面是 ERP 助手，英文界面是 Adapt ERP，包名是 `@guosheng_047/dsh-erp`。每个站点的结果留在运行 dsh 的这台机器上。先读[场景](README.zh-CN.md#erp-还没有找得到的工作区时)，再读[安装](README.zh-CN.md#安装)和[第一次会话](README.zh-CN.md#快速开始)。[索引](README.zh-CN.md#索引如何工作)是控制器持有的深度 3 漫游，存在本地 SQLite 里，读取时是摘要加一页证据。ERP 写入留在获批的浏览器动作上。标准路径是原生 dsh。不依赖 Deskwork。插件自带浏览器是显式选项。
 
 | 你要做的事 | 指南 |
 | --- | --- |
-| 看这个插件承接哪些 ERP 工作 | [场景](README.zh-CN.md#助手还不认识这套-erp-时) |
+| 看这个插件承接哪些 ERP 工作 | [场景](README.zh-CN.md#erp-还没有找得到的工作区时) |
 | 安装并完成第一次会话 | [快速开始](README.zh-CN.md#快速开始) |
 | 在桌面打开 ERP 助手 | [桌面](README.zh-CN.md#桌面) |
 | 设置网站与身份 | [配置](system-configuration.md) |

@@ -35,7 +35,7 @@ Documentation-only changes run `npm run docs:check`. Live-model vision, user mac
 Use a unique tarball path and verify the installed bytes; pnpm may cache a reused path. Install into an isolated DSH profile:
 
 ```sh
-npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.3.tgz
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.4.tgz
 ```
 
 `erp_runtime_status` and `erp_storage_status` report local process and storage health. `erp_model_probe` calls an existing model route and does not approve later business operations. After local validation, publish with the manual [Release Action](npm-publishing.en.md).

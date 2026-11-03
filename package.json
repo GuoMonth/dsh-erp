@@ -1,7 +1,7 @@
 {
   "name": "@guosheng_047/dsh-erp",
-  "version": "0.1.3",
-  "description": "Adapt ERP: learn your ERP through the browser and build private local knowledge in DeepSeek Harness",
+  "version": "0.1.4",
+  "description": "ERP 助手 (Adapt ERP): a DeepSeek Harness desktop workspace that learns your ERP sites from the sidebar browser and keeps a private local index per site",
   "type": "module",
   "license": "MIT",
   "publishConfig": {
