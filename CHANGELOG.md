@@ -2,20 +2,16 @@
 
 ## Unreleased
 
-- Rewrite the public README and guide index around the jobs the plugin takes on: an ERP the model has not seen, a short local index after a depth-3 walk, and approvals that keep page opens separate from writes. Deskwork is not part of the product. The text adds no acceptance claim.
-- Replace model-supplied exploration units with a controller-owned breadth-first walk that stops at depth 3. Each finished level writes one summary before the next level starts. Level 1 can be a snapshot; opening a page still requires approval.
-- Keep SQLite. After initialization, the default read is compact summaries plus one page of evidence-backed leaves. Local revisions stay separate from ERP mutations, which require a DSH approval.
-- Remove the Deskwork adapter, including site-context injection and deskwork tool branches. Native Browser Use, Playwright MCP, approval and skills remain the host path.
-- Render short Markdown for tool results and set presentResult titles. An OpenUI payload is attached only when a host service is present.
-- Normalize native snapshots into browser-learning-v1 documents so they can be imported.
-- Keep one schema, the existing DSH ValueSchemaSpec. This change does not claim compatibility with earlier exploration queues or Deskwork hosts.
-- Drop dated assessments, the passive-browser essay, and the unused v1 acceptance notes. Managed read routes are a short note.
-
 ## 0.1.3 — 2026-11-03
 
 - Align with DSH 0.2.1-rc.5 only. Cordis stays 4.0.5 and Schemastery stays 3.18.5. rc.4 keeps ACP diagnostics off stdout; rc.5 improves thinking display. Plugin APIs used here are unchanged.
-- The native entry still composes official Browser Use, Playwright MCP, approval, skills and the opt-in Cua Driver. The managed browser, local knowledge store and worker schema bundle stay because they are the ERP product, not a DSH compatibility layer.
-- No ERP workflow change: configuration, storage, approval boundaries and Skill sharing remain as documented in 0.1.2.
+- Replace model-supplied exploration units with a controller-owned breadth-first walk that stops at depth 3. Each finished level writes one summary before the next level starts. Level 1 can be a snapshot; opening a page still requires approval.
+- Keep SQLite as the local read index. After initialization, the default read is compact summaries plus one page of evidence-backed leaves. Local revisions stay separate from ERP mutations, which require a DSH approval.
+- Remove the Deskwork adapter, including site-context injection and deskwork tool branches. The native entry composes official Browser Use, Playwright MCP, approval, skills and the opt-in Cua Driver. The managed browser, local knowledge store and worker schema bundle stay because they are the ERP product, not a DSH compatibility layer.
+- Render short Markdown for tool results and set presentResult titles. An OpenUI payload is attached only when a host service is present.
+- Normalize native snapshots into browser-learning-v1 documents so they can be imported. Keep one schema, the existing DSH ValueSchemaSpec.
+- Rewrite the public README and guide index around the jobs the plugin takes on. Drop dated assessments, the passive-browser essay and the unused v1 acceptance notes. Managed read routes are a short note. The text adds no acceptance claim.
+- This release does not claim compatibility with earlier exploration queues or Deskwork hosts.
 
 ## 0.1.2 — 2026-10-28
 
