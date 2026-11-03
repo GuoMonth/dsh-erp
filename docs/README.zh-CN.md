@@ -4,7 +4,7 @@
 
 通过浏览器学习你的 ERP，把知识留在自己的电脑上。Adapt ERP 是 DeepSeek Harness（DSH）插件：你负责登录，DSH 观察页面，保存的知识可在后续对话中继续使用。初次安装没有你的站点知识。
 
-当前版本 **0.1.2**，使用 **DSH 0.2.1-rc.3**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面测试覆盖 Linux x64；Windows/macOS 验收待完成。
+当前版本 **0.1.3**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面测试覆盖 Linux x64；Windows/macOS 验收待完成。
 
 ## 安装
 
@@ -17,10 +17,10 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_
 只有 Node：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.3 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
-使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.2`。浏览器提供方会准备 Chromium；Linux 还需要图形会话和 Chromium 系统库。
+使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.3`。浏览器提供方会准备 Chromium；Linux 还需要图形会话和 Chromium 系统库。
 
 ## 配置 ERP
 

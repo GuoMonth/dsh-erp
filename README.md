@@ -4,7 +4,7 @@
 
 Learn your ERP through its browser interface and keep the knowledge on your machine. Adapt ERP is a DeepSeek Harness (DSH) plugin: you sign in, DSH observes the pages, and saved knowledge carries into later conversations. It starts with no knowledge of your site.
 
-Current release: **0.1.2**, for **DSH 0.2.1-rc.3** (upstream prerelease). Requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64; Windows/macOS acceptance is pending.
+Current release: **0.1.3**, for **DSH 0.2.1-rc.5** (upstream prerelease). Requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64; Windows/macOS acceptance is pending.
 
 ## Install
 
@@ -17,10 +17,10 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_
 With only Node installed:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.3 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
-Use the full package name. For a fixed release, replace `@latest` with `@0.1.2`. The browser provider prepares Chromium; Linux also needs a graphical session and Chromium system libraries.
+Use the full package name. For a fixed release, replace `@latest` with `@0.1.3`. The browser provider prepares Chromium; Linux also needs a graphical session and Chromium system libraries.
 
 ## Set up your ERP
 
