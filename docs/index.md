@@ -16,4 +16,4 @@ Adapt ERP learns one browser ERP inside DeepSeek Harness and keeps the result on
 | Develop or test | [Development](development.en.md) |
 | Publish a package | [Publishing](npm-publishing.en.md) |
 
-The table describes the current product. [ADR 0003](adr/0003-controller-bfs-index.md) records the depth-3 index decision. Historical [assessments](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments) and the other [decisions](https://github.com/GuoMonth/dsh-erp/tree/main/docs/adr) keep their original version and date. Older planning documents stay in Git history.
+The table describes the current product. [ADR 0003](adr/0003-controller-bfs-index.md) records the depth-3 index decision. The other decisions stay in `docs/adr`. Earlier planning documents stay in Git history.

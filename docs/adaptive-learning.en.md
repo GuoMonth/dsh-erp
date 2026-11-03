@@ -22,6 +22,8 @@ Manual navigation or takeover pauses observation. `erp_browser_takeover` returns
 
 Snapshots capture visible DOM: at most 10 in-application frames, 30000 characters and 500 candidate controls per frame, and 300 usable references overall. Hidden content and cross-application frames are skipped. Custom dropdowns require opening and another observation. Canvas, closed Shadow DOM, complex SSO and multiple windows remain limited.
 
-Password, hidden and file inputs, credential fields and `data-erp-private` areas are excluded. This is partial filtering; business data can still be saved and sent to the configured model. The application base limits selected pages and elements, not all website network traffic.
+Password, hidden and file inputs, credential fields and `data-erp-private` areas are excluded. This is partial filtering; business data can still be saved and sent to the configured model. The application base limits selected pages and elements, not all website network traffic. Storage and knowledge tools are shared with native mode.
 
-[Passive observation](https://github.com/GuoMonth/dsh-erp/blob/main/docs/browser-observation.md) and [contract-based navigation](https://github.com/GuoMonth/dsh-erp/blob/main/docs/controlled-read-navigation.md) are additional managed-mode interfaces for specific use cases. The latter requires a reviewed local policy. Storage and knowledge tools are shared with native mode.
+## Passive labels
+
+`erp_browser_open` opens a blank window. You navigate and sign in inside the configured application. `erp_browser_observe` reads visible labels on the single current page and in-application frames, then saves evidence. It does not click, read input values or take screenshots. More than one page pauses observation until you leave one. The observation grant is not an ERP write approval. Reviewed routes are a separate, off-by-default [read contract](controlled-read-navigation.en.md).

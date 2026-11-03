@@ -19,7 +19,7 @@ Playwright 工具保留上游名称与参数，当前点击工具使用 `target`
 
 ## 分享 Skill
 
-说“把这个 ERP 的经验导出为 Skill”。`erp_experience_export` 返回目录：
+`erp_experience_export` 返回目录：
 
 ```text
 erp-experience-<summary>-<export-ID>/

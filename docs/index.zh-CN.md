@@ -16,4 +16,4 @@ Adapt ERP 在 DeepSeek Harness 里学习一套浏览器 ERP，并把结果留在
 | 开发与测试 | [开发](development.md) |
 | 发布安装包 | [发布](npm-publishing.md) |
 
-上表描述的是当前产品。[ADR 0003](adr/0003-controller-bfs-index.md) 记录深度 3 索引的决定。[历史评估](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments)和其他[决策](https://github.com/GuoMonth/dsh-erp/tree/main/docs/adr)保留原版本与日期。更早的规划留在 Git 历史里。
+上表描述的是当前产品。[ADR 0003](adr/0003-controller-bfs-index.md) 记录深度 3 索引的决定。其余决策留在 `docs/adr`，更早的规划留在 Git 历史里。

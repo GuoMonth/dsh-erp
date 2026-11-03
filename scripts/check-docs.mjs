@@ -18,7 +18,7 @@ function anchors(text) {
     return count ? `${slug}-${count}` : slug
   }))
 }
-const guides = ['system-configuration', 'native-and-sharing', 'adaptive-learning', 'knowledge', 'storage', 'development', 'npm-publishing']
+const guides = ['system-configuration', 'native-and-sharing', 'adaptive-learning', 'controlled-read-navigation', 'knowledge', 'storage', 'development', 'npm-publishing']
 const pairs = [['README.md', 'docs/README.zh-CN.md'], ['docs/index.md', 'docs/index.zh-CN.md'], ...guides.map(stem => [`docs/${stem}.en.md`, `docs/${stem}.md`])]
 for (const [en, zh] of pairs) {
   const a = read(en), b = read(zh)

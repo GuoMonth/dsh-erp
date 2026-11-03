@@ -19,7 +19,7 @@ Native browser and desktop calls request individual DSH approval. Opening a page
 
 ## Share a Skill
 
-Ask: “Export this ERP's experience as a Skill.” `erp_experience_export` returns a directory:
+`erp_experience_export` returns a directory:
 
 ```text
 erp-experience-<summary>-<export-ID>/

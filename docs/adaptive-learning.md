@@ -22,6 +22,8 @@
 
 快照采集可见 DOM：最多 10 个应用内 frame，每个最多 30000 字符和 500 个候选控件，总计最多 300 个可用引用。跳过隐藏内容与跨应用 frame；自定义下拉需打开后重新观察。Canvas、封闭 Shadow DOM、复杂 SSO 和多窗口仍有限制。
 
-排除密码、隐藏和文件输入、凭据字段及 `data-erp-private` 区域。这只是部分过滤，业务数据仍可能保存并发送给配置的模型。应用范围限制选取的页面与元素，不限制网站全部网络流量。
+排除密码、隐藏和文件输入、凭据字段及 `data-erp-private` 区域。这只是部分过滤，业务数据仍可能保存并发送给配置的模型。应用范围限制选取的页面与元素，不限制网站全部网络流量。存储和知识工具与原生模式共用。
 
-[被动观察](https://github.com/GuoMonth/dsh-erp/blob/main/docs/browser-observation.md)与[契约导航](https://github.com/GuoMonth/dsh-erp/blob/main/docs/controlled-read-navigation.md)是用于特定场景的受控模式接口；后者需要经过审查的本地策略。存储和知识工具与原生模式共用。
+## 被动标签
+
+`erp_browser_open` 打开空白窗口，由你在配置的应用内导航并登录。`erp_browser_observe` 只读取当前唯一页面及应用内 frame 的可见标签并保存证据：不点击、不读取输入值、不截图。多于一个页面时暂停，由人留下一页。观察许可不是 ERP 写入批准。已审查路由另见[只读契约](controlled-read-navigation.md)，默认关闭。

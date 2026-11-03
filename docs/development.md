@@ -28,7 +28,7 @@ SCM 夹具是冻结的回归基准，不是生产集成。原生桌面变更可�
 ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/computer-desktop.integration.mjs
 ```
 
-文档变更检查链接、锚点和翻译，无需运行完整运行时测试。PR 记录实际命令、源码身份和未测范围。真实模型视觉、用户 macOS 和当前真实 ERP 业务验收仍待完成。[历史评估](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments)只适用于各自日期和版本，新业务验证按[测试指南](https://github.com/GuoMonth/dsh-erp/blob/main/docs/testing/README.md)准备。
+只改文档时运行 `npm run docs:check`。真实模型视觉、用户 macOS 和当前真实 ERP 业务验收不在 `npm run verify` 内。
 
 ## 本地安装包
 
@@ -38,4 +38,4 @@ ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/
 npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.3.tgz
 ```
 
-`erp_runtime_status`、`erp_storage_status` 检查本地进程与存储；`erp_model_probe` 调用已有模型路由，`erp_approval_probe` 检查无副作用审批，均不批准后续业务操作。完成本地验证后，通过手动 [Release Action](npm-publishing.md) 发布。
+`erp_runtime_status` 与 `erp_storage_status` 检查本地进程和存储。`erp_model_probe` 调用已有模型路由，不批准后续业务操作。完成本地验证后，通过手动 [Release Action](npm-publishing.md) 发布。
