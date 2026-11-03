@@ -4,7 +4,7 @@
 
 ## 观察、操作、保存
 
-标准安装加载 `@guosheng_047/dsh-erp/native`，复用 DSH 工具、会话、审批、附件和 Skill。已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。
+标准安装写入的是包 `@guosheng_047/dsh-erp`。桌面客户端挂在这一行上。宿主入口与 `./native` 导出的是同一个：复用 DSH 工具、会话、审批、附件和 Skill。已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。
 
 1. 调用 `erp_system_status`、`erp_native_status`，打开配置入口，由你登录。
 2. 获取原生快照，随即调用 `erp_native_observation_save`。只接受同一 Agent 最近成功的快照；其他操作会使它失效。

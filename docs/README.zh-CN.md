@@ -2,37 +2,45 @@
 
 [English](../README.md) · [版本发布](https://github.com/GuoMonth/dsh-erp/releases)
 
-ERP 助手要先见过你的界面才用得上。Adapt ERP 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）插件：它从你登录的浏览器学习这一套 ERP，把地图留在本机 SQLite 索引里，并在改动系统之前等待批准。
+只有工具、没有入口的安装，助手不在导航里。下一个问题会打开一段空白对话，你登录过的 ERP 也不是这段对话旁边的浏览器。第二家公司用的是同一个对话和同一份索引。
 
-登录由你完成。DSH 观察你允许打开的页面。之后的对话读取一段短摘要和一页证据，而不是从空白站点重新开始。插件不带你公司的站点知识。
+**ERP 助手**就是桌面上的这个工作区。英文界面显示 **Adapt ERP**。要安装的包是 `@guosheng_047/dsh-erp`。在 DSH **0.2.1-rc.5** 上把它加进 **desktop** profile，然后重启。左侧导航列出你的站点。继续会把该站点的对话放在中间，并在右侧官方侧栏浏览器中打开它的入口网址。登录由你自己完成。没有密码栏。每个站点有自己的对话和自己的本地 SQLite 索引。
 
-当前版本 **0.1.3**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面检查覆盖 Linux x64。Windows 与 macOS 验收仍待完成。`npm run verify` 不包含在线模型或真实 ERP。
+插件仍然只学习浏览器实际显示过的内容。之后的问题读取一段短的层级摘要和一页证据。ERP 写入要等一次新的批准。插件不带你公司的站点知识。
 
-## 助手还不认识这套 ERP 时
+当前版本 **0.1.4**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面检查覆盖 Linux x64。Windows 与 macOS 验收仍待完成。`npm run verify` 不包含在线模型或真实 ERP。
+
+## ERP 还没有找得到的工作区时
 
 每天使用 ERP 的人，以及为他们运行 dsh 的操作者，会碰到同一类障碍：
 
-- **菜单是本地的。** 采购、库存和审批藏在通用模型没见过的名称、Tab 和角色后面。新对话又从登录页走起。贴进提示词的截图会随这次对话消失。
-- **整站不适合当记忆。** 第一次看过之后，接下来的问题通常是某个界面在哪里、上次已经观察到什么。把每个菜单都塞进提示词，回答会更慢，也更不可靠。
+- **助手不在导航上。** 没有桌面入口，就没有地方可以返回。下一次会话从空白对话开始。
+- **登录过的站点不在对话旁边。** 登录属于右侧的官方侧栏浏览器，对话和批准留在中间。贴进提示词的截图会随这次对话消失。
+- **第二个站点不是同一份索引。** 两家公司需要两个入口网址、两段对话和两份本地索引。还没有绑定站点的对话不会读取任何一份。
 - **查看和过账缠在一起。** 打开页面、填写字段和保存可能发生在同一次游走里。会自动保存的查询也是写入。操作者需要把打开和变更分成看得见的两步。
 - **记录要留在这台机器上。** 登录状态、观察和数据库是工作材料。同事需要的是审过的笔记，不是会话副本。
 
 Adapt ERP 放在 dsh 里做这件事。它按浏览器实际显示的内容建立深度为 3 的索引，用短页把索引交还给模型，并把 ERP 写入放在一次新的批准之后。
 
+### 回到已经打开过的站点
+
+你已经添加过这个站点。下次打开 ERP 助手，列表还在，继续落在上次打开、且仍在列表里的那个站点上。继续会恢复那段对话，并在侧栏浏览器中打开入口网址。如果那一行已经移除，继续不会改去打开另一个站点。还没有任何站点时，这一页只有设置表单。
+
 ### 用户要找一笔业务
 
 你已经登录过一次，并让插件对入口和你批准的页面做了快照。下周你问收货在哪里、那个屏幕上有哪些字段。DSH 读取已保存的摘要和一页记录，这时可以不打开浏览器。问今天的数量仍然需要重新观察。索引是看见过的内容，不是实时台账。
 
-### 操作者接入一个站点
+### 操作者添加一个站点
 
-你有一个 URL 和一个账号标签。把它们写进 DSH profile，运行 `dsh --profile web`，然后自己登录。你要求做入口快照，再逐次批准控制器要打开的页面。走到已经可见的字段、Tab 和窗口就停。模型没有被赋予“把 ERP 学完”这个目标。
+你有一个 URL，以及一个可选的账户标签。在桌面上打开 ERP 助手，填这张表。没有密码栏。在侧栏浏览器里自己登录。若改在 profile 文件里声明，先退出 DSH，设置 `system.url`，再运行 `dsh --profile web`。要求做入口快照，再逐次批准控制器要打开的页面。走到已经可见的字段、Tab 和窗口就停。模型没有被赋予“把 ERP 学完”这个目标。
 
 ### 构建者留在原生 dsh 上
 
-你希望模型调用普通的 dsh 浏览器工具，沿用宿主的批准和 Skill，并读取本地索引。安装后的行是 DSH 0.2.1-rc.5 上的 `@guosheng_047/dsh-erp`，桌面入口挂在这个包名上。需要插件自带浏览器时，设置 `browserMode: managed`。当前插件不使用 Deskwork。
+你希望模型调用普通的 dsh 浏览器工具，沿用宿主的批准和 Skill，并读取本地索引。安装后的行是 DSH 0.2.1-rc.5 上的 `@guosheng_047/dsh-erp`。桌面入口挂在这个包根本身上。需要插件自带浏览器时，设置 `browserMode: managed`。当前插件不使用 Deskwork。
 
 ## 适合谁
 
+- 需要左侧是 ERP 助手、中间是该站点的对话、右侧是该站点浏览器的人。
 - 希望以后的 dsh 对话记住自己站点上的菜单、页面和字段的 ERP 用户。
 - 配置一个系统 URL、把密码留在浏览器里、并逐次批准打开和写入的操作者。
 - 把上述行为放进 DeepSeek Harness，并需要存储与批准边界保持明确的构建者。
@@ -49,31 +57,37 @@ Adapt ERP 放在 dsh 里做这件事。它按浏览器实际显示的内容建�
 
 ## 安装
 
+装进桌面 profile，然后重启 DeepSeek Harness。左侧导航在中文界面显示 **ERP 助手**，在英文界面显示 **Adapt ERP**。包名是 `@guosheng_047/dsh-erp`。
+
 已有 DSH，并已配置模型：
-
-```sh
-npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
-```
-
-只有 Node：
-
-```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
-```
-
-使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.3`。浏览器提供方会准备 Chromium。Linux 还需要图形会话和 Chromium 系统库。
-
-## 桌面
-
-装进桌面 profile，然后重启 DeepSeek Harness。左侧导航在中文界面显示 **ERP 助手**，在英文界面显示 **Adapt ERP**。包名仍是 `@guosheng_047/dsh-erp`。
 
 ```sh
 npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
 ```
 
-打开这个入口。还没有站点时，这一页是一段简短的设置：入口网址、路径不以 `/` 结尾时可选的应用根地址，以及可选的账户标签。没有密码栏。
+只有 Node：
 
-已有站点之后，同一个入口列出这些站点，并为上次打开的那个提供「继续」。继续会恢复该站点的对话，并在官方侧栏浏览器中打开它的入口网址。登录由你自己完成。如果那个站点已经从列表移除，继续不会改去打开另一个。编辑可以改名称、入口网址或账户标签。新的账户标签或应用根是另一份索引，原先绑定的对话不会被挪过去。移除只是从列表拿掉。索引仍留在这台机器上。
+```sh
+npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
+```
+
+使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.4`。浏览器提供方会准备 Chromium。Linux 还需要图形会话和 Chromium 系统库。
+
+这个包被收录之后，同一个 npm 包名可以从 dsh-market 安装，也可以在索引包含 `@guosheng_047/dsh-erp` 之后从插件页的 Discover 安装。卡片上可能显示 ERP 助手或 Adapt ERP。尚未收录时，使用上面的命令。
+
+不是桌面应用的宿主，把同一条命令里的 profile 换成 `web`：
+
+```sh
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
+```
+
+## 桌面
+
+完成上面的桌面安装后重启应用，再打开左侧入口。
+
+还没有站点时，这一页是一段简短的设置：入口网址、路径不以 `/` 结尾时可选的应用根地址，以及可选的账户标签。没有密码栏。
+
+已有站点之后，同一个入口列出这些站点，并为上次打开、且仍在列表中的那个提供「继续」。继续会在中间恢复该站点的对话，并在右侧官方侧栏浏览器中打开它的入口网址。登录由你自己完成。如果那个站点已经从列表移除，继续不会改去打开另一个。编辑可以改名称、入口网址或账户标签。新的账户标签或应用根是另一份索引，原先绑定的对话不会被挪过去。移除只是从列表拿掉。索引仍留在这台机器上。
 
 再用同样的方式添加另一个站点。它有自己的对话和自己的本地索引。还没有绑定站点的对话不会读取任何一个索引。之后的问题应先读层级摘要和一页证据，再做实时观察。
 
@@ -91,7 +105,7 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosh
 
 只有 `url` 必填。`account` 是本地身份标签，不是密码。登录路径、公司和角色见[配置指南](system-configuration.md)。
 
-1. 运行 `dsh --profile web`，让它调用 `erp_system_status`。
+1. 启动桌面应用，或运行 `dsh --profile web`，让它调用 `erp_system_status`。
 2. 打开配置的入口并自己登录。插件不接收密码。
 3. 要求做入口快照，然后调用 `erp_learning_begin`。前沿由控制器持有。第 1 层可以只有这张快照。
 4. 批准之后的每次打开页面。第 3 层记录已经看见的字段、Tab 和窗口，然后停止。
@@ -101,7 +115,7 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosh
 
 ## 索引如何工作
 
-插件是一项 DSH 服务。标准安装加载原生入口：已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。只有设置 `computerUse: true` 时才加载 Computer Use。这条路径需要可选的 Cua Driver Native 包和操作系统权限。工具结果是带标题的短 Markdown。仅当宿主里存在 OpenUI 服务时才附加一段载荷。DSH 0.2.1-rc.5 不要求该服务。
+插件是一项 DSH 服务。标准安装从包根 `@guosheng_047/dsh-erp` 加载原生入口：已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。只有设置 `computerUse: true` 时才加载 Computer Use。这条路径需要可选的 Cua Driver Native 包和操作系统权限。工具结果是带标题的短 Markdown。仅当宿主里存在 OpenUI 服务时才附加一段载荷。DSH 0.2.1-rc.5 不要求该服务。
 
 原生快照入库前会整理成 `browser-learning-v1`，因此同一条导入路径可以读取它。探索是广度优先，由控制器持有：`erp_learning_begin`、`erp_learning_accept`、`erp_learning_block`、`erp_learning_status`、`erp_learning_pause`。调用方提交观察，不提交下一个单元。
 
@@ -126,10 +140,10 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosh
 调用 `erp_storage_backup`，退出 DSH，重复安装命令并重启，保留原配置和数据目录。此索引不会继续跑旧构建里由模型提交的探索队列。打开较旧的 SQLite 文件时会先做经校验的备份，再迁移。这次迁移不表示旧队列仍能运行，也不是与 Deskwork 兼容。早期 Alpha 的目录布局和恢复见[存储指南](storage.md)。
 
 ```sh
-npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web remove @guosheng_047/dsh-erp
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop remove @guosheng_047/dsh-erp
 ```
 
-卸载前退出 DSH。卸载保留本地数据。
+卸载前退出 DSH。卸载保留本地数据。web profile 使用同一条命令，把 profile 换成 `web`。
 
 ## 文档
 

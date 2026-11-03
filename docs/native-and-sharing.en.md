@@ -4,7 +4,7 @@
 
 ## Observe, operate, save
 
-Standard installation loads `@guosheng_047/dsh-erp/native`. It reuses DSH tools, Sessions, approvals, attachments and Skills. An existing Browser Use provider is reused; otherwise official Playwright MCP is loaded.
+Standard installation inserts the package `@guosheng_047/dsh-erp`. The desktop client attaches to that row. The host entry is the same one exported from `./native`: it reuses DSH tools, Sessions, approvals, attachments and Skills. An existing Browser Use provider is reused; otherwise official Playwright MCP is loaded.
 
 1. Call `erp_system_status` and `erp_native_status`, open the configured entry and sign in manually.
 2. Take a native snapshot, then immediately call `erp_native_observation_save`. Only the same Agent's latest successful snapshot is accepted; another operation invalidates it.
