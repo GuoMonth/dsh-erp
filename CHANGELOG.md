@@ -8,6 +8,7 @@
 - Render short Markdown for tool results and set presentResult titles. An OpenUI payload is attached only when a host service is present.
 - Normalize native snapshots into browser-learning-v1 documents so they can be imported.
 - Keep one schema, the existing DSH ValueSchemaSpec. This change does not claim compatibility with earlier exploration queues or Deskwork hosts.
+- Drop dated assessments, the passive-browser essay, and the unused v1 acceptance notes. Managed read routes are a short note.
 
 ## 0.1.3 — 2026-11-03
 

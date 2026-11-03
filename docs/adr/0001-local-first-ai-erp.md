@@ -1,6 +1,6 @@
 # ADR 0001：效果优先的本地 ERP 插件
 
-日期：2026-09-11。状态：技术决策仍有效；学习策略由 [ADR 0002](0002-menu-first-domain-learning.md) 补充并替代相关条目。当前使用见[指南目录](../index.zh-CN.md)；以下版本与选型记录保留决策时的背景。
+日期：2026-09-11。状态：技术决策仍有效；学习策略由 [ADR 0002](0002-menu-first-domain-learning.md) 补充并替代相关条目。宿主钉扎 `dsh-v0.1.5-rc.2` 已过时，当前目标是 DSH 0.2.1-rc.5，见 [README](../../README.md)。探索队列以 [ADR 0003](0003-controller-bfs-index.md) 为准。
 
 ## 背景与优先级
 
@@ -23,7 +23,7 @@
 
 ## 已接受的技术决策
 
-1. 目标宿主为 DeepSeek Harness `dsh-v0.1.5-rc.2`，运行时只支持 Node 24 LTS。
+1. 决策时的目标宿主为 DeepSeek Harness `dsh-v0.1.5-rc.2`，运行时只支持 Node 24 LTS。当前目标见上文。
 2. TypeScript 开发，发布编译后的 JavaScript；构建锁定具体版本，持续更新 Node 24 安全补丁。
 3. 使用 dsh 原生插件服务与工具管线，复用模型配置、代理循环、审批和会话；首版不额外套 MCP。
 4. 本地工作进程负责浏览器；独立存储线程负责耗时数据库与证据操作，避免浏览器取消中断持久化。模型和宿主审批留在插件侧，通过 IPC 或 stdio 交互，不复制凭据。

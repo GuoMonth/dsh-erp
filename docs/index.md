@@ -11,5 +11,4 @@
 | Use the separate plugin browser | [Managed browser](adaptive-learning.en.md) |
 | Develop or test | [Development](development.en.md) |
 | Publish a package | [Publishing](npm-publishing.en.md) |
-
-Historical [assessments](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments) and [decisions](https://github.com/GuoMonth/dsh-erp/tree/main/docs/adr) record their original version and date. Current behavior is described in the guides above; old planning documents are available in Git history.
+| Read the current exploration decision | [ADR 0003](adr/0003-controller-bfs-index.md) |

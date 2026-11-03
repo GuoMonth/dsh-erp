@@ -28,4 +28,4 @@ One plugin instance has one configured ERP. A stable ID is stored for each norma
 
 The default [native mode](native-and-sharing.en.md) reuses the host browser provider or loads official Playwright MCP. `browserExecutablePath` selects an installed Chromium; `browserEndpoint` attaches to an existing browser. `computerUse: true` enables the official native Cua Driver.
 
-For the separate [managed browser](adaptive-learning.en.md), set `browserMode: managed`. Its tools and element references differ from native mode. Local storage, migration and backup are covered in [storage](storage.en.md).
+For the separate [managed browser](adaptive-learning.en.md), set `browserMode: managed`. Its tools and element references differ from native mode. Reviewed read routes stay off unless configured; see the [read contract](controlled-read-navigation.en.md). Local storage, migration and backup are covered in [storage](storage.en.md).

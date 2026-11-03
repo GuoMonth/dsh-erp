@@ -28,7 +28,7 @@ The SCM fixture is a frozen regression baseline, not production integration. For
 ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/computer-desktop.integration.mjs
 ```
 
-Documentation changes need link, anchor and translation review; they do not require the full runtime suite. PRs record actual commands, source identity and untested cases. Live-model vision, user macOS and current real-ERP business acceptance remain pending. Historical [assessments](https://github.com/GuoMonth/dsh-erp/tree/main/docs/assessments) apply only to their dated versions; plan new business checks with the [test guide](https://github.com/GuoMonth/dsh-erp/blob/main/docs/testing/README.md).
+Documentation-only changes run `npm run docs:check`. Live-model vision, user macOS and current real-ERP business acceptance are outside `npm run verify`.
 
 ## Local package
 
@@ -38,4 +38,4 @@ Use a unique tarball path and verify the installed bytes; pnpm may cache a reuse
 npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.3.tgz
 ```
 
-`erp_runtime_status` and `erp_storage_status` report local process/storage health. `erp_model_probe` calls an existing model route; `erp_approval_probe` checks a no-op approval. Neither approves later business operations. Routine publication uses the manual [Release Action](npm-publishing.en.md), after local validation.
+`erp_runtime_status` and `erp_storage_status` report local process and storage health. `erp_model_probe` calls an existing model route and does not approve later business operations. After local validation, publish with the manual [Release Action](npm-publishing.en.md).

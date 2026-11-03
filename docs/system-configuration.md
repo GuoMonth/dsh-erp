@@ -28,4 +28,4 @@
 
 默认[原生模式](native-and-sharing.md)复用宿主浏览器提供方，或加载官方 Playwright MCP。`browserExecutablePath` 指定已安装的 Chromium；`browserEndpoint` 连接已有浏览器；`computerUse: true` 启用官方 Cua Driver Native。
 
-使用独立的[受控浏览器](adaptive-learning.md)时设置 `browserMode: managed`。它的工具和元素引用与原生模式不同。本地存储、迁移和备份见[存储指南](storage.md)。
+使用独立的[受控浏览器](adaptive-learning.md)时设置 `browserMode: managed`。它的工具和元素引用与原生模式不同。已审查只读路由默认关闭，见[只读契约](controlled-read-navigation.md)。本地存储、迁移和备份见[存储指南](storage.md)。
