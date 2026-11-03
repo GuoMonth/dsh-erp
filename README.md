@@ -29,7 +29,7 @@ You have a URL and an account label. You put them in the DSH profile, start `dsh
 
 ### A builder staying on native dsh
 
-You want the model to call ordinary dsh browser tools, keep the host's approval and Skill machinery, and read a local index. The standard entry is `@guosheng_047/dsh-erp/native` on DSH 0.2.1-rc.5. Set `browserMode: managed` when you want the plugin's own browser. The current plugin does not use Deskwork.
+You want the model to call ordinary dsh browser tools, keep the host's approval and Skill machinery, and read a local index. The installed row is `@guosheng_047/dsh-erp` on DSH 0.2.1-rc.5, which is what attaches the desktop entry. Set `browserMode: managed` when you want the plugin's own browser. The current plugin does not use Deskwork.
 
 ## Who it is for
 
@@ -63,9 +63,21 @@ npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- d
 
 Use the full package name. For a fixed release, replace `@latest` with `@0.1.3`. The browser provider prepares Chromium. Linux also needs a graphical session and Chromium system libraries.
 
+## Desktop
+
+Install into the desktop profile, then restart the DeepSeek Harness app. The left navigation shows **ERP 助手** in Chinese and **Adapt ERP** in English. The package name stays `@guosheng_047/dsh-erp`.
+
+```sh
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
+```
+
+Open that entry. Add each ERP with its entry URL and, if you want, an account label. Choose Open. The middle column is that site's conversation and approvals. The right column is the official sidebar Browser at the entry URL, so you can sign in yourself. The form has no password field, and the plugin does not store one.
+
+Add another site the same way. It gets its own conversation and its own local index. Switching sites opens that conversation and that entry URL. A conversation that is not bound to a site does not read either index.
+
 ## Quick start
 
-Stop DSH and edit `~/.dsh/profiles/web/cordis.patch.yml` (or `$DSH_HOME/profiles/web/cordis.patch.yml`). Replace an empty `[]`. Merge an existing `id: erp` entry and preserve other plugins.
+On the desktop you can add sites from ERP 助手 and skip this file. To declare them for a profile, stop DSH and edit `~/.dsh/profiles/desktop/cordis.patch.yml` or `~/.dsh/profiles/web/cordis.patch.yml` (or the same path under `$DSH_HOME`). Replace an empty `[]`. Merge an existing `id: erp` entry and preserve other plugins.
 
 ```yaml
 - id: erp

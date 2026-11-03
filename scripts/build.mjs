@@ -24,3 +24,16 @@ const notices = [...packages].sort().map(name => {
   return `${name}@${manifest.version}\n\n${readFileSync(new URL('LICENSE', directory), 'utf8')}`
 })
 writeFileSync(new URL('../dist/schema-runtime.LICENSE.txt', import.meta.url), notices.join('\n\n---\n\n'))
+
+const clientId = '@guosheng_047/dsh-erp'
+await build({
+  entryPoints: [fileURLToPath(new URL('../src/client/index.tsx', import.meta.url))],
+  outfile: fileURLToPath(new URL('../dist/client.js', import.meta.url)),
+  bundle: true, format: 'cjs', platform: 'browser', target: 'es2022', jsx: 'automatic', sourcemap: true, charset: 'utf8',
+  external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
+    '@deepseek-ai/dsh-client-ui-slots', '@deepseek-ai/dsh-client-ui-primitives', '@deepseek-ai/dsh-client-ui-dockkit',
+    '@deepseek-ai/dsh-client-store'],
+  define: { 'process.env.NODE_ENV': '"production"' },
+  banner: { js: `window.__ModuleLoader__.load({ id: ${JSON.stringify(clientId)}, factory: (require) => { var module = { exports: {} }; var exports = module.exports;` },
+  footer: { js: 'return module.exports; } });' },
+})

@@ -13,7 +13,7 @@ npm run verify
 npm pack
 ```
 
-`verify` runs types, tests and artifact smoke. Smoke installs a tarball outside the repository and exercises real DSH, Chromium, IPC, approvals and local knowledge with a deterministic model. It does not call a live model or ERP. The build cleans `dist`; packages exclude fixtures and private user data.
+`verify` runs types, tests and artifact smoke. Tests cover the desktop client bundle, the ERP 助手 entry, and separate indexes when two sites are switched. Smoke installs a tarball outside the repository and exercises real DSH, Chromium, IPC, approvals and local knowledge with a deterministic model. It does not call a live model or ERP. The build cleans `dist`; packages exclude fixtures and private user data.
 
 For browser changes, run the affected headful tests:
 

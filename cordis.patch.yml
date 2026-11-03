@@ -1,3 +1,4 @@
+# Package root, not the /native subpath: the desktop client half attaches only to the bare package name.
 - insert:
     - id: erp
-      name: '@guosheng_047/dsh-erp/native'
+      name: '@guosheng_047/dsh-erp'

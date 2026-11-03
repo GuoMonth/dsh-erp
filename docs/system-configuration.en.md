@@ -22,7 +22,25 @@ Only `url` is required. If its path does not end in `/`, also set `baseUrl`. The
 
 The name defaults to the hostname; account defaults to `default`. Account, company and role labels separate local knowledge. Choose distinct labels for different identities and check them against your actual login. `erp_system_status` returns the exact scope required by knowledge and learning tools.
 
-One plugin instance has one configured ERP. A stable ID is stored for each normalized base URL. Renaming the ERP keeps its ID; changing the domain or application path selects a different system. Returning to the original base finds the original ID.
+A stable ID is stored for each normalized base URL. Renaming the ERP keeps its ID; changing the domain or application path selects a different system. Returning to the original base finds the original ID. The same plugin can hold several sites. A different account label on the same base URL is a different index.
+
+## Several sites
+
+On the desktop, add sites from ERP 助手. The patch can declare them too. `system` is one site. `sites` adds others. Restart after editing the patch. A site removed in the desktop entry stays removed until you add it again.
+
+```yaml
+- id: erp
+  config:
+    system:
+      url: "https://erp.example.com/app/"
+      account: "work-account"
+    sites:
+      - url: "https://other.example.com/app/"
+        name: "Other ERP"
+        account: "buyer"
+```
+
+Each site keeps its own conversation and its own SQLite scope. Switching sites does not mix them. There is still no password field.
 
 ## Browser options
 

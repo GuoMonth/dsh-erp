@@ -22,7 +22,25 @@
 
 名称默认域名，账号默认 `default`。账号、公司和角色标签用于隔离本地知识。不同身份使用不同标签，并与实际登录身份核对。`erp_system_status` 返回知识和学习工具需要的精确 scope。
 
-每个插件实例配置一个 ERP。规范化 Base URL 对应一个持久 ID。改名保留 ID；更换域名或应用路径会选择另一系统，改回原 Base URL 可找回原 ID。
+规范化 Base URL 对应一个持久 ID。改名保留 ID；更换域名或应用路径会选择另一系统，改回原 Base URL 可找回原 ID。同一个插件可以放多个站点。同一 Base URL 上不同的账户标签是另一份索引。
+
+## 多个站点
+
+在桌面上从 ERP 助手添加站点。补丁里也可以声明。`system` 是一个站点，`sites` 再增加其他站点。改完补丁后重启。在桌面入口里移除的站点会保持移除，直到你再次添加。
+
+```yaml
+- id: erp
+  config:
+    system:
+      url: "https://erp.example.com/app/"
+      account: "work-account"
+    sites:
+      - url: "https://other.example.com/app/"
+        name: "Other ERP"
+        account: "buyer"
+```
+
+每个站点有自己的对话和自己的 SQLite scope。切换站点不会把它们混在一起。这里仍然没有密码栏。
 
 ## 浏览器选项
 

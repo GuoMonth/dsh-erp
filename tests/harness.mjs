@@ -22,6 +22,7 @@ export class ProbeAdapter extends LlmAdapter {
   }
 }
 export async function mount(plugin, adapter = new ProbeAdapter(), config = {}) {
+  if (!Object.hasOwn(config, 'browserMode')) config = { ...config, browserMode: 'managed' }
   const ctx = new Context()
   const fibers = []
   try {

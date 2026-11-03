@@ -29,7 +29,7 @@ Adapt ERP 放在 dsh 里做这件事。它按浏览器实际显示的内容建�
 
 ### 构建者留在原生 dsh 上
 
-你希望模型调用普通的 dsh 浏览器工具，沿用宿主的批准和 Skill，并读取本地索引。标准入口是 DSH 0.2.1-rc.5 上的 `@guosheng_047/dsh-erp/native`。需要插件自带浏览器时，设置 `browserMode: managed`。当前插件不使用 Deskwork。
+你希望模型调用普通的 dsh 浏览器工具，沿用宿主的批准和 Skill，并读取本地索引。安装后的行是 DSH 0.2.1-rc.5 上的 `@guosheng_047/dsh-erp`，桌面入口挂在这个包名上。需要插件自带浏览器时，设置 `browserMode: managed`。当前插件不使用 Deskwork。
 
 ## 适合谁
 
@@ -63,9 +63,21 @@ npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- d
 
 使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.3`。浏览器提供方会准备 Chromium。Linux 还需要图形会话和 Chromium 系统库。
 
+## 桌面
+
+装进桌面 profile，然后重启 DeepSeek Harness。左侧导航在中文界面显示 **ERP 助手**，在英文界面显示 **Adapt ERP**。包名仍是 `@guosheng_047/dsh-erp`。
+
+```sh
+npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
+```
+
+打开这个入口。每个 ERP 填写入口网址，需要的话再写一个账户标签，然后选择「打开」。中间是这个站点的对话和批准。右侧是官方侧栏浏览器，打开的是入口网址，登录由你自己完成。表单没有密码栏，插件也不保存密码。
+
+再用同样的方式添加另一个站点。它有自己的对话和自己的本地索引。切换站点会打开那一个对话和那一个入口网址。还没有绑定站点的对话不会读取任何一个索引。
+
 ## 快速开始
 
-退出 DSH，编辑 `~/.dsh/profiles/web/cordis.patch.yml`；设置 `DSH_HOME` 时使用 `$DSH_HOME/profiles/web/cordis.patch.yml`。替换空列表 `[]`。已有 `id: erp` 时合并配置，保留其他插件。
+在桌面上可以从 ERP 助手添加站点，不必改这个文件。要在 profile 里声明时，退出 DSH，编辑 `~/.dsh/profiles/desktop/cordis.patch.yml` 或 `~/.dsh/profiles/web/cordis.patch.yml`（设置 `DSH_HOME` 时用其下的同一路径）。替换空列表 `[]`。已有 `id: erp` 时合并配置，保留其他插件。
 
 ```yaml
 - id: erp

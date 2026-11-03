@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Desktop entry for DSH 0.2.1-rc.5. The installed row is the package root, so the client half can register. Chinese UI shows ERP 助手; English UI shows Adapt ERP. The npm name stays `@guosheng_047/dsh-erp`.
+- Opening a site focuses that site's conversation and opens its entry URL in the official sidebar Browser for a manual login. The guide has no password field.
+- Several sites can be added, listed and switched. Each site keeps its own session binding and its own knowledge scope. An unbound conversation does not read another site's index.
+- No Deskwork dependency and no npm publish in this change.
+
 ## 0.1.3 — 2026-11-03
 
 - Align with DSH 0.2.1-rc.5 only. Cordis stays 4.0.5 and Schemastery stays 3.18.5. rc.4 keeps ACP diagnostics off stdout; rc.5 improves thinking display. Plugin APIs used here are unchanged.

@@ -29,7 +29,7 @@ test('plugin can be disabled and reloaded with a fresh worker', async t => {
   t.after(() => host.dispose())
   const first = await host.run('erp_runtime_status')
   await host.fiber.dispose()
-  const reloaded = await host.ctx.plugin(plugin)
+  const reloaded = await host.ctx.plugin(plugin, { browserMode: 'managed' })
   t.after(() => reloaded.dispose())
   const next = await host.run('erp_runtime_status')
   assert.equal(next.isError, false)

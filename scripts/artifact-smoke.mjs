@@ -28,6 +28,7 @@ try {
   assert.ok(names.includes('docs/README.zh-CN.md'), 'Ship the Simplified Chinese guide')
   assert.ok(names.includes('docs/system-configuration.md'), 'Ship configuration and upgrade instructions')
   assert.ok(names.includes('dist/system.js'), 'Ship system identity runtime')
+  assert.ok(names.includes('dist/client.js'), 'Ship the desktop client bundle')
   for (const file of ['dist/index.js', 'dist/worker.js', 'dist/storage/worker.js', 'dist/storage/database.js', 'dist/knowledge/store.js', 'dist/knowledge/tools.js', 'dist/knowledge/export.js', 'dist/knowledge/migration.js', 'dist/browser/session.js', 'dist/browser/resources.js', 'dist/browser/labels.js', 'dist/browser/read-policy.js', 'dist/browser/read-navigation.js', 'dist/learning/runtime.js', 'dist/learning/tools.js', 'cordis.patch.yml']) assert.ok(names.includes(file), file)
   assert.ok(!names.some(n => n.startsWith('tests/') || n.startsWith('scripts/') || n.endsWith('.ts') && !n.endsWith('.d.ts')))
   const consumer = join(scratch, 'consumer'); mkdirSync(consumer)

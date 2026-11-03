@@ -35,7 +35,8 @@
     "./native": {
       "types": "./dist/native.d.ts",
       "import": "./dist/native.js"
-    }
+    },
+    "./client": "./dist/client.js"
   },
   "files": [
     "dist",
@@ -71,7 +72,8 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
-    }
+    },
+    "client": { "platform": "web" }
   },
   "scripts": {
     "docs:check": "node scripts/check-docs.mjs",

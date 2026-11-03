@@ -8,6 +8,7 @@ Adapt ERP learns one browser ERP inside DeepSeek Harness and keeps the result on
 | --- | --- |
 | See which ERP jobs this plugin takes | [Scenarios](../README.md#when-the-assistant-does-not-know-the-erp) |
 | Install and run the first session | [Quick start](../README.md#quick-start) |
+| Open ERP 助手 on the desktop | [Desktop](../README.md#desktop) |
 | Set the website and identity | [Configuration](system-configuration.en.md) |
 | Observe, approve a write, share a Skill | [Native operation](native-and-sharing.en.md) |
 | Read the index or revise local knowledge | [Knowledge](knowledge.en.md) |
