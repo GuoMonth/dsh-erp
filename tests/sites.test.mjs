@@ -5,7 +5,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
 import * as plugin from '../dist/index.js'
+import { Context } from '@deepseek-ai/cordis'
 import { erpRequest } from '../dist/product/api.js'
+import { registerErpChannel } from '../dist/product/channel.js'
+import { indexLines } from '../dist/present.js'
+import { resumeTarget } from '../dist/product/resume.js'
+import { SiteCatalog } from '../dist/sites/catalog.js'
+import { baseIssue, entryIssue } from '../dist/product/wizard.js'
 import { mount } from './harness.mjs'
 
 function directory(t) {
@@ -71,12 +77,93 @@ test('desktop add rejects passwords and a new site does not see another index', 
   assert.equal(rebound.value.state, 'select-site')
 })
 
+test('continue restores the last opened site and does not jump to a different one', async t => {
+  const root = directory(t)
+  const host = await mount(plugin, undefined, { dataDir: root })
+  t.after(() => host.dispose())
+  const first = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://a.example/app/', name: 'Alpha', account: 'one' })
+  const second = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/app/', name: 'Beta', account: 'two' })
+  assert.equal(second.ok, true)
+  const alpha = first.value.sites.find(site => site.name === 'Alpha')
+  const beta = second.value.sites.find(site => site.name === 'Beta')
+  assert.equal(resumeTarget(second.value.sites, ''), undefined)
+  const opened = erpRequest(host.ctx.erp.catalog, { op: 'opened', id: alpha.id })
+  assert.equal(opened.value.lastOpenedId, alpha.id)
+  assert.equal(resumeTarget(opened.value.sites, opened.value.lastOpenedId).id, alpha.id)
+  const again = new SiteCatalog(root)
+  t.after(() => again.dispose())
+  assert.equal(again.lastOpened(), alpha.id)
+  const removed = erpRequest(host.ctx.erp.catalog, { op: 'remove', id: alpha.id })
+  assert.equal(removed.value.lastOpenedId, alpha.id)
+  assert.equal(resumeTarget(removed.value.sites, removed.value.lastOpenedId), undefined)
+  assert.equal(removed.value.sites.some(site => site.id === beta.id), true)
+  assert.equal(entryIssue('https://user:secret@a.example/app/'), 'credentials')
+  assert.equal(entryIssue('https://a.example/app/?token=1'), 'query')
+  assert.equal(entryIssue('https://a.example/app/'), '')
+  assert.equal(baseIssue('https://a.example/app'), 'slash')
+  assert.equal(baseIssue(''), '')
+  const lines = indexLines({ initialized: true, summaries: [
+    { level: 1, title: 'Menus', summary: 'Purchasing and stock were visible.', leafCount: 2 },
+  ], leaves: { items: [{ kind: 'menu', name: 'Stock', description: 'Observed stock menu' }], hasMore: true, nextAfter: 'stock' } })
+  const text = lines.join('\n')
+  assert.match(text, /Level 1 · Menus/)
+  assert.match(text, /before a live observation/)
+  assert.match(text, /menu · Stock/)
+  assert.match(text, /after="stock"/)
+})
+
+test('the wizard rejects a bad entry and an edited account stays off other sessions', async t => {
+  const root = directory(t)
+  const host = await mount(plugin, undefined, { dataDir: root, system: { url: 'https://a.example/app/', account: 'one', name: 'Alpha' } })
+  t.after(() => host.dispose())
+  const listed = erpRequest(host.ctx.erp.catalog, { op: 'list' })
+  const alpha = listed.value.sites[0]
+  host.ctx.erp.catalog.bind('sess-a', alpha.id)
+  assert.equal(erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://user:pw@b.example/app/' }).error.code, 'INVALID_ENTRY_URL')
+  assert.equal(erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/login' }).error.code, 'ERP_BASE_URL_REQUIRED')
+  assert.equal(erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'javascript:alert(1)' }).ok, false)
+  const renamed = erpRequest(host.ctx.erp.catalog, { op: 'update', id: alpha.id, url: alpha.entryUrl, name: 'Renamed', account: 'one' })
+  assert.equal(renamed.value.sites[0].id, alpha.id)
+  assert.equal(renamed.value.sites[0].name, 'Renamed')
+  assert.equal((await host.run('erp_system_status', {}, { agent: agent('sess-a') })).value.name, 'Renamed')
+  const moved = erpRequest(host.ctx.erp.catalog, { op: 'update', id: alpha.id, url: 'https://a.example/app/', account: 'buyer', name: 'Renamed' })
+  assert.equal(moved.ok, true)
+  assert.equal(moved.value.sites.some(site => site.id === alpha.id), false)
+  assert.equal(moved.value.sites[0].account, 'buyer')
+  assert.equal((await host.run('erp_system_status', {}, { agent: agent('sess-a') })).value.state, 'select-site')
+  const buyer = moved.value.sites[0]
+  host.ctx.erp.catalog.bind('sess-b', buyer.id)
+  const buyerStatus = await host.run('erp_system_status', {}, { agent: agent('sess-b') })
+  assert.equal((await host.run('erp_index_read', { scope: buyerStatus.value.scope, after: '', limit: 5 }, { agent: agent('sess-a') })).isError, true)
+  const page = await host.run('erp_index_read', { scope: buyerStatus.value.scope, after: '', limit: 5 }, { agent: agent('sess-b') })
+  assert.equal(page.isError, false)
+  assert.match(page.content.map(block => block.text).join('\n'), /No level summary yet for this site/)
+  assert.match(page.content.map(block => block.text).join('\n'), /another site/)
+})
+
+test('the desktop channel drops its route when the plugin unloads', async t => {
+  const root = directory(t)
+  const ctx = new Context()
+  const catalog = new SiteCatalog(root)
+  let disposed = false
+  t.after(async () => { await ctx.fiber.dispose(); await catalog.dispose() })
+  await ctx.plugin(inner => {
+    inner.provide('connection', { fetch: { register() { return async () => { disposed = true } } } })
+  })
+  registerErpChannel(ctx, catalog)
+  await new Promise(resolve => setTimeout(resolve, 20))
+  assert.equal(disposed, false)
+  await ctx.fiber.dispose()
+  assert.equal(disposed, true)
+})
+
 test('the package has a desktop client entry and no Deskwork or password field', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   const names = JSON.stringify({ ...pkg.dependencies, ...pkg.optionalDependencies, ...pkg.peerDependencies, ...pkg.devDependencies }).toLowerCase()
   assert.equal(names.includes('deskwork'), false)
   assert.equal(pkg.dsh.client.platform, 'web')
   assert.equal(pkg.exports['./client'], './dist/client.js')
+  assert.equal(pkg.exports['./package.json'], './package.json')
   const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
   assert.match(patch, /name:\s*'@guosheng_047\/dsh-erp'/)
   assert.doesNotMatch(patch, /dsh-erp\/native/)

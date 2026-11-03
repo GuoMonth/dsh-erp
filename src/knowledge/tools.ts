@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { markdown, openUiHost, presentTitle } from '../present.js'
+import { indexLines, markdown, openUiHost, presentTitle } from '../present.js'
 import type { StorageClient } from '../storage/client.js'
 import { contracts } from '../storage/contract.js'
 import { exportKnowledge } from './export.js'
@@ -24,9 +24,7 @@ export function registerKnowledgeTools(ctx: Context, storage: StorageClient): vo
   ctx.tools.register(defineTool({ name: 'erp_index_read',
     description: 'Default read after exploration. Returns compact level summaries and one page of evidence-backed leaves. Omit nodeId to page the newest summary. Use after="" then nextAfter while hasMore; limit 1–20. Does not update records or change the ERP. Use erp_knowledge_get for one full record. Search, neighbors and history are lookup paths.',
     parameters: { scope: commitParameters.scope, nodeId: { type: 'string' }, after: { type: 'string', required: true }, limit: { type: 'integer', required: true } },
-    output: { schema: contracts.indexRead.output, render: (_args, value) => markdown('ERP index', [
-      value.initialized ? `${value.summaries.length} summaries. ${value.leaves.items.length} leaves on this page.` : 'The index has no summaries yet. Finish one exploration level first.',
-    ], value, openui()) },
+    output: { schema: contracts.indexRead.output, render: (_args, value) => markdown('ERP index', indexLines(value), value, openui()) },
     presentResult: presentTitle('ERP index'),
     execute: (args, exec) => storage.call('indexRead', args, exec.signal),
   }))

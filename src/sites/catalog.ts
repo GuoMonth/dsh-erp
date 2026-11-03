@@ -14,9 +14,20 @@ export interface PublicSite {
   id: string
   name: string
   entryUrl: string
+  baseUrl: string
   account: string
   workspaceDir: string
   sessionId?: string
+}
+
+/** Fields the desktop wizard may change. `null` clears an optional label. */
+export interface SitePatch {
+  url: string
+  baseUrl?: string | null
+  name?: string | null
+  account?: string | null
+  tenant?: string | null
+  role?: string | null
 }
 
 export interface SessionHint { id?: string; cwd?: string }
@@ -35,6 +46,7 @@ interface CatalogFile {
   sessions: Record<string, string>
   suppressed: string[]
   labels: Record<string, string>
+  lastOpened?: string
 }
 
 export function rejectSecrets(value: unknown, depth = 0): void {
@@ -79,6 +91,7 @@ export class SiteCatalog {
   private readonly sessions = new Map<string, string>()
   private readonly labels = new Map<string, string>()
   private readonly suppressed = new Set<string>()
+  private lastOpenedId = ''
   private readonly clients = new Map<string, StorageClient>()
   private legacy: StorageClient | undefined
 
@@ -98,6 +111,16 @@ export class SiteCatalog {
   sole(): Site | undefined { return this.sites.size === 1 ? this.list()[0] : undefined }
 
   listPublic(): PublicSite[] { return this.list().map(site => this.toPublic(site)) }
+
+  /** Last site the desktop guide opened. A removed row keeps the id so Continue does not jump to a different site. */
+  lastOpened(): string { return this.lastOpenedId }
+
+  markOpened(id: string): PublicSite {
+    if (!this.sites.has(id)) throw new Error('ERP_UNKNOWN_SITE')
+    this.lastOpenedId = id
+    this.save()
+    return this.toPublic(this.sites.get(id)!)
+  }
 
   homeDirectory(): string {
     return this.sites.size === 1 ? this.list()[0]!.profile.directory : this.root
@@ -159,15 +182,33 @@ export class SiteCatalog {
   }
 
   remove(id: string): PublicSite[] {
-    const site = this.sites.get(id)
-    if (!site) throw new Error('ERP_UNKNOWN_SITE')
-    this.sites.delete(id)
-    this.desktop.delete(id)
-    this.labels.delete(id)
-    this.suppressed.add(identityOf(site.profile))
-    for (const [sessionId, siteId] of this.sessions) if (siteId === id) this.sessions.set(sessionId, '')
+    if (!this.sites.has(id)) throw new Error('ERP_UNKNOWN_SITE')
+    this.dropFromList(id)
     this.save()
     return this.listPublic()
+  }
+
+  /**
+   * Edit one list row. A new account label or application root becomes another
+   * index. Conversations bound to the previous row stay unbound.
+   */
+  update(id: string, patch: SitePatch): PublicSite {
+    rejectSecrets(patch)
+    const current = this.sites.get(id)
+    if (!current) throw new Error('ERP_UNKNOWN_SITE')
+    const input = this.mergedInput(current.input, patch)
+    const previousLabel = this.labels.get(id)
+    if (patch.name === null) this.labels.delete(id)
+    let next: Site | undefined
+    try { next = this.materialize(input, 'desktop') }
+    catch (error) {
+      if (patch.name === null && previousLabel) this.labels.set(id, previousLabel)
+      throw error
+    }
+    if (!next) throw new Error('ERP_SITE_REJECTED')
+    if (next.id !== id) this.dropFromList(id)
+    this.save()
+    return this.toPublic(next)
   }
 
   bind(sessionId: string, siteId: string): PublicSite {
@@ -182,7 +223,7 @@ export class SiteCatalog {
 
   toPublic(site: Site): PublicSite {
     const view: PublicSite = {
-      id: site.id, name: site.profile.name, entryUrl: site.profile.entryUrl,
+      id: site.id, name: site.profile.name, entryUrl: site.profile.entryUrl, baseUrl: site.profile.baseUrl,
       account: site.profile.scope.account, workspaceDir: site.workspaceDir,
     }
     const sessionId = this.primarySession(site.id)
@@ -196,6 +237,32 @@ export class SiteCatalog {
     this.clients.clear()
     this.legacy = undefined
     await Promise.all(clients.map(client => client.dispose()))
+  }
+
+  private mergedInput(current: SystemConfig, patch: SitePatch): SystemConfig {
+    const input: SystemConfig = { url: patch.url }
+    const baseUrl = patch.baseUrl === null ? undefined : patch.baseUrl ?? current.baseUrl
+    const name = patch.name === null ? undefined : patch.name ?? current.name
+    const account = patch.account === null ? undefined : patch.account ?? current.account
+    const tenant = patch.tenant === null ? undefined : patch.tenant ?? current.tenant
+    const role = patch.role === null ? undefined : patch.role ?? current.role
+    if (baseUrl) input.baseUrl = baseUrl
+    if (name) input.name = name
+    if (account) input.account = account
+    if (tenant) input.tenant = tenant
+    if (role) input.role = role
+    return input
+  }
+
+  /** Take a row off the list. Sessions that pointed at it are not moved. */
+  private dropFromList(id: string): void {
+    const site = this.sites.get(id)
+    if (!site) return
+    this.sites.delete(id)
+    this.desktop.delete(id)
+    this.labels.delete(id)
+    this.suppressed.add(identityOf(site.profile))
+    for (const [sessionId, siteId] of this.sessions) if (siteId === id) this.sessions.set(sessionId, '')
   }
 
   private primarySession(siteId: string): string | undefined {
@@ -267,6 +334,8 @@ export class SiteCatalog {
     }
     for (const identity of parsed.suppressed) if (typeof identity === 'string') this.suppressed.add(identity)
     for (const [id, name] of Object.entries(parsed.labels ?? {})) if (typeof name === 'string') this.labels.set(id, name)
+    if (parsed.lastOpened !== undefined && typeof parsed.lastOpened !== 'string') throw new Error('ERP_INVALID_CATALOG')
+    if (typeof parsed.lastOpened === 'string') this.lastOpenedId = parsed.lastOpened
   }
 
   private save(): void {
@@ -276,6 +345,7 @@ export class SiteCatalog {
       sessions: Object.fromEntries(this.sessions),
       suppressed: [...this.suppressed],
       labels: Object.fromEntries(this.labels),
+      ...(this.lastOpenedId ? { lastOpened: this.lastOpenedId } : {}),
     }
     const temp = join(this.root, `${randomUUID()}.tmp`)
     try {
