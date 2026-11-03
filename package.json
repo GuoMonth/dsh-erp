@@ -32,6 +32,7 @@
       "import": "./dist/index.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
     "./native": {
       "types": "./dist/native.d.ts",
       "import": "./dist/native.js"

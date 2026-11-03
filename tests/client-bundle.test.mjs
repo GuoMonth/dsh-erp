@@ -28,7 +28,7 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
     effect(fn) { fn() },
     get() { return undefined },
     locale: {
-      register(_ns, locale, table) { Object.assign(dict, { [locale]: table }); return () => {} },
+      register(_ns, dicts) { Object.assign(dict, dicts); return () => {} },
       bind() { return key => dict[lang][key] },
     },
     slots: {
@@ -41,8 +41,14 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   const guide = regs.find(item => item.options.name === 'main')
   assert.equal(entry.options.id, 'erp-assistant')
   assert.equal(entry.options.label(), 'ERP 助手')
+  assert.notEqual(dict.zh.firstRun, dict.zh.returning)
+  assert.equal(dict.zh.continue, '继续')
+  assert.match(dict.zh.continueHint, /入口网址/)
+  assert.equal(dict.zh.password.includes('密码'), true)
   lang = 'en'
   assert.equal(entry.options.label(), 'Adapt ERP')
+  assert.equal(dict.en.continue, 'Continue')
+  assert.notEqual(dict.en.firstRun, dict.en.returning)
   assert.equal(guide.options.key, 'erp-assistant')
   const calls = []
   const sessionId = await exports.openErpSite({

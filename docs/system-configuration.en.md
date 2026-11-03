@@ -26,7 +26,7 @@ A stable ID is stored for each normalized base URL. Renaming the ERP keeps its I
 
 ## Several sites
 
-On the desktop, add sites from ERP 助手. The patch can declare them too. `system` is one site. `sites` adds others. Restart after editing the patch. A site removed in the desktop entry stays removed until you add it again.
+On the desktop, add sites from ERP 助手. With no sites, that page is the setup. After one exists, Continue restores the last opened site's conversation and entry URL, and does not substitute a different site when that row is gone. Edit changes the name, entry URL, or account label. A new account label or application root is another index; conversations bound to the previous row are not moved. The patch can declare sites too. `system` is one site. `sites` adds others. Restart after editing the patch. A site removed in the desktop entry stays removed until you add it again.
 
 ```yaml
 - id: erp

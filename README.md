@@ -71,9 +71,11 @@ Install into the desktop profile, then restart the DeepSeek Harness app. The lef
 npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
 ```
 
-Open that entry. Add each ERP with its entry URL and, if you want, an account label. Choose Open. The middle column is that site's conversation and approvals. The right column is the official sidebar Browser at the entry URL, so you can sign in yourself. The form has no password field, and the plugin does not store one.
+Open that entry. With no sites yet, the page is a short setup: an entry URL, an optional application root when that path does not end in `/`, and an optional account label. There is no password field.
 
-Add another site the same way. It gets its own conversation and its own local index. Switching sites opens that conversation and that entry URL. A conversation that is not bound to a site does not read either index.
+After a site exists, the same entry lists the sites and offers Continue for the one you opened last. Continue restores that site's conversation and opens its entry URL in the official sidebar Browser. Sign in yourself. If that site was removed, Continue does not switch you to a different one. Edit can change the name, the entry URL, or the account label. A new account label or application root is another index, and conversations that were bound to the previous row are not moved. Remove only takes a site off the list. Its index stays on this machine.
+
+Add another site the same way. It gets its own conversation and its own local index. A conversation that is not bound to a site does not read either index. Later questions should read the level summary and one page of evidence before a live observation.
 
 ## Quick start
 

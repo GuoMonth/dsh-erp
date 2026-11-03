@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Returning to ERP 助手 lists saved sites and continues the last one that is still listed. Continue restores that site's conversation and opens its entry URL. The first visit, with no sites, is only the setup form.
+- The site form checks the entry URL, keeps the account label optional, and can edit a row. A new account label or application root is another index. Removing a row, or replacing its identity, does not move other conversations onto a different site.
+- `erp_index_read` leads with the local level summary and one page of evidence before a live observation. An unbound conversation still cannot read another site's index.
 - Desktop entry for DSH 0.2.1-rc.5. The installed row is the package root, so the client half can register. Chinese UI shows ERP 助手; English UI shows Adapt ERP. The npm name stays `@guosheng_047/dsh-erp`.
 - Opening a site focuses that site's conversation and opens its entry URL in the official sidebar Browser for a manual login. The guide has no password field.
 - Several sites can be added, listed and switched. Each site keeps its own session binding and its own knowledge scope. An unbound conversation does not read another site's index.

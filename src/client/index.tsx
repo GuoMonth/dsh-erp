@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { API_CHANNEL, API_ENDPOINT, PRODUCT_ENTRY, PRODUCT_PANEL } from '../product/names.ts'
+import { resumeTarget } from '../product/resume.ts'
+import { baseIssue, entryIssue } from '../product/wizard.ts'
 import { openErpSite } from './open.ts'
 import type { OpenSite } from './open.ts'
 
@@ -11,42 +13,70 @@ const zh: Record<string, string> = {
   entry: PRODUCT_ENTRY.zh,
   title: PRODUCT_ENTRY.zh,
   lede: '在右侧浏览器里手动登录。这里不收集密码。',
+  firstRun: '还没有站点。填写入口网址，登录留给右侧浏览器。这里不保存密码。',
+  returning: '继续上次打开的站点，或从列表里打开另一个。每个站点有自己的对话和本地索引。',
   name: '名称',
   url: '入口网址',
+  baseUrl: '应用根地址',
+  baseHint: '路径不以 / 结尾时填写，须以 / 结尾',
   account: '账户标签',
   accountHint: '只是标签，不是密码',
   add: '添加',
+  save: '保存',
+  cancel: '取消',
+  edit: '编辑',
   open: '打开',
+  continue: '继续',
+  continueHint: '恢复该站点的对话，并在右侧浏览器打开入口网址。',
   remove: '移除',
   empty: '还没有站点。填写入口网址，打开后在右侧浏览器登录。',
+  firstHint: '入口须是 http 或 https，不能带账号、密码或查询参数。',
+  editHint: '更换账户标签或应用根会换成另一份索引。已经绑定的对话不会被挪到新站点上。',
   saved: '每个站点有自己的会话和本地索引。移除只是从列表拿掉，索引还留在这台机器上。',
   working: '正在打开…',
   channel: '还连不上桌面里的 ERP 助手。重启 dsh 后再试。',
   browser: '官方右侧浏览器还不可用。',
+  password: '不能提交密码。请在右侧浏览器里自己登录。',
+  urlInvalid: '入口网址需要是 http 或 https，且不能包含账号、密码或查询参数。',
+  baseRequired: '这个入口路径不以 / 结尾。请填写以 / 结尾的应用根地址，并保证入口在该根路径下。',
 }
 const en: Record<string, string> = {
   entry: PRODUCT_ENTRY.en,
   title: PRODUCT_ENTRY.en,
   lede: 'Sign in yourself in the browser on the right. Passwords are not collected.',
+  firstRun: 'No sites yet. Add an entry URL and sign in on the right. Nothing here stores a password.',
+  returning: 'Continue the site you opened last, or open another from the list. Each site keeps its own conversation and local index.',
   name: 'Name',
   url: 'Entry URL',
+  baseUrl: 'Application root',
+  baseHint: 'Required when the entry path does not end in /',
   account: 'Account label',
   accountHint: 'A label, not a password',
   add: 'Add',
+  save: 'Save',
+  cancel: 'Cancel',
+  edit: 'Edit',
   open: 'Open',
+  continue: 'Continue',
+  continueHint: 'Restore this site\'s conversation and open its entry URL on the right.',
   remove: 'Remove',
   empty: 'No sites yet. Add an entry URL, then sign in on the right.',
+  firstHint: 'Use an http or https entry with no account, password, or query.',
+  editHint: 'A different account label or application root selects another index. Conversations already bound are not moved.',
   saved: 'Each site keeps its own conversation and local index. Remove only takes it off this list.',
   working: 'Opening…',
   channel: 'ERP assistant is not connected yet. Restart dsh and try again.',
   browser: 'The official sidebar browser is not available yet.',
+  password: 'A password cannot be submitted. Sign in yourself in the browser on the right.',
+  urlInvalid: 'The entry URL must be http or https, without an account, a password, or a query.',
+  baseRequired: 'This entry path does not end in /. Add an application root that ends in / and contains the entry.',
 }
 
 interface ClientCtx {
   effect(fn: () => (() => void) | void): void
   get(name: string): unknown
   locale: {
-    register(ns: string, locale: string, dict: Record<string, string>): () => void
+    register(ns: string, dicts: Record<string, Record<string, string>>): () => void
     bind(ns: string): (key: string) => string
   }
   slots: {
@@ -55,9 +85,10 @@ interface ClientCtx {
   }
 }
 
-interface ListedSite extends OpenSite { name: string; account: string }
+interface ListedSite extends OpenSite { name: string; account: string; baseUrl: string }
 
-interface RpcResult { ok: boolean; value?: { sites: ListedSite[] }; error?: { message?: string } }
+interface GuideValue { sites: ListedSite[]; lastOpenedId?: string }
+interface RpcResult { ok: boolean; value?: GuideValue; error?: { message?: string } }
 
 export const inject = ['slots', 'locale']
 
@@ -70,8 +101,9 @@ const STYLE = `
 .erp-assistant input,.erp-assistant button{font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:8px;padding:8px 10px}
 .erp-assistant button{cursor:pointer}
 .erp-assistant ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}
-.erp-assistant li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.erp-assistant li{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
 .erp-assistant .meta{display:block;color:var(--dsw-alias-label-secondary,inherit);font-size:12px}
+.erp-assistant .continue{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 20px;padding:12px 14px;border:1px solid var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:8px}
 .erp-assistant .error{color:var(--dsw-alias-danger,inherit)}
 `
 
@@ -84,19 +116,22 @@ function installStyle(): () => void {
   return () => { style.remove() }
 }
 
-async function sitesOf(ctx: ClientCtx, payload: object): Promise<ListedSite[]> {
+async function guideOf(ctx: ClientCtx, payload: object): Promise<GuideValue> {
   const connection = ctx.get('connection') as { rpc?: { call(channel: string, endpoint: string, body: unknown): Promise<RpcResult> } } | undefined
   if (!connection?.rpc?.call) throw new Error('ERP_CHANNEL_UNAVAILABLE')
   const result = await connection.rpc.call(API_CHANNEL, API_ENDPOINT, payload)
   if (!result.ok || !result.value) throw new Error(result.error?.message ?? 'ERP_REQUEST_FAILED')
-  return result.value.sites
+  return result.value
 }
 
 function message(t: (key: string) => string, error: unknown): string {
   const text = error instanceof Error ? error.message : ''
-  if (text === 'ERP_CHANNEL_UNAVAILABLE') return t('channel')
-  if (text === 'ERP_BROWSER_UNAVAILABLE') return t('browser')
-  if (text.startsWith('ERP_PASSWORD_REJECTED')) return t('lede')
+  const code = text.split(':')[0] ?? ''
+  if (code === 'ERP_CHANNEL_UNAVAILABLE') return t('channel')
+  if (code === 'ERP_BROWSER_UNAVAILABLE') return t('browser')
+  if (code === 'ERP_PASSWORD_REJECTED' || code === 'credentials') return t('password')
+  if (code === 'INVALID_ENTRY_URL' || code === 'INVALID_SITE_URL' || code === 'url' || code === 'query' || code === 'empty') return t('urlInvalid')
+  if (code === 'ERP_BASE_URL_REQUIRED' || code === 'ERP_BASE_URL_MUST_END_IN_SLASH' || code === 'ERP_ENTRY_OUTSIDE_BASE_URL' || code === 'slash') return t('baseRequired')
   return text || t('channel')
 }
 
@@ -109,26 +144,47 @@ function ErpIcon({ size = 16 }: { size?: number; active?: boolean }) {
 
 function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   const [sites, setSites] = useState<ListedSite[]>([])
+  const [lastOpenedId, setLastOpenedId] = useState('')
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
   const [account, setAccount] = useState('')
+  const [editing, setEditing] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  function applyGuide(value: GuideValue) {
+    setSites(value.sites)
+    setLastOpenedId(value.lastOpenedId ?? '')
+  }
+  function clearForm() {
+    setEditing('')
+    setName('')
+    setUrl('')
+    setBaseUrl('')
+    setAccount('')
+  }
   useEffect(() => {
     let alive = true
-    sitesOf(ctx, { op: 'list' }).then(list => { if (alive) setSites(list) }, cause => { if (alive) setError(message(t, cause)) })
+    guideOf(ctx, { op: 'list' }).then(value => { if (alive) applyGuide(value) }, cause => { if (alive) setError(message(t, cause)) })
     return () => { alive = false }
   }, [ctx, t])
-  async function add(event: { preventDefault(): void }) {
+  async function submit(event: { preventDefault(): void }) {
     event.preventDefault()
+    const issue = entryIssue(url)
+    if (issue) { setError(message(t, new Error(issue))); return }
+    const root = baseIssue(baseUrl)
+    if (root) { setError(message(t, new Error(root === 'slash' ? 'slash' : 'url'))); return }
     setBusy(true)
     setError('')
+    const fields = {
+      url: url.trim(),
+      ...(name.trim() ? { name: name.trim() } : editing ? { name: '' } : {}),
+      ...(account.trim() ? { account: account.trim() } : editing ? { account: '' } : {}),
+      ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : editing ? { baseUrl: '' } : {}),
+    }
     try {
-      const list = await sitesOf(ctx, { op: 'add', url, ...(name.trim() ? { name: name.trim() } : {}), ...(account.trim() ? { account: account.trim() } : {}) })
-      setSites(list)
-      setName('')
-      setUrl('')
-      setAccount('')
+      applyGuide(await guideOf(ctx, editing ? { op: 'update', id: editing, ...fields } : { op: 'add', ...fields }))
+      clearForm()
     } catch (cause) { setError(message(t, cause)) }
     finally { setBusy(false) }
   }
@@ -144,40 +200,61 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
       if (!layout || !sessions || !uiWorkspace || !sidebar) throw new Error('ERP_BROWSER_UNAVAILABLE')
       await openErpSite({
         layout, sessions, uiWorkspace, sidebar, ...(workspaces ? { workspaces } : {}),
-        bind: async (siteId, sessionId) => { await sitesOf(ctx, { op: 'bind', siteId, sessionId }) },
+        bind: async (siteId, sessionId) => { await guideOf(ctx, { op: 'bind', siteId, sessionId }) },
       }, site)
+      applyGuide(await guideOf(ctx, { op: 'opened', id: site.id }))
     } catch (cause) { setError(message(t, cause)) }
     finally { setBusy(false) }
   }
   async function remove(id: string) {
     setError('')
-    try { setSites(await sitesOf(ctx, { op: 'remove', id })) }
-    catch (cause) { setError(message(t, cause)) }
+    try {
+      applyGuide(await guideOf(ctx, { op: 'remove', id }))
+      if (editing === id) clearForm()
+    } catch (cause) { setError(message(t, cause)) }
   }
-  return <section className="erp-assistant" data-dsh-plugin="@guosheng_047/dsh-erp" data-erp-assistant="guide">
+  function edit(site: ListedSite) {
+    setEditing(site.id)
+    setName(site.name)
+    setUrl(site.entryUrl)
+    setBaseUrl(site.baseUrl)
+    setAccount(site.account)
+    setError('')
+  }
+  const firstRun = sites.length === 0
+  const current = resumeTarget(sites, lastOpenedId)
+  return <section className="erp-assistant" data-dsh-plugin="@guosheng_047/dsh-erp" data-erp-assistant={firstRun ? 'first-run' : 'returning'}>
     <h1>{t('title')}</h1>
-    <p className="lede">{t('lede')}</p>
-    <form onSubmit={event => { void add(event) }} autoComplete="off">
+    <p className="lede">{firstRun ? t('firstRun') : t('returning')}</p>
+    {current && !firstRun ? <div className="continue">
+      <span><strong>{current.name}</strong><span className="meta">{current.account} · {current.entryUrl}</span><span className="meta">{t('continueHint')}</span></span>
+      <button type="button" disabled={busy} onClick={() => { void open(current) }}>{busy ? t('working') : t('continue')}</button>
+    </div> : null}
+    <form onSubmit={event => { void submit(event) }} autoComplete="off">
       <label>{t('name')}<input value={name} onChange={event => setName(event.target.value)} autoComplete="off" /></label>
       <label>{t('url')}<input value={url} onChange={event => setUrl(event.target.value)} type="url" inputMode="url" required autoComplete="url" /></label>
+      <label>{t('baseUrl')}<input value={baseUrl} onChange={event => setBaseUrl(event.target.value)} type="url" inputMode="url" autoComplete="url" placeholder={t('baseHint')} /></label>
       <label>{t('account')}<input value={account} onChange={event => setAccount(event.target.value)} autoComplete="off" placeholder={t('accountHint')} /></label>
-      <button type="submit" disabled={busy || !url.trim()}>{t('add')}</button>
+      <button type="submit" disabled={busy || !url.trim()}>{editing ? t('save') : t('add')}</button>
+      {editing ? <button type="button" onClick={clearForm}>{t('cancel')}</button> : null}
     </form>
     {error ? <p className="error">{error}</p> : null}
-    {sites.length === 0 ? <p className="note">{t('empty')}</p> : <ul>
-      {sites.map(site => <li key={site.id}>
-        <span><strong>{site.name}</strong><span className="meta">{site.account} · {site.entryUrl}</span></span>
-        <button type="button" disabled={busy} onClick={() => { void open(site) }}>{busy ? t('working') : t('open')}</button>
-        <button type="button" onClick={() => { void remove(site.id) }}>{t('remove')}</button>
-      </li>)}
-    </ul>}
-    <p className="note">{t('saved')}</p>
+    {firstRun ? <p className="note">{t('firstHint')}</p> : <>
+      <ul>
+        {sites.map(site => <li key={site.id}>
+          <span><strong>{site.name}</strong><span className="meta">{site.account} · {site.entryUrl}</span></span>
+          <button type="button" disabled={busy} onClick={() => { void open(site) }}>{busy ? t('working') : t('open')}</button>
+          <button type="button" onClick={() => { edit(site) }}>{t('edit')}</button>
+          <button type="button" onClick={() => { void remove(site.id) }}>{t('remove')}</button>
+        </li>)}
+      </ul>
+      <p className="note">{editing ? t('editHint') : t('saved')}</p>
+    </>}
   </section>
 }
 
 export function apply(ctx: ClientCtx): void {
-  ctx.effect(() => ctx.locale.register(NS, 'zh', zh))
-  ctx.effect(() => ctx.locale.register(NS, 'en', en))
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }))
   ctx.effect(installStyle)
   const t = ctx.locale.bind(NS)
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
