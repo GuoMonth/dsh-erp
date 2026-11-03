@@ -2,9 +2,50 @@
 
 [English](../README.md) · [版本发布](https://github.com/GuoMonth/dsh-erp/releases)
 
-通过浏览器学习你的 ERP，把知识留在自己的电脑上。Adapt ERP 是 DeepSeek Harness（DSH）插件：你负责登录，DSH 观察页面，保存的知识可在后续对话中继续使用。初次安装没有你的站点知识。
+ERP 助手要先见过你的界面才用得上。Adapt ERP 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）插件：它从你登录的浏览器学习这一套 ERP，把地图留在本机 SQLite 索引里，并在改动系统之前等待批准。
 
-当前版本 **0.1.3**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面测试覆盖 Linux x64；Windows/macOS 验收待完成。
+登录由你完成。DSH 观察你允许打开的页面。之后的对话读取一段短摘要和一页证据，而不是从空白站点重新开始。插件不带你公司的站点知识。
+
+当前版本 **0.1.3**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面检查覆盖 Linux x64。Windows 与 macOS 验收仍待完成。`npm run verify` 不包含在线模型或真实 ERP。
+
+## 助手还不认识这套 ERP 时
+
+每天使用 ERP 的人，以及为他们运行 dsh 的操作者，会碰到同一类障碍：
+
+- **菜单是本地的。** 采购、库存和审批藏在通用模型没见过的名称、Tab 和角色后面。新对话又从登录页走起。贴进提示词的截图会随这次对话消失。
+- **整站不适合当记忆。** 第一次看过之后，接下来的问题通常是某个界面在哪里、上次已经观察到什么。把每个菜单都塞进提示词，回答会更慢，也更不可靠。
+- **查看和过账缠在一起。** 打开页面、填写字段和保存可能发生在同一次游走里。会自动保存的查询也是写入。操作者需要把打开和变更分成看得见的两步。
+- **记录要留在这台机器上。** 登录状态、观察和数据库是工作材料。同事需要的是审过的笔记，不是会话副本。
+
+Adapt ERP 放在 dsh 里做这件事。它按浏览器实际显示的内容建立深度为 3 的索引，用短页把索引交还给模型，并把 ERP 写入放在一次新的批准之后。
+
+### 用户要找一笔业务
+
+你已经登录过一次，并让插件对入口和你批准的页面做了快照。下周你问收货在哪里、那个屏幕上有哪些字段。DSH 读取已保存的摘要和一页记录，这时可以不打开浏览器。问今天的数量仍然需要重新观察。索引是看见过的内容，不是实时台账。
+
+### 操作者接入一个站点
+
+你有一个 URL 和一个账号标签。把它们写进 DSH profile，运行 `dsh --profile web`，然后自己登录。你要求做入口快照，再逐次批准控制器要打开的页面。走到已经可见的字段、Tab 和窗口就停。模型没有被赋予“把 ERP 学完”这个目标。
+
+### 构建者留在原生 dsh 上
+
+你希望模型调用普通的 dsh 浏览器工具，沿用宿主的批准和 Skill，并读取本地索引。标准入口是 DSH 0.2.1-rc.5 上的 `@guosheng_047/dsh-erp/native`。需要插件自带浏览器时，设置 `browserMode: managed`。当前插件不使用 Deskwork。
+
+## 适合谁
+
+- 希望以后的 dsh 对话记住自己站点上的菜单、页面和字段的 ERP 用户。
+- 配置一个系统 URL、把密码留在浏览器里、并逐次批准打开和写入的操作者。
+- 把上述行为放进 DeepSeek Harness，并需要存储与批准边界保持明确的构建者。
+
+## 它不做什么
+
+- 不附带厂商连接器、行业模板或你的站点知识。
+- 不无人值守地爬完整套 ERP。一轮结束也不等于覆盖了每种权限或业务规则。深度停在 3。计数只描述这一轮。
+- 编辑本地知识不会改变 ERP。填写字段、选择选项，或标明为变更的点击，各自需要一次 dsh 批准。滚动属于导航。动作之后核对页面。
+- 不依赖 Deskwork，不绑定 Deskwork 网站，也不恢复由模型提交的旧探索队列。宿主路径是原生 Browser Use、官方 Playwright MCP、dsh 批准和 Skill。
+- 不宣称已完成 Windows、macOS、在线模型或真实 ERP 验收。冒烟测试安装打包后的插件，用确定性测试提供方检查 DSH 0.2.1-rc.5 CLI、批准、SQLite 和 Chromium。
+
+页面和摘要里的文字是证据。它不是给模型的指令，也不是过账许可。
 
 ## 安装
 
@@ -20,11 +61,11 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_
 npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_047/dsh-erp@latest
 ```
 
-使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.3`。浏览器提供方会准备 Chromium；Linux 还需要图形会话和 Chromium 系统库。
+使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.3`。浏览器提供方会准备 Chromium。Linux 还需要图形会话和 Chromium 系统库。
 
-## 配置 ERP
+## 快速开始
 
-退出 DSH，编辑 `~/.dsh/profiles/web/cordis.patch.yml`；设置 `DSH_HOME` 时使用 `$DSH_HOME/profiles/web/cordis.patch.yml`。替换空列表 `[]`；已有 `id: erp` 时合并配置，保留其他插件。
+退出 DSH，编辑 `~/.dsh/profiles/web/cordis.patch.yml`；设置 `DSH_HOME` 时使用 `$DSH_HOME/profiles/web/cordis.patch.yml`。替换空列表 `[]`。已有 `id: erp` 时合并配置，保留其他插件。
 
 ```yaml
 - id: erp
@@ -34,19 +75,41 @@ npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- d
       account: "work-account"
 ```
 
-只有 `url` 必填。`account` 是本地身份标签，不是密码。运行 `dsh --profile web`，让它用 `erp_system_status` 核对配置，再打开 ERP，由你登录。登录路径、公司和角色设置见[配置指南](system-configuration.md)。
+只有 `url` 必填。`account` 是本地身份标签，不是密码。登录路径、公司和角色见[配置指南](system-configuration.md)。
 
-## 学习与复用
+1. 运行 `dsh --profile web`，让它调用 `erp_system_status`。
+2. 打开配置的入口并自己登录。插件不接收密码。
+3. 要求做入口快照，然后调用 `erp_learning_begin`。前沿由控制器持有。第 1 层可以只有这张快照。
+4. 批准之后的每次打开页面。第 3 层记录已经看见的字段、Tab 和窗口，然后停止。
+5. 之后的问题使用 `erp_index_read`。还没有层级摘要时，这次读取会报告索引尚未初始化。
 
-让 DSH 先对入口做快照，再在你批准后打开页面。探索停在第 3 层。每一层结束后会保存一段摘要；之后的回答应先读这些摘要和一页记录。原生浏览器和桌面调用逐次确认。本地知识修订不会改变 ERP。操作后在页面上核对结果。
+要把这张地图交给别人，先导出 Skill，读过文本，再分享整个目录。接收方以 needs-review 导入，并在自己的 ERP 上核对。导出会去掉结构化身份、URL、字段样本、原始观察、截图、登录资料和确认记录。自由文本仍可能包含私人信息。插件不会上传该目录。细节见[原生操作与分享](native-and-sharing.md)。
 
-将有用的经验导出为 Skill，检查文本后把目录交给其他用户。接收者需在自己的 ERP 中复核导入知识。详见[原生操作与分享](native-and-sharing.md)。
+## 索引如何工作
 
-已保存的知识无需登录即可查询；当前库存和订单需要重新观察。截图和页面内容可能发送给你配置的模型供应商。发布包不包含你的数据库、登录资料或观察记录。
+插件是一项 DSH 服务。标准安装加载原生入口：已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。只有设置 `computerUse: true` 时才加载 Computer Use。这条路径需要可选的 Cua Driver Native 包和操作系统权限。工具结果是带标题的短 Markdown。仅当宿主里存在 OpenUI 服务时才附加一段载荷。DSH 0.2.1-rc.5 不要求该服务。
+
+原生快照入库前会整理成 `browser-learning-v1`，因此同一条导入路径可以读取它。探索是广度优先，由控制器持有：`erp_learning_begin`、`erp_learning_accept`、`erp_learning_block`、`erp_learning_status`、`erp_learning_pause`。调用方提交观察，不提交下一个单元。
+
+| 层 | 记录什么 | 批准 |
+| --- | --- | --- |
+| 1 | 入口快照，以及其中可见的菜单和页面。 | 这一层是快照。打开其他页面属于下一层。 |
+| 2 | 从第 1 层看到的内容打开的页面。 | 每次打开单独批准。 |
+| 3 | 这些快照里已经可见的字段、Tab 和窗口。 | 到此停止，没有再往下的业务行为层。 |
+
+某一层的前沿清空后，控制器先写一条摘要，再把下一层放进前沿。一轮最多 2000 项，一次最多接纳 200 项发现。重启会暂停仍在运行的轮次，且不重放网站动作。
+
+物理存储是 SQLite（schema 4），证据文件放在数据库旁边。没有图数据库。初始化之后，`erp_index_read` 最多返回 30 条紧凑摘要，超出时带截断标记，并返回一页有证据的叶子。省略节点时翻最新摘要的叶子。`after` 从空字符串开始，在 `hasMore` 为真时跟随 `nextAfter`。每页 1–20 条。`erp_knowledge_get` 读取一条完整记录。搜索、邻居和历史是查找路径。`erp_knowledge_record` 写入本地数据库，ERP 保持不变。层级摘要留在本机索引中，不进入分享的 Skill。
+
+原生浏览器和桌面调用逐次请求 dsh 批准。在受控浏览器上，`effect: navigate` 表示打开或滚动，`effect: mutate` 表示 ERP 写入。填写和选择必须标成 mutate。本地修正和确认只作用于本地：它们把一条陈述记在你名下，不授予 ERP 权限。
+
+已保存的知识无需浏览器登录即可读取。当前余额和订单需要重新观察。截图和页面内容可能发送给你配置的模型供应商。发布包不包含你的数据库、登录资料或观察记录。
+
+决策记录见 [ADR 0003](adr/0003-controller-bfs-index.md)。字段级契约在[知识](knowledge.md)和[原生操作](native-and-sharing.md)指南中。
 
 ## 升级与卸载
 
-调用 `erp_storage_backup`，退出 DSH，重复安装命令并重启，保留原配置和数据目录。早期 Alpha 版本迁移与恢复见[存储指南](storage.md)。
+调用 `erp_storage_backup`，退出 DSH，重复安装命令并重启，保留原配置和数据目录。此索引不会继续跑旧构建里由模型提交的探索队列。打开较旧的 SQLite 文件时会先做经校验的备份，再迁移。这次迁移不表示旧队列仍能运行，也不是与 Deskwork 兼容。早期 Alpha 的目录布局和恢复见[存储指南](storage.md)。
 
 ```sh
 npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web remove @guosheng_047/dsh-erp

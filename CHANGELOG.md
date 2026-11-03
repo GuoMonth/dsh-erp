@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Rewrite the public README and guide index around the jobs the plugin takes on: an ERP the model has not seen, a short local index after a depth-3 walk, and approvals that keep page opens separate from writes. Deskwork is not part of the product. The text adds no acceptance claim.
 - Replace model-supplied exploration units with a controller-owned breadth-first walk that stops at depth 3. Each finished level writes one summary before the next level starts. Level 1 can be a snapshot; opening a page still requires approval.
 - Keep SQLite. After initialization, the default read is compact summaries plus one page of evidence-backed leaves. Local revisions stay separate from ERP mutations, which require a DSH approval.
 - Remove the Deskwork adapter, including site-context injection and deskwork tool branches. Native Browser Use, Playwright MCP, approval and skills remain the host path.
