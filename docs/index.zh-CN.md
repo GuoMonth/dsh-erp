@@ -8,6 +8,7 @@ Adapt ERP 在 DeepSeek Harness 里学习一套浏览器 ERP，并把结果留在
 | --- | --- |
 | 看这个插件承接哪些 ERP 工作 | [场景](README.zh-CN.md#助手还不认识这套-erp-时) |
 | 安装并完成第一次会话 | [快速开始](README.zh-CN.md#快速开始) |
+| 在桌面打开 ERP 助手 | [桌面](README.zh-CN.md#桌面) |
 | 设置网站与身份 | [配置](system-configuration.md) |
 | 观察、批准写入、分享 Skill | [原生操作](native-and-sharing.md) |
 | 读取索引或修订本地知识 | [知识](knowledge.md) |
