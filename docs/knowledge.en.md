@@ -12,6 +12,10 @@ Observations are immutable. Knowledge citations must quote the same scope's obse
 
 Records use `discovered`, `observed` or `interpreted`, with separate `blocked`, `conflict` and `needs-review` flags. Lifecycle is `active` or `retired`. User confirmation records a specific proposition and conditions at one version; it grants no business permission.
 
+## Default read
+
+After a level is finished, the default read is `erp_index_read`: compact summaries for each level, then one page of evidence-backed leaves. Omitting the node pages the newest summary's leaves. Start `after` at an empty string and follow `nextAfter` while `hasMore` is set; each page holds 1–20 leaves. Use `erp_knowledge_get` for one full record. Search, neighbors and history are lookup paths. Updates are the smaller path: `erp_knowledge_record` revises local knowledge and does not change the ERP. Level summaries stay in the local index and are not part of a shared Skill. An ERP business write is a browser action with `effect: mutate` and needs one DSH approval.
+
 ## Tools
 
 | Tool | Purpose |
@@ -20,7 +24,8 @@ Records use `discovered`, `observed` or `interpreted`, with separate `blocked`, 
 | `erp_knowledge_record` | Save an AI interpretation with evidence |
 | `erp_knowledge_correct` | Save a user-confirmed correction |
 | `erp_knowledge_confirm` | Confirm a proposition at an exact version |
-| `erp_knowledge_get/search/neighbors` | Query records and relationships |
+| `erp_index_read` | Default read of summaries and one page of leaves |
+| `erp_knowledge_get/search/neighbors` | Query one record, names and relationships |
 | `erp_knowledge_history/verifications` | Read revisions and confirmations |
 
 Writes accept 1–50 records in one transaction. New IDs use `expectedVersion: 0`; updates use the current version. On a version conflict, read again before changing anything. Search/history pagination uses the returned cursor and `hasMore`; concurrent changes can affect later pages.

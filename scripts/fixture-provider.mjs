@@ -25,7 +25,13 @@ class Fixture extends LlmAdapter {
     const scope = this.scope
     const record = { id: 'cli-menu', kind: 'menu', name: 'Synthetic menu', aliases: ['测试'], description: 'Unverified fixture hypothesis',
       expectedVersion: 0, stage: 'interpreted', flags: ['needs-review'], lifecycle: 'active', evidence: [], dependencies: [] }
-    const parsed = i => { const text = results[i]?.content.find(b => b.type === 'text')?.text; return text ? JSON.parse(text.slice(text.indexOf('{'))) : {} }
+    const parsed = i => {
+      const text = results[i]?.content.find(b => b.type === 'text')?.text ?? ''
+      const fenced = text.match(/```json\n([\s\S]*?)\n```/)
+      if (fenced) return JSON.parse(fenced[1])
+      const starts = ['{', '['].map(mark => text.indexOf(mark)).filter(index => index >= 0)
+      return starts.length ? JSON.parse(text.slice(Math.min(...starts))) : {}
+    }
     if (this.native) {
       const observation = results.length > 4 ? parsed(4) : {}
       const exported = results.length > 6 ? parsed(6) : {}
@@ -64,7 +70,7 @@ class Fixture extends LlmAdapter {
       ['erp_knowledge_record', { scope, records: [record] }],
       ['erp_knowledge_get', { scope, id: record.id }],
       ['erp_knowledge_search', { scope, query: '测试', after: '', limit: 10 }],
-      ['erp_learning_start', { scope, id: 'cli-round', units: [{ id: 'global', level: 1, label: 'Global structure' }] }],
+      ['erp_learning_begin', { scope, id: 'cli-round' }],
       ['erp_learning_status', { scope, id: 'cli-round' }],
       ['erp_storage_backup', {}],
       ['erp_storage_check', {}],
@@ -73,21 +79,20 @@ class Fixture extends LlmAdapter {
       ['erp_browser_resume', { sessionId: connected.sessionId, revision: connected.revision }],
       ['erp_browser_snapshot', {}],
       ['erp_learning_import_snapshot', { scope, observationId: snapshot.observationId }],
-      ['erp_browser_action', { sessionId: snapshot.sessionId, revision: snapshot.revision, snapshotId: snapshot.snapshotId, ref: menu?.ref, operation: 'click', reason: 'Inspect the first discovered menu in the synthetic test ERP' }],
+      ['erp_browser_action', { sessionId: snapshot.sessionId, revision: snapshot.revision, snapshotId: snapshot.snapshotId, ref: menu?.ref, operation: 'click', effect: 'navigate', reason: 'Inspect the first discovered menu in the synthetic test ERP' }],
       ['erp_learning_import_snapshot', { scope, observationId: actionResult.observationId }],
       ['erp_browser_close', {}],
     ]
     if (results.length >= specs.length) {
-      const body = results[0].content.find(b => b.type === 'text').text
-      const health = JSON.parse(body)
+      const health = parsed(0)
       assert.ok(health.pid > 0)
-      const storage = JSON.parse(results[3].content.find(b => b.type === 'text').text)
-      assert.equal(storage.schemaVersion, 3)
+      const storage = parsed(3)
+      assert.equal(storage.schemaVersion, 4)
       assert.equal(storage.journalMode, 'wal')
-      const browser = JSON.parse(results[5].content.find(b => b.type === 'text').text)
+      const browser = parsed(5)
       assert.equal(browser.state, 'manual'); assert.equal(browser.pageUrl, '')
-      assert.equal(JSON.parse(results[6].content.find(b => b.type === 'text').text).state, 'closed')
-      const knowledge = index => JSON.parse(results[index].content.find(b => b.type === 'text').text.split('\n').slice(1).join('\n'))
+      assert.equal(parsed(6).state, 'closed')
+      const knowledge = index => parsed(index)
       assert.equal(knowledge(7)[0].origin, 'ai')
       assert.equal(knowledge(8).record.id, record.id)
       assert.equal(knowledge(9).items[0].record.id, record.id)

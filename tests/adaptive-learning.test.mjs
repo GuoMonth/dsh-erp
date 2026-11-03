@@ -40,12 +40,21 @@ for (const path of ['/suite/', '/office/']) test(`empty knowledge learns a disti
     assert.equal(duplicate.value.records, imported.value.records)
     const menu = (await host.run('erp_knowledge_get', { scope, id: imported.value.menuIds[0] })).value.record
     assert.equal(menu.version, 1)
-    let round = (await host.run('erp_learning_start', { scope, id: 'full', units: [{ id: 'global', level: 1, label: 'Global menu' }, { id: 'fields', level: 3, label: 'Field semantics' }] })).value
-    round = (await host.run('erp_learning_extend', { scope, id: 'full', expectedVersion: round.version, units: [{ id: 'functional', level: 2, label: menu.name }] })).value
-    assert.equal((await host.run('erp_learning_finish_unit', { scope, id: 'full', expectedVersion: round.version, unitId: 'global', outcome: 'observed', observationIds: [initial.value.observationId], reason: 'Visible menus captured' })).isError, false)
-    assert.equal((await host.run('erp_learning_status', { scope, id: 'full' })).value.next.id, 'functional')
-    const action = (snapshot, ref, operation = 'click', value) => ({ sessionId: snapshot.sessionId, revision: snapshot.revision, snapshotId: snapshot.snapshotId, ref, operation, reason: 'Inspect the selected UI and save its result', ...(value === undefined ? {} : { value }) })
-    const firstMenu = initial.value.controls.find(c => c.kind === 'treeitem' || c.kind === 'menuitem')
+    let round = (await host.run('erp_learning_begin', { scope, id: 'full' })).value
+    round = (await host.run('erp_learning_accept', { scope, id: 'full', expectedVersion: round.version, observationId: initial.value.observationId })).value
+    assert.equal(round.summaries.length, 1)
+    assert.equal(round.next.mode, 'open-page')
+    assert.equal(round.next.requiresApproval, true)
+    const indexed = await host.run('erp_index_read', { scope, after: '', limit: 20 })
+    assert.equal(indexed.value.initialized, true)
+    assert.equal(indexed.value.summaries[0].level, 1)
+    assert.ok(indexed.value.leaves.items.length > 0)
+    const action = (snapshot, ref, operation = 'click', value, effect = operation === 'fill' || operation === 'select' ? 'mutate' : 'navigate') => ({
+      sessionId: snapshot.sessionId, revision: snapshot.revision, snapshotId: snapshot.snapshotId, ref, operation, effect,
+      reason: effect === 'mutate' ? 'Change one synthetic fixture value, explicitly approved by the test user' : 'Open or inspect the selected UI and save its result',
+      ...(value === undefined ? {} : { value }),
+    })
+    const firstMenu = initial.value.controls.find(c => c.name === round.next.targetName)
     answer = 'rejected'
     assert.equal((await host.run('erp_browser_action', action(initial.value, firstMenu.ref), execution)).isError, true)
     assert.equal(f.writes(), 0)
@@ -89,7 +98,7 @@ for (const path of ['/suite/', '/office/']) test(`empty knowledge learns a disti
     assert.equal((await host.run('erp_browser_action', action(current, commit.ref), execution)).isError, true)
     assert.equal(f.writes(), 0)
     answer = 'allowed-once'
-    const committed = await host.run('erp_browser_action', { ...action(current, commit.ref), reason: 'Write one synthetic fixture record, explicitly approved by the test user' }, execution)
+    const committed = await host.run('erp_browser_action', action(current, commit.ref, 'click', undefined, 'mutate'), execution)
     assert.equal(committed.isError, false, JSON.stringify(committed))
     assert.equal(f.writes(), 1)
     // Reusing the old ref/revision cannot replay even with another host approval.
@@ -102,8 +111,9 @@ for (const path of ['/suite/', '/office/']) test(`empty knowledge learns a disti
     assert.equal((await host.run('erp_knowledge_get', { scope, id: domain.id })).value.record.description, domain.description)
     const resumed = (await host.run('erp_learning_status', { scope, id: 'full' })).value
     assert.equal(resumed.state, 'paused')
+    assert.equal(resumed.next.id, round.next.id)
     assert.equal((await host.run('erp_learning_pause', { scope, id: 'full', expectedVersion: resumed.version, resume: true })).isError, false)
-    assert.equal((await host.run('erp_learning_status', { scope, id: 'full' })).value.next.id, 'functional')
+    assert.equal((await host.run('erp_learning_status', { scope, id: 'full' })).value.next.id, round.next.id)
     const exported = await host.run('erp_knowledge_export', { scope }); assert.equal(exported.isError, false)
   } finally { await host?.dispose(); await f.close(); rmSync(root, { recursive: true, force: true }) }
 })

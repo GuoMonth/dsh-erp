@@ -1,6 +1,6 @@
 import { validateJsonSchemaValue, valueSchemaSpecToJsonSchema } from '../schema-runtime.js'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
-import { knowledgeContracts } from '../knowledge/contract.js'
+import { kinds, knowledgeContracts, knowledgeRecordSchema, knowledgeWriteSchema } from '../knowledge/contract.js'
 import { scopeSchema, StorageError } from './primitives.js'
 export { scopeSchema, StorageError, scopeKey, canonicalScope } from './primitives.js'
 
@@ -58,6 +58,34 @@ export const contracts = {
     orphaned: { type: 'array', items: { type: 'string' }, required: true },
   } } },
   rebuildIndex: { input: empty, output: ok },
+  learningAdvance: { input: { type: 'object', additionalProperties: false, properties: {
+    ...checkpoint.properties, summary: { type: 'object', additionalProperties: false, properties: {
+      record: { ...knowledgeWriteSchema, required: true }, level: num, parentId: { type: 'string' },
+      observationIds: { type: 'array', items: { type: 'string' }, required: true },
+      leafKinds: { type: 'array', items: { type: 'string' }, required: true },
+    } },
+  } }, output: { type: 'object', additionalProperties: false, properties: {
+    checkpoint: { ...storedCheckpoint, required: true },
+    summary: { oneOf: [knowledgeRecordSchema, { type: 'null' }], required: true },
+    leafCount: num,
+  } } },
+  indexRead: { input: { type: 'object', additionalProperties: false, properties: {
+    scope: { ...scope, required: true }, nodeId: { type: 'string' }, after: str, limit: num,
+  } }, output: { type: 'object', additionalProperties: false, properties: {
+    initialized: { type: 'boolean', required: true },
+    readPath: { type: 'string', const: 'summaries-and-leaves', required: true },
+    guidance: str, summariesTruncated: { type: 'boolean', required: true },
+    summaries: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+      id: str, level: num, title: str, summary: str, leafCount: num, parentId: { type: 'string' }, roundId: str, recordVersion: num,
+    } } },
+    leaves: { type: 'object', additionalProperties: false, required: true, properties: {
+      items: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+        id: str, kind: { type: 'string', enum: kinds, required: true }, name: str,
+        stage: { type: 'string', enum: ['discovered', 'observed', 'interpreted'], required: true }, version: num, description: str,
+      } } },
+      hasMore: { type: 'boolean', required: true }, nextAfter: str,
+    } },
+  } } },
 } as const satisfies Record<string, { input: ValueSchemaSpec; output: ValueSchemaSpec }>
 export type Method = keyof typeof contracts
 export type Input<K extends Method> = InferValue<(typeof contracts)[K]['input']>

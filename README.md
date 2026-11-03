@@ -36,11 +36,9 @@ Stop DSH and edit `~/.dsh/profiles/web/cordis.patch.yml` (or `$DSH_HOME/profiles
 
 Only `url` is required. `account` is a local identity label, not a password. Start `dsh --profile web`, ask it to check `erp_system_status`, then open the ERP and sign in yourself. Login paths, companies and roles are covered in [configuration](docs/system-configuration.en.md).
 
-In Deskwork, bind the plugin to a website. It uses that website's context and task browser; explicit `system` and `dataDir` settings take precedence.
-
 ## Learn and reuse
 
-Ask DSH to map the menus, then explore the pages and business relationships. It saves observations and knowledge locally. Native browser and desktop calls request individual approval; Deskwork uses its task confirmation policy. After an operation, check the result on the page.
+Ask DSH to snapshot the entry, then open pages only with approval. Exploration stops at depth 3. After each level, a short summary is saved; later answers should read those summaries and one page of records. Native browser and desktop calls request individual approval. A local knowledge revision does not change the ERP. After an operation, check the result on the page.
 
 Export useful experience as a Skill, review its text, and give the directory to another user. Imported knowledge requires review in the recipient's ERP. See [native operation and sharing](docs/native-and-sharing.en.md).
 

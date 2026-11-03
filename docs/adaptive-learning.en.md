@@ -16,7 +16,7 @@ Manual navigation or takeover pauses observation. `erp_browser_takeover` returns
 
 ## Learning queue
 
-Use `erp_learning_start/status/extend/finish_unit/pause` to explore menus first, then pages, fields and business behavior. New shallow tasks run before deeper work. Each extension accepts at most 200 tasks, with 2000 total. Progress covers registered work, not every feature of the website. After restart, running tasks become paused and require explicit continuation.
+`erp_learning_begin` creates a controller-owned queue and does not accept model-supplied units. Level 1 can be the entry snapshot alone. Level 2 opens pages and still needs approval for each open. Level 3 records visible fields, tabs and windows, then stops; there is no business-behavior level. When a level finishes, the controller writes one summary before the next level. `erp_learning_accept` submits the observation for the current step, `erp_learning_block` blocks only that step, and `erp_learning_status/pause` inspects or pauses the round. A round holds at most 2000 items, with at most 200 discoveries at a time. Progress covers this queue, not every feature of the website. After restart, a running round is paused and needs an explicit continuation.
 
 ## Limits
 

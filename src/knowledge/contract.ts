@@ -4,7 +4,7 @@ import { scopeSchema } from '../storage/primitives.js'
 const str = { type: 'string', required: true } as const
 const num = { type: 'integer', required: true } as const
 const strings = { type: 'array', items: { type: 'string' }, required: true } as const
-export const kinds = ['menu', 'page', 'tab', 'control', 'window', 'domain', 'object', 'field', 'rule', 'operation', 'relation'] as const
+export const kinds = ['menu', 'page', 'tab', 'control', 'window', 'domain', 'object', 'field', 'rule', 'operation', 'relation', 'summary'] as const
 const kind = { type: 'string', enum: kinds, required: true } as const
 const ref = { type: 'object', additionalProperties: false, properties: { id: str, version: num } } as const
 const evidence = { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {

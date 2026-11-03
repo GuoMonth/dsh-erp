@@ -110,6 +110,10 @@ export class KnowledgeStore {
   commit(input: KnowledgeInput<'knowledgeCommit'>): KnowledgeRecord[] {
     return this.write(input, 50)
   }
+  /** Caller already holds the storage transaction. One summary seal uses this with the frontier update. */
+  writeInTransaction(input: KnowledgeInput<'knowledgeCommit'>): KnowledgeRecord[] {
+    return this.writeUnlocked(input, 50)
+  }
   import(input: KnowledgeInput<'knowledgeImport'>): KnowledgeRecord[] {
     if (!/^[a-f0-9]{64}$/.test(input.bundleId)
       || createHash('sha256').update(JSON.stringify(input.records)).digest('hex') !== input.bundleId) fail('EXPERIENCE_INTEGRITY_MISMATCH')
@@ -137,10 +141,13 @@ export class KnowledgeStore {
     return this.write({ scope: input.scope, records, origin: 'ai' }, 2000)
   }
   private write(input: KnowledgeInput<'knowledgeCommit'>, maximum: number): KnowledgeRecord[] {
+    return this.transaction(() => this.writeUnlocked(input, maximum))
+  }
+  private writeUnlocked(input: KnowledgeInput<'knowledgeCommit'>, maximum: number): KnowledgeRecord[] {
     const scope = scopeKey(input.scope)
     if (!input.records.length || input.records.length > maximum) fail('KNOWLEDGE_BATCH_LIMIT')
     if (new Set(input.records.map(r => r.id)).size !== input.records.length) fail('KNOWLEDGE_DUPLICATE_ID')
-    return this.transaction(() => {
+    {
       const records = input.records.map(record => this.prepare(scope, structuredClone(record), input.origin, input.scope))
       const staged = new Map(records.map(record => [record.id, record]))
       for (const record of records) {
@@ -176,7 +183,7 @@ export class KnowledgeStore {
       ) SELECT 1 FROM paths WHERE start=node LIMIT 1`).get(scope, scope)
       if (cycle) fail('KNOWLEDGE_CONTAINMENT_CYCLE')
       return records
-    })
+    }
   }
   get(input: KnowledgeInput<'knowledgeGet'>): KnowledgeView | null {
     const scope = scopeKey(input.scope); checkedId(input.id)
