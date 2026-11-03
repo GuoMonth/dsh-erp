@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 — 2026-11-03
+
+- Align with DSH 0.2.1-rc.5 only. Cordis stays 4.0.5 and Schemastery stays 3.18.5. rc.4 keeps ACP diagnostics off stdout; rc.5 improves thinking display. Plugin APIs used here are unchanged.
+- The native entry still composes official Browser Use, Playwright MCP, approval, skills and the opt-in Cua Driver. The managed browser, local knowledge store and worker schema bundle stay because they are the ERP product, not a DSH compatibility layer.
+- No ERP workflow change: configuration, storage, approval boundaries and Skill sharing remain as documented in 0.1.2.
+
 ## 0.1.2 — 2026-10-28
 
 - Align with DSH 0.2.1-rc.3, Cordis 4.0.5 and Schemastery 3.18.5. The native entry keeps using official Browser Use, Playwright MCP and the opt-in Cua Driver.
