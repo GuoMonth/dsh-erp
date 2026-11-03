@@ -2,7 +2,7 @@
 
 [English](system-configuration.en.md) · [指南目录](index.zh-CN.md)
 
-配置写在当前 DSH profile 的 `cordis.patch.yml` 中。文件位置与安装见[快速开始](README.zh-CN.md#配置-erp)。修改后重启 DSH。
+配置写在当前 DSH profile 的 `cordis.patch.yml` 中。文件位置与安装见[快速开始](README.zh-CN.md#快速开始)。修改后重启 DSH。
 
 ## 网站与身份
 
