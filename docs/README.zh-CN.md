@@ -8,7 +8,7 @@
 
 插件仍然只学习浏览器实际显示过的内容。之后的问题读取一段短的层级摘要和一页证据。ERP 写入要等一次新的批准。插件不带你公司的站点知识。
 
-当前版本 **0.1.4**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面检查覆盖 Linux x64。Windows 与 macOS 验收仍待完成。`npm run verify` 不包含在线模型或真实 ERP。
+当前版本 **0.1.5**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面检查覆盖 Linux x64。Windows 与 macOS 验收仍待完成。`npm run verify` 不包含在线模型或真实 ERP。
 
 ## ERP 还没有找得到的工作区时
 
@@ -71,7 +71,7 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosh
 npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
 ```
 
-使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.4`。浏览器提供方会准备 Chromium。Linux 还需要图形会话和 Chromium 系统库。
+使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.5`。浏览器提供方会准备 Chromium。Linux 还需要图形会话和 Chromium 系统库。
 
 这个包被收录之后，同一个 npm 包名可以从 dsh-market 安装，也可以在索引包含 `@guosheng_047/dsh-erp` 之后从插件页的 Discover 安装。卡片上可能显示 ERP 助手或 Adapt ERP。尚未收录时，使用上面的命令。
 

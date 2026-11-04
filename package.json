@@ -1,6 +1,6 @@
 {
   "name": "@guosheng_047/dsh-erp",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "ERP 助手 (Adapt ERP): a DeepSeek Harness desktop workspace that learns your ERP sites from the sidebar browser and keeps a private local index per site",
   "type": "module",
   "license": "MIT",

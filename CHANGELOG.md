@@ -2,12 +2,14 @@
 
 ## Unreleased
 
+## 0.1.5 — 2026-11-04
+
 - Site rows and the resume card show a favicon taken from the bookmark. The page is read for `link rel="icon"` when the browser allows it, then `/favicon.ico` on that origin. A blocked, missing, or unsafe icon falls back to the plugin mark. The icon is not stored in the share pack.
 - English and Chinese guide copy now say the same thing. The English footer says the index stays on this machine. Import is "Import share pack" / 导入分享包. The browser's own file-button label is unchanged.
 - A site on the desktop is a bookmark: a URL and an optional display name. Deep links are normalized to the site entry, and the stable application root is stored internally. Account, tenant, role, and a separate base URL stay off that form. Existing configurations still load, and an existing site keeps its persistent ID.
 - Adding a site creates its workspace folder and registers it with the host workspace service when that service is injected. New chat opens another conversation in the same folder. The host groups those conversations by that directory.
 - Start exploring runs the existing depth-3 controller. The round is stored immediately. It pauses when a logged-in page is not visible, and it does not mark an unfinished round complete.
-- The primary share is a zip pack (`manifest.json` at schemaVersion 1 and `knowledge.jsonl`). Import is a local file, records are marked needs-review, and the pack grants no login or write. The Skill directory remains a secondary path. Storage backup is unchanged. This note does not publish a release.
+- The primary share is a zip pack (`manifest.json` at schemaVersion 1 and `knowledge.jsonl`). Import is a local file, records are marked needs-review, and the pack grants no login or write. The Skill directory remains a secondary path. Storage backup is unchanged. Peers stay on DSH 0.2.1-rc.5.
 
 ## 0.1.4 — 2026-11-03
 

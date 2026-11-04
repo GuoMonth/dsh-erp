@@ -8,7 +8,7 @@ A tools-only install leaves the assistant off the navigation. The next question 
 
 The plugin still learns only what the browser showed. Later questions read a short level summary and one page of evidence. An ERP write waits for a fresh approval. It ships with no knowledge of your company.
 
-Current release: **0.1.4**, for **DSH 0.2.1-rc.5** (upstream prerelease). Requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64. Windows and macOS acceptance is still pending. `npm run verify` does not include a live model or a real ERP.
+Current release: **0.1.5**, for **DSH 0.2.1-rc.5** (upstream prerelease). Requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64. Windows and macOS acceptance is still pending. `npm run verify` does not include a live model or a real ERP.
 
 ## When there is no workspace for the ERP
 
@@ -71,7 +71,7 @@ With only Node installed:
 npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
 ```
 
-Use the full package name. For a fixed release, replace `@latest` with `@0.1.4`. The browser provider prepares Chromium. Linux also needs a graphical session and Chromium system libraries.
+Use the full package name. For a fixed release, replace `@latest` with `@0.1.5`. The browser provider prepares Chromium. Linux also needs a graphical session and Chromium system libraries.
 
 After this package is listed, the same npm name can be installed from dsh-market, or from Plugins → Discover once that index includes `@guosheng_047/dsh-erp`. The card may show ERP 助手 or Adapt ERP. Until it is listed, use the command above.
 
