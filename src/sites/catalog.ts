@@ -5,6 +5,8 @@ import { StorageClient } from '../storage/client.js'
 import { StorageError, scopeKey } from '../storage/primitives.js'
 import type { Scope } from '../storage/primitives.js'
 import { defaultDataDir, privateDirectory } from '../storage/paths.js'
+import { inSite } from '../browser/contract.js'
+import { normalizeBookmark } from '../product/bookmark.js'
 import { resolveSystem } from '../system.js'
 import type { SystemConfig, SystemProfile } from '../system.js'
 
@@ -20,14 +22,10 @@ export interface PublicSite {
   sessionId?: string
 }
 
-/** Fields the desktop wizard may change. `null` clears an optional label. */
+/** Fields the desktop guide may change. A new name keeps the site. The bookmark derives the root. */
 export interface SitePatch {
   url: string
-  baseUrl?: string | null
   name?: string | null
-  account?: string | null
-  tenant?: string | null
-  role?: string | null
 }
 
 export interface SessionHint { id?: string; cwd?: string }
@@ -66,8 +64,8 @@ function catalogId(profile: SystemProfile): string {
 }
 
 function normalize(input: SystemConfig): SystemConfig {
-  const config: SystemConfig = { url: input.url }
-  if (input.baseUrl) config.baseUrl = input.baseUrl
+  const bookmark = normalizeBookmark(input.url)
+  const config: SystemConfig = { url: bookmark.entryUrl, baseUrl: input.baseUrl?.trim() || bookmark.baseUrl }
   if (input.name?.trim()) config.name = input.name.trim()
   if (input.account?.trim()) config.account = input.account.trim()
   if (input.tenant?.trim()) config.tenant = input.tenant.trim()
@@ -188,10 +186,14 @@ export class SiteCatalog {
     return this.listPublic()
   }
 
-  /**
-   * Edit one list row. A new account label or application root becomes another
-   * index. Conversations bound to the previous row stay unbound.
-   */
+  /** Storage for one site. Callers that already selected the site should use this instead of opening a second database. */
+  client(id: string): StorageClient {
+    const site = this.sites.get(id)
+    if (!site) throw new Error('ERP_UNKNOWN_SITE')
+    return this.clientFor(site)
+  }
+
+  /** Edit one list row. Renaming keeps the site. A different application root becomes another index. */
   update(id: string, patch: SitePatch): PublicSite {
     rejectSecrets(patch)
     const current = this.sites.get(id)
@@ -240,17 +242,18 @@ export class SiteCatalog {
   }
 
   private mergedInput(current: SystemConfig, patch: SitePatch): SystemConfig {
-    const input: SystemConfig = { url: patch.url }
-    const baseUrl = patch.baseUrl === null ? undefined : patch.baseUrl ?? current.baseUrl
+    const bookmark = normalizeBookmark(patch.url)
+    const input: SystemConfig = { url: bookmark.entryUrl, baseUrl: bookmark.baseUrl }
+    if (current.baseUrl) {
+      try {
+        if (inSite(bookmark.entryUrl, new URL(current.baseUrl))) input.baseUrl = current.baseUrl
+      } catch { /* The bookmark root replaces a root that can no longer hold this entry. */ }
+    }
     const name = patch.name === null ? undefined : patch.name ?? current.name
-    const account = patch.account === null ? undefined : patch.account ?? current.account
-    const tenant = patch.tenant === null ? undefined : patch.tenant ?? current.tenant
-    const role = patch.role === null ? undefined : patch.role ?? current.role
-    if (baseUrl) input.baseUrl = baseUrl
     if (name) input.name = name
-    if (account) input.account = account
-    if (tenant) input.tenant = tenant
-    if (role) input.role = role
+    if (current.account?.trim()) input.account = current.account.trim()
+    if (current.tenant?.trim()) input.tenant = current.tenant.trim()
+    if (current.role?.trim()) input.role = current.role.trim()
     return input
   }
 

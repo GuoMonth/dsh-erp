@@ -1,24 +1,21 @@
-/** Client-side entry checks. The host still rejects the same URLs before they are stored. */
-export function entryIssue(raw: string): '' | 'empty' | 'url' | 'credentials' | 'query' {
+import { normalizeBookmark } from './bookmark.js'
+
+/** A paste can be stored when it normalizes to an http(s) bookmark. Deep links are not rejected here. */
+export function entryIssue(raw: string): '' | 'empty' | 'url' {
   const value = raw.trim()
   if (!value) return 'empty'
-  if (value.length > 2000) return 'url'
-  let url: URL
-  try { url = new URL(value) } catch { return 'url' }
-  if (url.username || url.password) return 'credentials'
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'url'
-  if (url.search || url.hash.includes('?')) return 'query'
-  return ''
+  try { normalizeBookmark(value); return '' } catch (error) {
+    return error instanceof Error && error.message === 'ERP_URL_REQUIRED' ? 'empty' : 'url'
+  }
 }
 
-/** Empty is allowed. A filled application root must be an HTTP(S) URL ending in /. */
+/** Not collected on the desktop form. An explicit application root in a config file must end in /. */
 export function baseIssue(raw: string): '' | 'url' | 'slash' {
   const value = raw.trim()
   if (!value) return ''
-  const issue = entryIssue(value)
-  if (issue === 'credentials' || issue === 'query' || issue === 'url' || issue === 'empty') return 'url'
   let url: URL
   try { url = new URL(value) } catch { return 'url' }
+  if (url.username || url.password || url.search || url.hash || (url.protocol !== 'http:' && url.protocol !== 'https:')) return 'url'
   if (!url.pathname.endsWith('/')) return 'slash'
   return ''
 }

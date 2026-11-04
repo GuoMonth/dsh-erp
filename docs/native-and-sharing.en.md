@@ -17,9 +17,27 @@ Native browser and desktop calls request individual DSH approval. Opening a page
 
 `computerUse: true` loads the official native Cua Driver, requiring its optional package and OS permissions. It reuses an existing provider when available. A permissions check can use `cua_driver_native__check_permissions` with `prompt: false`; saving window evidence also requires confirmation that it belongs to the configured ERP.
 
-## Share a Skill
+## Share pack
 
-`erp_experience_export` returns a directory:
+The primary share is the zip from `erp_share_export`. On the desktop, Share on a site downloads that same pack. Read the free text before sending it. The plugin does not upload it.
+
+```text
+erp-share-pack.zip
+  manifest.json
+  knowledge.jsonl
+```
+
+`manifest.json` uses `format` `dsh-erp-share-pack` and starts at `schemaVersion` 1. It carries the producer app and version, the normalized entry, the display name, the workspace id, the inventory, and the sha256 of `knowledge.jsonl`. Each line of `knowledge.jsonl` is one record with `format`, `schemaVersion`, `kind`, and that record's own version. Login, cookies, credentials, raw observations, screenshots, field samples, and confirmations stay out. This is not a [storage backup](storage.en.md).
+
+## Import a pack
+
+Pick a local zip on the desktop, or give `erp_share_import` an absolute path. Import asks for one confirmation. Records are marked `interpreted` and `needs-review`, and they are rebound to the receiver's own scope. The pack's code is not executed. It grants no login or write permission.
+
+Readers accept `schemaVersion` 1. Unknown keys are ignored. An unknown `kind` is skipped with a warning and the remaining records continue. A newer `schemaVersion`, or a `format` that is not recognized, refuses the whole pack and writes nothing. Importing the same content again preserves local corrections.
+
+## Skill directory
+
+`erp_experience_export` can still write a Skill directory. That path is secondary, not the primary share:
 
 ```text
 erp-experience-<summary>-<export-ID>/
@@ -27,12 +45,4 @@ erp-experience-<summary>-<export-ID>/
   references/knowledge.json
 ```
 
-Review both files, then share the whole directory. Export keeps names, descriptions, types and valid relationships. It excludes structured identities, URLs, samples, raw observations, screenshots, login data and confirmations. Free text can still contain private information. The plugin does not upload the directory.
-
-## Import a Skill
-
-Configure the recipient's ERP and ask to import the local `references/knowledge.json`. `erp_experience_import` requests one confirmation for the file and scope, writes knowledge in one transaction, and registers a native Skill.
-
-The input must be an absolute path to a regular JSON file: at most 16 MB and 2000 records. Import validates references and relationships; it does not execute the sender's Skill or code. Records are marked `interpreted` and `needs-review`. Reimporting identical content preserves local corrections; changed content creates a separate set of records.
-
-Check imported experience on the recipient's pages before using it. It grants no login or operation permission. Skill export is for sharing; use [storage backup](storage.en.md) for recovery. Test commands and coverage are in [development](development.en.md).
+`erp_experience_import` reads `references/knowledge.json` from that directory. It does not execute code and grants no login or operation permission. Use [storage backup](storage.en.md) for recovery. Test commands and coverage are in [development](development.en.md).

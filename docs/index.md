@@ -9,12 +9,12 @@ Adapt ERP is the desktop workspace for ERP sites inside DeepSeek Harness. Chines
 | See which ERP jobs this plugin takes | [Scenarios](../README.md#when-there-is-no-workspace-for-the-erp) |
 | Install and run the first session | [Quick start](../README.md#quick-start) |
 | Open ERP 助手 on the desktop | [Desktop](../README.md#desktop) |
-| Set the website and identity | [Configuration](system-configuration.en.md) |
-| Observe, approve a write, share a Skill | [Native operation](native-and-sharing.en.md) |
+| Save an ERP as a bookmark | [Configuration](system-configuration.en.md) |
+| Observe, approve a write, share a pack | [Native operation](native-and-sharing.en.md) |
 | Read the index or revise local knowledge | [Knowledge](knowledge.en.md) |
 | Back up or recover SQLite | [Storage](storage.en.md) |
 | Use the plugin's own browser | [Managed browser](adaptive-learning.en.md) |
 | Develop or test | [Development](development.en.md) |
 | Publish a package | [Publishing](npm-publishing.en.md) |
 
-The table describes the current product. [ADR 0003](adr/0003-controller-bfs-index.md) records the depth-3 index decision. The other decisions stay in `docs/adr`. Earlier planning documents stay in Git history.
+The table describes the current product. [ADR 0003](adr/0003-controller-bfs-index.md) records the depth-3 index decision. [ADR 0004](adr/0004-bookmark-workspace-share-pack.md) records bookmark sites, workspace folders, and share packs. The other decisions stay in `docs/adr`. Earlier planning documents stay in Git history.

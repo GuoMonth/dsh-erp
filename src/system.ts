@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, linkSync, lstatSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserError, inSite, siteUrl, entryUrl } from './browser/contract.js'
+import { normalizeBookmark } from './product/bookmark.js'
 import type { BrowserOpen } from './browser/contract.js'
 import { canonicalScope } from './storage/primitives.js'
 import { defaultDataDir, privateDirectory } from './storage/paths.js'
@@ -14,12 +15,9 @@ export interface SystemProfile {
 
 // URL lookup is separate from the permanent ID, allowing explicit URL aliases in a future migration.
 export function resolveSystem(config: SystemConfig, dataDir = defaultDataDir()): SystemProfile {
-  const entry = entryUrl(config.url)
-  const inferred = new URL(entry.href); inferred.hash = ''; inferred.search = ''
-  if (!config.baseUrl && !inferred.pathname.endsWith('/')) {
-    throw new BrowserError('ERP_BASE_URL_REQUIRED: set system.baseUrl to the application root (ending in /)')
-  }
-  const base = siteUrl(config.baseUrl ?? inferred.href)
+  const bookmark = normalizeBookmark(config.url)
+  const entry = entryUrl(bookmark.entryUrl)
+  const base = siteUrl(config.baseUrl ?? bookmark.baseUrl)
   if (!base.pathname.endsWith('/')) throw new BrowserError('ERP_BASE_URL_MUST_END_IN_SLASH')
   if (!inSite(entry.href, base)) throw new BrowserError('ERP_ENTRY_OUTSIDE_BASE_URL')
   const scope = canonicalScope({ site: 'pending', account: config.account?.trim() || 'default',

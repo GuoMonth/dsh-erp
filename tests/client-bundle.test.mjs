@@ -5,6 +5,8 @@ import vm from 'node:vm'
 
 test('the client bundle registers ERP 助手 and opens the official sidebar browser', async () => {
   const code = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(code, /账户标签|Account label|应用根地址|Application root/)
+  assert.doesNotMatch(code, /type:"password"|type: "password"/)
   let registered
   const context = { window: { __ModuleLoader__: { load(entry) { registered = entry } } }, console }
   vm.createContext(context)
@@ -43,7 +45,10 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.equal(entry.options.label(), 'ERP 助手')
   assert.notEqual(dict.zh.firstRun, dict.zh.returning)
   assert.equal(dict.zh.continue, '继续')
-  assert.match(dict.zh.continueHint, /入口网址/)
+  assert.match(dict.zh.continueHint, /入口/)
+  assert.equal(dict.zh.explore, '一键探索')
+  assert.equal(dict.en.explore, 'Start exploring')
+  assert.equal(dict.zh.newChat, '新对话')
   assert.equal(dict.zh.password.includes('密码'), true)
   lang = 'en'
   assert.equal(entry.options.label(), 'Adapt ERP')
@@ -74,4 +79,16 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
     async bind() { throw new Error('should not rebind') },
   }, { id: 'site_b', entryUrl: 'https://other.example/app/', workspaceDir: '/tmp/erp-b', sessionId: 'sess-2' })
   assert.equal(JSON.stringify(calls.map(call => call[0] === 'tab' ? call[2].params.url : call[1])), JSON.stringify(['sess-2', null, 'https://other.example/app/']))
+  calls.length = 0
+  const fresh = []
+  await exports.openErpSite({
+    sessions: { async create(input) { fresh.push(input.cwd); return 'sess-3' } },
+    uiWorkspace: { openSession(id) { calls.push(['session', id]) } },
+    layout: { selectPanel(id) { calls.push(['panel', id]) } },
+    sidebar: { openTab(kind, options) { calls.push(['tab', kind, options]) } },
+    workspaces: { async create(input) { fresh.push(input.path) } },
+    async bind(siteId, id) { calls.push(['bind', siteId, id]) },
+  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', sessionId: 'sess-1' }, { fresh: true })
+  assert.deepEqual(fresh, ['/tmp/erp-a', '/tmp/erp-a'])
+  assert.equal(calls[0][2], 'sess-3')
 })

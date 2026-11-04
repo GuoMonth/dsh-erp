@@ -16,6 +16,12 @@ export interface OpenDeps {
   bind(siteId: string, sessionId: string): Promise<void>
 }
 
+/** Register the site folder with the host workspace service when that service is injected. */
+export async function ensureWorkspace(workspaces: OpenDeps['workspaces'], workspaceDir: string): Promise<void> {
+  if (!workspaces) return
+  await workspaces.create({ path: workspaceDir }).catch(() => undefined)
+}
+
 function waitUntilShown(sidebar: OpenDeps['sidebar'], sessionId: string): Promise<void> {
   const mounted = sidebar.mounted
   if (!mounted) return Promise.resolve()
@@ -32,18 +38,21 @@ function waitUntilShown(sidebar: OpenDeps['sidebar'], sessionId: string): Promis
 /**
  * Focus this site's conversation, then open its entry URL in the official sidebar Browser.
  * The user signs in there. This function never receives a password.
+ * `workspaces.create({ path })` registers the folder. `sessions.create({ cwd })` adds a
+ * conversation; the host groups those conversations by that canonical cwd.
+ * `fresh` starts another conversation in the same folder. Switching among them is the host workspace list.
  */
-export async function openErpSite(deps: OpenDeps, site: OpenSite): Promise<string> {
+export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: { fresh?: boolean }): Promise<string> {
   if (!deps.sidebar?.openTab) throw new Error('ERP_BROWSER_UNAVAILABLE')
-  let sessionId = site.sessionId
+  await ensureWorkspace(deps.workspaces, site.workspaceDir)
+  let sessionId = options?.fresh ? undefined : site.sessionId
   if (!sessionId) {
-    if (deps.workspaces) await deps.workspaces.create({ path: site.workspaceDir }).catch(() => undefined)
     sessionId = await deps.sessions.create({ cwd: site.workspaceDir })
     await deps.bind(site.id, sessionId)
   }
   try { deps.uiWorkspace.openSession(sessionId) }
   catch {
-    if (deps.workspaces) await deps.workspaces.create({ path: site.workspaceDir }).catch(() => undefined)
+    await ensureWorkspace(deps.workspaces, site.workspaceDir)
     sessionId = await deps.sessions.create({ cwd: site.workspaceDir })
     await deps.bind(site.id, sessionId)
     deps.uiWorkspace.openSession(sessionId)

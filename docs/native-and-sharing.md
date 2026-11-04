@@ -17,9 +17,27 @@ Playwright 工具保留上游名称与参数，当前点击工具使用 `target`
 
 `computerUse: true` 加载官方 Cua Driver Native，需要可选依赖和操作系统权限；已有提供方时直接复用。权限检查可用 `cua_driver_native__check_permissions` 的 `prompt: false`；保存窗口证据还需确认该窗口属于配置的 ERP。
 
-## 分享 Skill
+## 分享包
 
-`erp_experience_export` 返回目录：
+主分享是 `erp_share_export` 写出的 zip。在桌面上，对一个站点选择「分享」，会下载同一份包。先看过自由文本再发出去。插件不会上传。
+
+```text
+erp-share-pack.zip
+  manifest.json
+  knowledge.jsonl
+```
+
+`manifest.json` 的 `format` 是 `dsh-erp-share-pack`，`schemaVersion` 从 1 开始。里面有生产者应用和版本、整理后的入口、显示名、工作区标识、内容清单和 `knowledge.jsonl` 的 sha256。`knowledge.jsonl` 一行一条记录，带 `format`、`schemaVersion`、`kind` 和该记录自己的版本。默认排除登录、Cookie、凭据、原始观察、截图、字段样本和确认。这不是[存储备份](storage.md)。
+
+## 导入分享包
+
+在桌面上选择本机 zip，或让 `erp_share_import` 读取绝对路径。导入前会请求一次确认。记录标为 `interpreted` 和 `needs-review`，并改绑到接收方自己的 scope。不执行包内代码，不授予登录或写入权限。
+
+读者接受 `schemaVersion` 1。未知键忽略。未知 `kind` 跳过并给出警告，其余记录继续导入。更高的 `schemaVersion` 或无法识别的 `format` 整包拒绝，不写入一部分。相同内容再次导入保留本地修正。
+
+## Skill 目录
+
+`erp_experience_export` 仍可写出一个 Skill 目录，这是次要路径，不是主分享：
 
 ```text
 erp-experience-<summary>-<export-ID>/
@@ -27,12 +45,4 @@ erp-experience-<summary>-<export-ID>/
   references/knowledge.json
 ```
 
-检查两个文件后分享整个目录。导出保留名称、描述、类型和有效关系，排除结构化身份、URL、字段样本、原始观察、截图、登录资料和确认。自由文本仍可能包含私人信息；插件不会上传目录。
-
-## 导入 Skill
-
-配置接收方 ERP，要求导入本地 `references/knowledge.json`。`erp_experience_import` 针对文件和 scope 请求一次确认，在一个事务中写入知识，并注册原生 Skill。
-
-输入必须是普通 JSON 文件的绝对路径，最多 16 MB、2000 条记录。导入校验引用和关系，不执行发送者的 Skill 或代码。记录标为 `interpreted`、`needs-review`。相同内容重复导入保留本地修正；内容变化时产生另一组记录。
-
-使用前在接收方页面上复核经验。导入不授予登录或操作权限。Skill 导出用于分享，恢复数据使用[存储备份](storage.md)。测试命令与覆盖范围见[开发指南](development.md)。
+`erp_experience_import` 读取其中的 `references/knowledge.json`。它同样不执行代码，也不授予登录或操作权限。恢复数据使用[存储备份](storage.md)。测试命令与覆盖范围见[开发指南](development.md)。

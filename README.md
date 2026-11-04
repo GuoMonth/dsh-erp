@@ -32,7 +32,7 @@ You signed in once and let the plugin snapshot the entry and the pages you appro
 
 ### An operator adding a site
 
-You have a URL and an optional account label. On the desktop, open ERP 助手 and fill the form. There is no password field. Sign in yourself in the sidebar Browser. To declare the site in a profile file instead, stop DSH, set `system.url`, and start `dsh --profile web`. Ask for an entry snapshot, then approve each page the controller wants to open. The walk stops at the fields, tabs, and windows already visible. The model is not given a goal of finishing the ERP.
+You have a URL and an optional display name. On the desktop, open ERP 助手 and paste the address. There is no password field. Sign in yourself in the sidebar Browser. To declare the site in a profile file instead, stop DSH, set `system.url`, and start `dsh --profile web`. Ask for an entry snapshot, then approve each page the controller wants to open. The walk stops at the fields, tabs, and windows already visible. The model is not given a goal of finishing the ERP.
 
 ### A builder staying on native dsh
 
@@ -85,9 +85,9 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_
 
 Restart the app after the desktop install above. Open the left-nav entry.
 
-With no sites yet, the page is a short setup: an entry URL, an optional application root when that path does not end in `/`, and an optional account label. There is no password field.
+With no sites yet, the page is a short setup: a URL and an optional display name. A deep link is reduced to the site entry. There is no password field.
 
-After a site exists, the same entry lists the sites and offers Continue for the one you opened last, if it is still listed. Continue restores that site's conversation in the middle and opens its entry URL in the official sidebar Browser on the right. Sign in yourself. If that site was removed, Continue does not switch you to a different one. Edit can change the name, the entry URL, or the account label. A new account label or application root is another index, and conversations that were bound to the previous row are not moved. Remove only takes a site off the list. Its index stays on this machine.
+After a site exists, the same entry lists the sites and offers Continue for the one you opened last, if it is still listed. Continue restores that site's conversation in the middle and opens its entry URL in the official sidebar Browser on the right. Sign in yourself. If that site was removed, Continue does not switch you to a different one. Adding a site creates its workspace folder. New chat opens another conversation in that folder. Edit can change the display name or the URL. Renaming keeps the site. A different ERP is another index, and conversations that were bound to the previous row are not moved. Remove only takes a site off the list. Its index stays on this machine. Start exploring runs the depth-3 walk and pauses until a logged-in page is visible.
 
 Add another site the same way. It gets its own conversation and its own local index. A conversation that is not bound to a site does not read either index. Later questions should read the level summary and one page of evidence before a live observation.
 
@@ -100,10 +100,10 @@ On the desktop you can add sites from ERP 助手 and skip this file. To declare 
   config:
     system:
       url: "https://erp.example.com/app/"
-      account: "work-account"
+      name: "My ERP"
 ```
 
-Only `url` is required. `account` is a local identity label, not a password. Login paths, companies, and roles are covered in [configuration](docs/system-configuration.en.md).
+Only `url` is required. The display name is optional. Login stays in the browser. Existing account, company, and role labels are covered in [configuration](docs/system-configuration.en.md).
 
 1. Start the desktop app, or `dsh --profile web`, and ask it to call `erp_system_status`.
 2. Open the configured entry and sign in yourself. The plugin does not take the password.
@@ -111,7 +111,7 @@ Only `url` is required. `account` is a local identity label, not a password. Log
 4. Approve each later page open. Level 3 records fields, tabs, and windows already visible, then stops.
 5. Ask later questions with `erp_index_read`. Until a level summary exists, that read reports the index as not initialized.
 
-To hand the map to someone else, ask for a Skill export, read the text, and share the directory. The recipient imports it as needs-review and checks it on their own ERP. The export omits structured identity, URLs, field samples, raw observations, screenshots, login data, and confirmations. Free text can still contain private information. The plugin does not upload the directory. Details are in [native operation and sharing](docs/native-and-sharing.en.md).
+To hand the map to someone else, export a zip share pack, read the text, and send the file. The recipient imports it as needs-review and checks it on their own ERP. The pack omits login, cookies, credentials, raw observations, screenshots, field samples, and confirmations. Free text can still contain private information. The plugin does not upload the file. A Skill directory remains a secondary path. Details are in [native operation and sharing](docs/native-and-sharing.en.md).
 
 ## How the index works
 
@@ -127,7 +127,7 @@ A native snapshot is normalized into a `browser-learning-v1` document before it 
 
 When a level's frontier is empty, the controller writes one summary, then places the next level on the frontier. A round holds at most 2000 items and accepts at most 200 discoveries at a time. Restart pauses a running round and does not replay website actions.
 
-SQLite is the physical store (schema 4), with evidence files beside the database. There is no graph database. After initialization, `erp_index_read` returns up to 30 compact summaries, with a truncation flag when more exist, and one page of evidence-backed leaves. Omit the node to page the newest summary. Start `after` at an empty string and follow `nextAfter` while `hasMore` is set. Each page holds 1–20 leaves. `erp_knowledge_get` loads one full record. Search, neighbors, and history are the lookup path. `erp_knowledge_record` writes the local database and leaves the ERP unchanged. Level summaries stay in the local index and are omitted from a shared Skill.
+SQLite is the physical store (schema 4), with evidence files beside the database. There is no graph database. After initialization, `erp_index_read` returns up to 30 compact summaries, with a truncation flag when more exist, and one page of evidence-backed leaves. Omit the node to page the newest summary. Start `after` at an empty string and follow `nextAfter` while `hasMore` is set. Each page holds 1–20 leaves. `erp_knowledge_get` loads one full record. Search, neighbors, and history are the lookup path. `erp_knowledge_record` writes the local database and leaves the ERP unchanged. Level summaries stay in the local index and are omitted from a share pack.
 
 Native browser and desktop calls request individual dsh approval. On the managed browser, `effect: navigate` is an open or a scroll, and `effect: mutate` is an ERP write. Fill and select have to be marked mutate. Local corrections and confirmations stay local: they attribute a statement to you and grant no ERP permission.
 
