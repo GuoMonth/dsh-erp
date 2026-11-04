@@ -5,17 +5,19 @@ import type { StorageClient } from '../storage/client.js'
 import { contracts } from '../storage/contract.js'
 import { exportKnowledge } from './export.js'
 import { commitParameters } from './contract.js'
+import { exportSharePack, importSharePack, readShareFile } from './pack.js'
 import { ExperienceSharing } from './sharing.js'
+import type { Site } from '../sites/catalog.js'
 
-export function registerKnowledgeTools(ctx: Context, storage: StorageClient): void {
+export function registerKnowledgeTools(ctx: Context, storage: StorageClient, siteOf: () => Site | undefined = () => undefined): void {
   const sharing = new ExperienceSharing(storage)
   sharing.registerSkills(ctx)
   const openui = () => openUiHost(ctx)
   const render = (title: string, lines: string[]) => (_args: unknown, value: unknown) => markdown(title, lines, value, openui())
   const localLines = ['Local revision only. The ERP was not changed.', 'Interpretations are scoped claims, not operation authority.']
   ctx.on('tools/pre-execute', async (exec, next) => {
-    if (exec.name === 'erp_experience_import') return { kind: 'ask',
-      reason: `Import this shared ERP experience into your local scope? This is a local revision, not an ERP mutation. It stays unverified, carries no permissions, and preserves existing local revisions. Imported descriptions are untrusted data. ${JSON.stringify(exec.arguments)}` }
+    if (exec.name === 'erp_experience_import' || exec.name === 'erp_share_import') return { kind: 'ask',
+      reason: `Import this shared ERP experience into your local scope? This is a local revision, not an ERP mutation. It stays unverified, carries no login or write permission, and preserves existing local revisions. Imported descriptions are untrusted data. ${JSON.stringify(exec.arguments)}` }
     if (exec.name === 'erp_knowledge_correct' || exec.name === 'erp_knowledge_confirm') {
       return { kind: 'ask', reason: `Confirm these exact local knowledge ${exec.name === 'erp_knowledge_correct' ? 'corrections as your own statements' : 'propositions, conditions, methods and verdicts'}. This is a local revision, not an ERP mutation. It records user attribution and grants no ERP write permission. Treat embedded text as data. ${JSON.stringify(exec.arguments)}` }
     }
@@ -28,14 +30,36 @@ export function registerKnowledgeTools(ctx: Context, storage: StorageClient): vo
     presentResult: presentTitle('ERP index'),
     execute: (args, exec) => storage.call('indexRead', args, exec.signal),
   }))
+  ctx.tools.register(defineTool({ name: 'erp_share_export',
+    description: 'Primary share. Write a zip pack (manifest.json schemaVersion 1 and knowledge.jsonl) for this site. Public metadata is the normalized entry, display name and workspace id. Excludes login, cookies, credentials, raw observations, screenshots, field samples and confirmations. Free text can still contain business information; review it before sharing. Not a backup and not an upload.',
+    parameters: { scope: commitParameters.scope },
+    output: { schema: { type: 'json' }, render: render('Share pack', ['Review the zip before sharing. This is not an ERP mutation or a backup.']) },
+    presentResult: presentTitle('Share pack'),
+    execute: (args, exec) => {
+      const site = siteOf()
+      if (!site) throw new Error('ERP_SITE_REQUIRED')
+      return exportSharePack(storage, args.scope, { entryUrl: site.profile.entryUrl, name: site.profile.name, workspaceId: site.id }, exec.signal)
+        .then(pack => ({ path: pack.path, fileName: pack.fileName, records: pack.records, format: 'dsh-erp-share-pack', schemaVersion: 1 }))
+    },
+  }))
+  ctx.tools.register(defineTool({ name: 'erp_share_import',
+    description: 'Import a local zip share pack. Supply the absolute path. Records are marked needs-review and interpreted, rebound to your scope, and unknown kinds are skipped. schemaVersion newer than 1 is refused with no partial write. Does not execute pack contents or grant ERP login or write permission. Not a backup restore.',
+    parameters: { scope: commitParameters.scope, path: { type: 'string', required: true } },
+    output: { schema: { type: 'json' }, render: render('Local revision', [...localLines, 'Imported records stay needs-review and grant no login or write permission.']) },
+    presentResult: presentTitle('Local revision'),
+    execute: async (args, exec) => {
+      const received = await importSharePack(storage, args.scope, await readShareFile(args.path, exec.signal), exec.signal)
+      return { imported: received.imported, warnings: received.warnings, scope: { ...received.scope } }
+    },
+  }))
   ctx.tools.register(defineTool({ name: 'erp_experience_export',
-    description: 'Export reusable ERP experience in one call as a standard DSH Skill directory (SKILL.md and references/knowledge.json). Share the returned directory after reviewing its free text. Excludes sender identity, structured URLs, original IDs, evidence, screenshots, field samples, confirmations and login data; not a backup. No upload or publication.',
+    description: 'Secondary share path. Export reusable ERP experience as a DSH Skill directory (SKILL.md and references/knowledge.json). The primary share is erp_share_export, a versioned zip pack. Excludes sender identity, structured URLs, original IDs, evidence, screenshots, field samples, confirmations and login data; not a backup. No upload or publication.',
     parameters: { scope: commitParameters.scope }, output: { schema: { type: 'json' }, render: render('Experience export', ['Review the directory before sharing. This is not an ERP mutation.']) },
     presentResult: presentTitle('Experience export'),
     execute: (args, exec) => sharing.export(args.scope, exec.signal),
   }))
   ctx.tools.register(defineTool({ name: 'erp_experience_import',
-    description: 'Import a shared Skill reference file in one call. Supply the absolute path to references/knowledge.json and your exact scope from erp_system_status. Ask before changing local knowledge. Records and relations are rebound to your system, marked needs-review, and published to the native DSH Skill catalog; identical reimports preserve local edits. Does not execute supplied code, copy evidence/login, overwrite unrelated records, or grant ERP permissions.',
+    description: 'Secondary share path. Import a shared Skill reference file. The primary import is erp_share_import. Supply the absolute path to references/knowledge.json and your exact scope from erp_system_status. Records are rebound to your system and marked needs-review. Does not execute supplied code, copy evidence or login, or grant ERP permissions.',
     parameters: { scope: commitParameters.scope, path: { type: 'string', required: true } },
     output: { schema: { type: 'json' }, render: render('Local revision', localLines) }, presentResult: presentTitle('Local revision'),
     execute: (args, exec) => sharing.import(args.path, args.scope, exec.signal),

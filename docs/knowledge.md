@@ -14,7 +14,7 @@
 
 ## 默认读取
 
-探索完成一层后，默认读取是 `erp_index_read`：最多返回 30 条紧凑摘要，再返回一页有证据的叶子记录。工具结果会先给出这段摘要和这一页，并说明在实时观察之前先读它们。尚未绑定站点的对话拿不到另一个站点的这一页。摘要超过 30 条时带截断标记。省略节点时读取最新一层的叶子。`after` 从空字符串开始，按 `nextAfter` 和 `hasMore` 翻页，每页 1–20 条。完整记录用 `erp_knowledge_get`。搜索、邻居和历史是查找路径。更新比读取少：`erp_knowledge_record` 只修订本地知识，不改变 ERP。层级摘要留在本机索引中，不进入分享的 Skill。ERP 业务写入走浏览器动作的 `effect: mutate`，并需要一次 DSH 批准。
+探索完成一层后，默认读取是 `erp_index_read`：最多返回 30 条紧凑摘要，再返回一页有证据的叶子记录。工具结果会先给出这段摘要和这一页，并说明在实时观察之前先读它们。尚未绑定站点的对话拿不到另一个站点的这一页。摘要超过 30 条时带截断标记。省略节点时读取最新一层的叶子。`after` 从空字符串开始，按 `nextAfter` 和 `hasMore` 翻页，每页 1–20 条。完整记录用 `erp_knowledge_get`。搜索、邻居和历史是查找路径。更新比读取少：`erp_knowledge_record` 只修订本地知识，不改变 ERP。层级摘要留在本机索引中，不进入分享包。ERP 业务写入走浏览器动作的 `effect: mutate`，并需要一次 DSH 批准。
 
 ## 工具
 
@@ -32,4 +32,4 @@
 
 依赖保留引用时的版本。依赖变化后，查询返回 `staleDependencies`，不会悄悄更新引用、传播所有间接变化或解决语义冲突。保留旧证据，按需重新观察。
 
-SQLite 保存知识、修订、关系和确认。Markdown/JSON 导出是视图，编辑后不会回写数据库。跨用户复用采用 [Skill 导出/导入](native-and-sharing.md)，恢复采用[备份](storage.md)。精确记录与关系契约见[源码](https://github.com/GuoMonth/dsh-erp/blob/main/src/knowledge/contract.ts)。
+SQLite 保存知识、修订、关系和确认。Markdown/JSON 导出是视图，编辑后不会回写数据库。跨用户复用采用[分享包](native-and-sharing.md)，恢复采用[备份](storage.md)。Skill 目录仍是次要路径。精确记录与关系契约见[源码](https://github.com/GuoMonth/dsh-erp/blob/main/src/knowledge/contract.ts)。

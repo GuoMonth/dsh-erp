@@ -47,4 +47,4 @@ From alpha.5 onward, system IDs and knowledge are retained. Fixed `erp_scm_*` to
 
 Alpha.4 and earlier root-level databases stay in place and are not imported automatically. Stop DSH, temporarily omit `system`, and use the original scope to query/export/back up the old store; browser connection is disabled in this mode. Restore the configuration and restart for the system store. Old unscoped TGZ installations also need their plugin entry removed.
 
-Backups contain the same private business information as the database. Sharing a Skill is a separate, reduced [export](native-and-sharing.en.md).
+Backups contain the same private business information as the database. Sharing uses a separate zip pack. The Skill directory is a secondary path; see [export](native-and-sharing.en.md).

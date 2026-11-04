@@ -9,12 +9,12 @@ Adapt ERP 是 DeepSeek Harness 里的 ERP 桌面工作区。中文界面是 ERP 
 | 看这个插件承接哪些 ERP 工作 | [场景](README.zh-CN.md#erp-还没有找得到的工作区时) |
 | 安装并完成第一次会话 | [快速开始](README.zh-CN.md#快速开始) |
 | 在桌面打开 ERP 助手 | [桌面](README.zh-CN.md#桌面) |
-| 设置网站与身份 | [配置](system-configuration.md) |
-| 观察、批准写入、分享 Skill | [原生操作](native-and-sharing.md) |
+| 把 ERP 收成书签 | [配置](system-configuration.md) |
+| 观察、批准写入、分享包 | [原生操作](native-and-sharing.md) |
 | 读取索引或修订本地知识 | [知识](knowledge.md) |
 | 备份或恢复 SQLite | [存储](storage.md) |
 | 使用插件自带浏览器 | [受控浏览器](adaptive-learning.md) |
 | 开发与测试 | [开发](development.md) |
 | 发布安装包 | [发布](npm-publishing.md) |
 
-上表描述的是当前产品。[ADR 0003](adr/0003-controller-bfs-index.md) 记录深度 3 索引的决定。其余决策留在 `docs/adr`，更早的规划留在 Git 历史里。
+上表描述的是当前产品。[ADR 0003](adr/0003-controller-bfs-index.md) 记录深度 3 索引的决定。[ADR 0004](adr/0004-bookmark-workspace-share-pack.md) 记录书签站点、工作区文件夹和分享包。其余决策留在 `docs/adr`，更早的规划留在 Git 历史里。

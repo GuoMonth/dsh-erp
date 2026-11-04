@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A site on the desktop is a bookmark: a URL and an optional display name. Deep links are normalized to the site entry, and the stable application root is stored internally. Account, tenant, role, and a separate base URL stay off that form. Existing configurations still load, and an existing site keeps its persistent ID.
+- Adding a site creates its workspace folder and registers it with the host workspace service when that service is injected. New chat opens another conversation in the same folder. The host groups those conversations by that directory.
+- Start exploring runs the existing depth-3 controller. The round is stored immediately. It pauses when a logged-in page is not visible, and it does not mark an unfinished round complete.
+- The primary share is a zip pack (`manifest.json` at schemaVersion 1 and `knowledge.jsonl`). Import is a local file, records are marked needs-review, and the pack grants no login or write. The Skill directory remains a secondary path. Storage backup is unchanged. This note does not publish a release.
+
 ## 0.1.4 — 2026-11-03
 
 - Desktop install on DSH 0.2.1-rc.5 adds a left-nav workspace. Chinese UI shows ERP 助手. English UI shows Adapt ERP. The npm name stays `@guosheng_047/dsh-erp`. The installed row is the package root, so the client half can register. The tools-only 0.1.3 package does not show this entry.

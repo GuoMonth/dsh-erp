@@ -32,15 +32,29 @@ test('stable system ID survives restart, display rename and login route change; 
   assert.notDeepEqual(role.scope, first.scope)
 })
 
-test('entry/base URL validation rejects ambiguous roots, credentials, queries and cross-system entries', t => {
+test('entry/base URL validation rejects non-http and cross-system entries, and normalizes deep links', t => {
   const root = directory(t)
   for (const config of [
-    { url: 'https://example.test/login' }, { url: 'https://u:p@example.test/' },
-    { url: 'https://example.test/?token=secret' }, { url: 'https://example.test/#/login?token=secret' },
     { url: 'file:///tmp/erp/' }, { url: 'https://other.test/', baseUrl: 'https://example.test/' },
     { url: 'https://example.test/app2/', baseUrl: 'https://example.test/app/' },
+    { url: 'https://u:p@example.test/', baseUrl: 'https://user:secret@example.test/' },
   ]) assert.throws(() => resolveSystem(config, root))
-  assert.equal(resolveSystem({ url: 'https://example.test/app/login', baseUrl: 'https://example.test/app/' }, root).baseUrl, 'https://example.test/app/')
+  const login = resolveSystem({ url: 'https://example.test/app/login', baseUrl: 'https://example.test/app/' }, root)
+  assert.equal(login.baseUrl, 'https://example.test/app/')
+  assert.equal(login.entryUrl, 'https://example.test/app/login')
+  const stripped = resolveSystem({ url: 'https://u:p@example.test/app/orders/15?token=secret#code=1' }, root)
+  assert.equal(stripped.baseUrl, 'https://example.test/app/')
+  assert.equal(stripped.entryUrl, 'https://example.test/app/')
+  assert.doesNotMatch(JSON.stringify(stripped), /token|secret|u:p/)
+  const hashHome = resolveSystem({ url: 'https://example.test/web/#/home?code=1' }, root)
+  assert.equal(hashHome.baseUrl, 'https://example.test/web/')
+  assert.equal(hashHome.entryUrl, 'https://example.test/web/#/home')
+  assert.equal(resolveSystem({ url: 'https://example.test/web/#/orders/9' }, root).entryUrl, 'https://example.test/web/#/')
+  const rootLogin = resolveSystem({ url: 'https://example.test/login' }, root)
+  assert.equal(rootLogin.baseUrl, 'https://example.test/')
+  assert.equal(rootLogin.entryUrl, 'https://example.test/login')
+  assert.equal(resolveSystem({ url: 'https://example.test/?token=secret' }, root).entryUrl, 'https://example.test/')
+  assert.equal(resolveSystem({ url: 'https://example.test/#/login?token=secret' }, root).entryUrl, 'https://example.test/#/login')
 })
 
 test('configured native tools reuse stored knowledge without login and reject other scopes or model-selected URLs', async t => {

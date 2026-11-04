@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
@@ -56,15 +56,18 @@ test('desktop add rejects passwords and a new site does not see another index', 
   const rejected = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/app/', account: 'two', password: 'secret' })
   assert.equal(rejected.ok, false)
   assert.equal(rejected.error.code, 'ERP_PASSWORD_REJECTED')
-  const added = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/app/', name: 'Beta', account: 'buyer' })
+  const added = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/app/orders/15?token=1', name: 'Beta', account: 'buyer' })
   assert.equal(added.ok, true)
   assert.equal(added.value.sites.length, 2)
   assert.equal(added.value.sites.some(site => JSON.stringify(site).toLowerCase().includes('password')), false)
   const beta = added.value.sites.find(site => site.entryUrl.includes('b.example'))
+  assert.equal(beta.entryUrl, 'https://b.example/app/')
+  assert.equal(existsSync(beta.workspaceDir), true)
+  assert.doesNotMatch(JSON.stringify(added.value), /token|buyer/)
   host.ctx.erp.catalog.bind('sess-b', beta.id)
   const status = await host.run('erp_system_status', {}, { agent: agent('sess-b') })
   assert.match(status.value.entryUrl, /b\.example/)
-  assert.equal(status.value.scope.account, 'buyer')
+  assert.equal(status.value.scope.account, 'default')
   const alpha = host.ctx.erp.catalog.listPublic().find(site => site.entryUrl.includes('a.example'))
   host.ctx.erp.catalog.bind('sess-a', alpha.id)
   const alphaStatus = await host.run('erp_system_status', {}, { agent: agent('sess-a') })
@@ -97,9 +100,10 @@ test('continue restores the last opened site and does not jump to a different on
   assert.equal(removed.value.lastOpenedId, alpha.id)
   assert.equal(resumeTarget(removed.value.sites, removed.value.lastOpenedId), undefined)
   assert.equal(removed.value.sites.some(site => site.id === beta.id), true)
-  assert.equal(entryIssue('https://user:secret@a.example/app/'), 'credentials')
-  assert.equal(entryIssue('https://a.example/app/?token=1'), 'query')
+  assert.equal(entryIssue('https://user:secret@a.example/app/'), '')
+  assert.equal(entryIssue('https://a.example/app/?token=1'), '')
   assert.equal(entryIssue('https://a.example/app/'), '')
+  assert.equal(entryIssue('javascript:alert(1)'), 'url')
   assert.equal(baseIssue('https://a.example/app'), 'slash')
   assert.equal(baseIssue(''), '')
   const lines = indexLines({ initialized: true, summaries: [
@@ -119,17 +123,22 @@ test('the wizard rejects a bad entry and an edited account stays off other sessi
   const listed = erpRequest(host.ctx.erp.catalog, { op: 'list' })
   const alpha = listed.value.sites[0]
   host.ctx.erp.catalog.bind('sess-a', alpha.id)
-  assert.equal(erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://user:pw@b.example/app/' }).error.code, 'INVALID_ENTRY_URL')
-  assert.equal(erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/login' }).error.code, 'ERP_BASE_URL_REQUIRED')
+  const cleaned = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://user:pw@b.example/app/' })
+  assert.equal(cleaned.ok, true)
+  assert.equal(cleaned.value.sites.find(site => site.entryUrl.includes('b.example')).entryUrl, 'https://b.example/app/')
+  assert.doesNotMatch(JSON.stringify(cleaned.value), /user:pw|pw@/)
+  const rooted = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://c.example/login' })
+  assert.equal(rooted.ok, true)
+  assert.equal(rooted.value.sites.find(site => site.entryUrl.includes('c.example')).entryUrl, 'https://c.example/login')
   assert.equal(erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'javascript:alert(1)' }).ok, false)
-  const renamed = erpRequest(host.ctx.erp.catalog, { op: 'update', id: alpha.id, url: alpha.entryUrl, name: 'Renamed', account: 'one' })
-  assert.equal(renamed.value.sites[0].id, alpha.id)
-  assert.equal(renamed.value.sites[0].name, 'Renamed')
+  const renamed = erpRequest(host.ctx.erp.catalog, { op: 'update', id: alpha.id, url: alpha.entryUrl, name: 'Renamed', account: 'buyer' })
+  assert.equal(renamed.value.sites.find(site => site.id === alpha.id).id, alpha.id)
+  assert.equal(renamed.value.sites.find(site => site.id === alpha.id).name, 'Renamed')
   assert.equal((await host.run('erp_system_status', {}, { agent: agent('sess-a') })).value.name, 'Renamed')
-  const moved = erpRequest(host.ctx.erp.catalog, { op: 'update', id: alpha.id, url: 'https://a.example/app/', account: 'buyer', name: 'Renamed' })
+  assert.equal((await host.run('erp_system_status', {}, { agent: agent('sess-a') })).value.scope.account, 'one')
+  const moved = erpRequest(host.ctx.erp.catalog, { op: 'update', id: alpha.id, url: 'https://d.example/app/', name: 'Renamed' })
   assert.equal(moved.ok, true)
   assert.equal(moved.value.sites.some(site => site.id === alpha.id), false)
-  assert.equal(moved.value.sites[0].account, 'buyer')
   assert.equal((await host.run('erp_system_status', {}, { agent: agent('sess-a') })).value.state, 'select-site')
   const buyer = moved.value.sites[0]
   host.ctx.erp.catalog.bind('sess-b', buyer.id)

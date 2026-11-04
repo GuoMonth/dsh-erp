@@ -3,6 +3,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { markdown, openUiHost, presentTitle } from '../present.js'
 import { scopeSchema } from '../storage/contract.js'
 import type { StorageClient } from '../storage/client.js'
+import { startExplore } from './explore.js'
 import { LearningRuntime } from './runtime.js'
 import type { ExplorationView } from './runtime.js'
 import { importSnapshot } from './snapshot-import.js'
@@ -27,6 +28,28 @@ export function registerLearningTools(ctx: Context, storage: StorageClient) {
     output: { schema: { type: 'json' }, render: (_args, value) => markdown('Snapshot leaves', ['Visible structure was saved as evidence-backed leaves. The controller still owns the frontier.'], value, openui()) },
     presentResult: presentTitle('Snapshot leaves'),
     execute: (args, exec) => importSnapshot(storage, args.scope, args.observationId, exec.signal),
+  }))
+  ctx.tools.register(defineTool({ name: 'erp_explore',
+    description: 'Start exploring the bound ERP with the controller-owned depth-3 walk (erp_learning_begin). The round is stored immediately. If no logged-in page is visible, or observationId is a login form, the round pauses and is not marked complete. Pass observationId only after erp_native_observation_save or a managed snapshot of the signed-in page. This does not grant a browser action or an ERP write, and it does not start a second explorer.',
+    parameters: { scope, observationId: { type: 'string' } },
+    output: output('Exploration'), presentResult: presentTitle('Exploration'),
+    execute: async (args, exec) => {
+      if (!args.observationId) {
+        const view = await startExplore(runtime, args.scope, exec.signal)
+        return { ...view, note: view.pausedUntilLogin
+          ? 'Paused: the logged-in page is not visible. Unfinished scope stays unfinished.'
+          : 'This round is not complete ERP coverage.' }
+      }
+      const observation = await storage.call('observation', { scope: args.scope, id: args.observationId }, exec.signal)
+      if (!observation) throw new Error('UI_OBSERVATION_REQUIRED')
+      const view = await startExplore(runtime, args.scope, exec.signal, { id: observation.id, text: observation.text })
+      const note = view.pausedUntilLogin
+        ? 'Paused on a login page. The snapshot was not indexed. Unfinished scope stays unfinished.'
+        : view.complete
+          ? 'This round\'s frontier is finished. Coverage describes this round only.'
+          : 'This round is not complete.'
+      return { ...view, note }
+    },
   }))
   ctx.tools.register(defineTool({ name: 'erp_learning_begin',
     description: 'Start a controller-owned breadth-first exploration round. The frontier begins at one entry snapshot. Do not supply units. Depth stops at 3: entry snapshot, then approved page opens, then visible fields, tabs and windows. After each level the controller writes one summary before the next level. No browser permission is created.',

@@ -4,43 +4,39 @@
 
 Configuration lives in the active DSH profile's `cordis.patch.yml`. See the [quick start](../README.md#quick-start) for the file location and installation. Restart DSH after editing.
 
-## Website and identity
+## Website
+
+On the desktop, a site is a bookmark: one URL and an optional display name. A deep link is reduced to the site entry. The stable application root is stored internally, so there is no separate `baseUrl` field. Sign in in the browser on the right. There is no password field.
 
 ```yaml
 - id: erp
   config:
     system:
-      url: "https://erp.example.com/app/login"
-      baseUrl: "https://erp.example.com/app/"
+      url: "https://erp.example.com/web/login"
       name: "My ERP"
-      account: "work-account"
-      tenant: "company-a"
-      role: "purchasing"
 ```
 
-Only `url` is required. If its path does not end in `/`, also set `baseUrl`. The base must end in `/` and contain the entry on the same origin. Paths and hash routes are preserved; credentials and query parameters, including queries inside the hash, are rejected. For SSO, use a durable entry and finish login in the browser.
+Only `url` is required. A paste must be `http` or `https`. Userinfo is removed and is neither shown nor stored. One-time query parameters and one-time hashes are removed too. Document, record, and callback URLs become the application home: the origin plus the stable root, ending in `/`. When the ERP's stable home is itself a hash route, that home is kept and only the one-time fragment is removed.
 
-The name defaults to the hostname; account defaults to `default`. Account, company and role labels separate local knowledge. Choose distinct labels for different identities and check them against your actual login. `erp_system_status` returns the exact scope required by knowledge and learning tools.
+The display name defaults to the host name. Renaming does not select another site. A stable ID is stored for each normalized application root. Changing the domain or application path selects a different system. Returning to the original root finds the original ID.
 
-A stable ID is stored for each normalized base URL. Renaming the ERP keeps its ID; changing the domain or application path selects a different system. Returning to the original base finds the original ID. The same plugin can hold several sites. A different account label on the same base URL is a different index.
+An existing patch may still contain `baseUrl`, `account`, `tenant`, and `role`. Those values keep loading so the current index stays put. They are not on the desktop form. A different account label on the same root remains a separate index only for that existing configuration. `erp_system_status` returns the exact scope required by knowledge and learning tools.
 
 ## Several sites
 
-On the desktop, add sites from ERP 助手. With no sites, that page is the setup. After one exists, Continue restores the last opened site's conversation and entry URL, and does not substitute a different site when that row is gone. Edit changes the name, entry URL, or account label. A new account label or application root is another index; conversations bound to the previous row are not moved. The patch can declare sites too. `system` is one site. `sites` adds others. Restart after editing the patch. A site removed in the desktop entry stays removed until you add it again.
+On the desktop, add sites from ERP 助手. With no sites, that page is the setup. After one exists, Continue restores the last opened site's conversation and entry, and does not substitute a different site when that row is gone. Edit changes the display name or the URL. Adding a site creates its workspace folder, and another conversation can be opened under it. The patch can declare sites too. `system` is one site. `sites` adds others. Restart after editing the patch. A site removed in the desktop entry stays removed until you add it again.
 
 ```yaml
 - id: erp
   config:
     system:
       url: "https://erp.example.com/app/"
-      account: "work-account"
     sites:
       - url: "https://other.example.com/app/"
         name: "Other ERP"
-        account: "buyer"
 ```
 
-Each site keeps its own conversation and its own SQLite scope. Switching sites does not mix them. There is still no password field.
+Each site keeps its own workspace folder, its own conversation, and its own SQLite scope. Switching sites does not mix them. There is still no password field.
 
 ## Browser options
 
