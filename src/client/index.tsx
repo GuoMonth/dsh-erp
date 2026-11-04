@@ -3,6 +3,7 @@ import { API_CHANNEL, API_ENDPOINT, PRODUCT_ENTRY, PRODUCT_PANEL } from '../prod
 import { resumeTarget } from '../product/resume.ts'
 import { normalizeBookmark } from '../product/bookmark.ts'
 import { entryIssue } from '../product/wizard.ts'
+import { SiteFavicon } from './favicon.tsx'
 import { ensureWorkspace, openErpSite } from './open.ts'
 import type { OpenSite } from './open.ts'
 
@@ -25,36 +26,45 @@ const zh: Record<string, string> = {
   edit: '编辑',
   open: '打开',
   continue: '继续',
-  continueHint: '恢复该站点的对话，并在右侧浏览器打开入口。登录由你自己完成。',
+  continueHint: '恢复该站点的对话，并在右侧浏览器打开站点入口。登录由你自己完成。',
   explore: '一键探索',
   newChat: '新对话',
   explorePaused: '还看不到已登录界面，探索已暂停。登录后在对话里继续这一轮。未完成的范围不会标成完成。',
   explorePartial: '探索已开始，这一轮还没有走完。已有结果可以读，未完成的范围保持未完成。',
-  exploreRound: '这一轮的前沿已经结束。覆盖率只描述这一轮。',
+  exploreRound: '这一轮已经走完。覆盖率只算这一轮。',
   share: '分享',
   importPack: '导入分享包',
   imported: '已导入分享包，记录待复核。导入不授予登录或写入权限。',
   packInvalid: '这份分享包无法读取。请换一份 schemaVersion 1 的 zip，或检查文件是否完整。',
+  packLine: '第 {line} 行已跳过 {kind}（{reason}）。',
+  packSkipped: '有些记录已跳过，待复核。',
+  warnUnknownKind: '不认识的类型',
+  warnInvalid: '记录不完整',
+  warnDuplicate: '重复编号',
+  warnDangling: '引用了未导入的记录',
   remove: '移除',
   empty: '还没有站点。粘贴网址，打开后在右侧浏览器登录。',
-  firstHint: '粘贴 http 或 https 地址。深链会整理成站点入口。账号和密码不会保存。',
-  editHint: '改显示名不会换成另一个站点。更换成另一个 ERP 会另起一份索引，已绑定的对话不会被挪过去。',
+  firstHint: '粘贴 http 或 https 网址。深链会整理成站点入口。网址里的账号和密码不会保存。',
+  editHint: '改显示名不会换成另一个站点。换成另一个 ERP 会另起一份索引，已经绑定的对话不会被挪过去。',
   saved: '添加站点时会建立它的工作区文件夹。移除只是从列表拿掉，索引还留在这台机器上。',
   working: '正在打开…',
   channel: '还连不上桌面里的 ERP 助手。重启 dsh 后再试。',
   browser: '官方右侧浏览器还不可用。',
   password: '不能提交密码。请在右侧浏览器里自己登录。',
   urlInvalid: '网址需要是 http 或 https。',
-  baseRequired: '这个地址不能整理成站点入口。',
+  baseRequired: '这个网址不能整理成站点入口。',
+  unknownSite: '列表里没有这个站点。',
+  session: '这段对话还不能绑到这个站点。',
+  failed: '操作没有完成。请再试一次。',
 }
 const en: Record<string, string> = {
   entry: PRODUCT_ENTRY.en,
   title: PRODUCT_ENTRY.en,
-  lede: 'Sign in yourself in the browser on the right. This page stores the bookmark, not a password.',
+  lede: 'Sign in yourself in the browser on the right. This page stores only the bookmark, not a password.',
   firstRun: 'No sites yet. Paste the ERP URL. The display name can stay empty. Sign in on the right.',
   returning: 'Continue the site you opened last, or open another from the list. Each site keeps its own workspace folder and local index.',
   name: 'Display name',
-  nameHint: 'Optional. Defaults to the host name',
+  nameHint: 'Optional. Defaults to the hostname',
   url: 'URL',
   add: 'Add',
   save: 'Save',
@@ -62,27 +72,36 @@ const en: Record<string, string> = {
   edit: 'Edit',
   open: 'Open',
   continue: 'Continue',
-  continueHint: 'Restore this site\'s conversation and open its entry on the right. Sign in yourself.',
+  continueHint: 'Restore this site\'s conversation and open its site entry on the right. Sign in yourself.',
   explore: 'Start exploring',
   newChat: 'New chat',
-  explorePaused: 'The logged-in page is not visible yet, so exploration is paused. Continue the round from the conversation after you sign in. Unfinished scope stays unfinished.',
-  explorePartial: 'Exploration has started and this round is not finished. Partial results stay readable.',
-  exploreRound: 'This round\'s frontier is finished. Coverage describes this round only.',
+  explorePaused: 'The logged-in page is not visible yet, so exploration is paused. Continue this round in the conversation after you sign in. Unfinished scope is not marked complete.',
+  explorePartial: 'Exploration has started, and this round is not finished. Results so far stay readable. Unfinished scope stays unfinished.',
+  exploreRound: 'This round is finished. Coverage counts this round only.',
   share: 'Share',
-  importPack: 'Import pack',
-  imported: 'The pack was imported for review. It grants no login or write permission.',
-  packInvalid: 'This share pack cannot be read. Use a schemaVersion 1 zip and check that the file is intact.',
+  importPack: 'Import share pack',
+  imported: 'Share pack imported. Records need review. Import grants no login or write permission.',
+  packInvalid: 'This share pack cannot be read. Use a schemaVersion 1 zip, or check that the file is intact.',
+  packLine: 'Line {line}: skipped {kind} ({reason}).',
+  packSkipped: 'Some records were skipped and still need review.',
+  warnUnknownKind: 'unknown kind',
+  warnInvalid: 'incomplete record',
+  warnDuplicate: 'duplicate id',
+  warnDangling: 'missing reference',
   remove: 'Remove',
   empty: 'No sites yet. Paste a URL, then sign in on the right.',
-  firstHint: 'Paste an http or https address. A deep link is reduced to the site entry. Account details and passwords are not stored.',
-  editHint: 'Renaming keeps this site. A different ERP starts another index, and conversations already bound are not moved.',
-  saved: 'Adding a site creates its workspace folder. Remove only takes it off this list.',
+  firstHint: 'Paste an http or https URL. A deep link becomes the site entry. A username or password in the URL is not saved.',
+  editHint: 'Changing the display name keeps this site. A different ERP starts another index. Conversations already bound are not moved.',
+  saved: 'Adding a site creates its workspace folder. Remove only takes it off this list. The index stays on this machine.',
   working: 'Opening…',
-  channel: 'ERP assistant is not connected yet. Restart dsh and try again.',
-  browser: 'The official sidebar browser is not available yet.',
+  channel: 'Adapt ERP is not connected in the desktop yet. Restart dsh and try again.',
+  browser: 'The official browser on the right is not available yet.',
   password: 'A password cannot be submitted. Sign in yourself in the browser on the right.',
   urlInvalid: 'The URL must be http or https.',
-  baseRequired: 'This address cannot be reduced to a site entry.',
+  baseRequired: 'This URL cannot be saved as a site entry.',
+  unknownSite: 'That site is not in this list.',
+  session: 'This conversation cannot be bound to this site.',
+  failed: 'That action did not finish. Try again.',
 }
 
 interface ClientCtx {
@@ -116,6 +135,13 @@ const STYLE = `
 .erp-assistant ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}
 .erp-assistant li{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;gap:8px;align-items:center}
 .erp-assistant .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 16px}
+.erp-assistant .actions label{display:flex;flex-direction:row;gap:8px;align-items:center;font-size:inherit}
+.erp-assistant .identity{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.erp-assistant .continue .identity{flex:1}
+.erp-assistant .identity .text{min-width:0}
+.erp-assistant .identity strong,.erp-assistant .meta{overflow-wrap:anywhere}
+.erp-assistant .mark{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
+.erp-assistant .mark img{width:18px;height:18px;object-fit:contain;border-radius:4px;display:block}
 .erp-assistant .meta{display:block;color:var(--dsw-alias-label-secondary,inherit);font-size:12px}
 .erp-assistant .continue{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 20px;padding:12px 14px;border:1px solid var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:8px}
 .erp-assistant .error{color:var(--dsw-alias-danger,inherit)}
@@ -145,9 +171,29 @@ function message(t: (key: string) => string, error: unknown): string {
   if (code === 'ERP_BROWSER_UNAVAILABLE') return t('browser')
   if (code === 'ERP_PASSWORD_REJECTED' || code === 'credentials') return t('password')
   if (code.startsWith('SHARE_PACK_')) return t('packInvalid')
-  if (code === 'INVALID_ENTRY_URL' || code === 'INVALID_SITE_URL' || code === 'url' || code === 'query' || code === 'empty') return t('urlInvalid')
+  if (code === 'INVALID_ENTRY_URL' || code === 'INVALID_SITE_URL' || code === 'ERP_URL_REQUIRED' || code === 'url' || code === 'query' || code === 'empty') return t('urlInvalid')
   if (code === 'ERP_BASE_URL_REQUIRED' || code === 'ERP_BASE_URL_MUST_END_IN_SLASH' || code === 'ERP_ENTRY_OUTSIDE_BASE_URL' || code === 'slash') return t('baseRequired')
-  return text || t('channel')
+  if (code === 'ERP_UNKNOWN_SITE' || code === 'ERP_SITE_REJECTED') return t('unknownSite')
+  if (code === 'ERP_SESSION_ID' || code === 'ERP_SESSION_BOUND') return t('session')
+  return t('failed')
+}
+
+const PACK_WARN = /^line (\d+): skipped (\S+) \((unknown-kind|invalid-record|duplicate-id|dangling-reference)\)$/
+
+function packWarnings(t: (key: string) => string, warnings: string[]): string {
+  const lines: string[] = []
+  let skipped = false
+  for (const raw of warnings) {
+    const match = PACK_WARN.exec(raw)
+    if (!match) { skipped = true; continue }
+    const reason = match[3] === 'unknown-kind' ? t('warnUnknownKind')
+      : match[3] === 'invalid-record' ? t('warnInvalid')
+        : match[3] === 'duplicate-id' ? t('warnDuplicate')
+          : t('warnDangling')
+    lines.push(t('packLine').replaceAll('{line}', match[1] ?? '').replaceAll('{kind}', match[2] ?? '').replaceAll('{reason}', reason))
+  }
+  if (skipped) lines.push(t('packSkipped'))
+  return lines.join(' ')
 }
 
 function ErpIcon({ size = 16 }: { size?: number; active?: boolean }) {
@@ -195,7 +241,10 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     setSites(value.sites)
     setLastOpenedId(value.lastOpenedId ?? '')
     if (value.explore) setStatus(exploreNote(t, value.explore))
-    if (value.imported) setStatus(value.imported.warnings.length ? `${t('imported')} ${value.imported.warnings.join(' ')}` : t('imported'))
+    if (value.imported) {
+      const warnings = packWarnings(t, value.imported.warnings)
+      setStatus(warnings ? `${t('imported')} ${warnings}` : t('imported'))
+    }
     if (value.pack) downloadPack(value.pack.fileName, value.pack.bytes)
   }
   function clearForm() {
@@ -290,13 +339,17 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     <h1>{t('title')}</h1>
     <p className="lede">{firstRun ? t('firstRun') : t('returning')}</p>
     {current && !firstRun ? <div className="continue">
-      <span><strong>{current.name}</strong><span className="meta">{current.entryUrl}</span><span className="meta">{t('continueHint')}</span></span>
+      <span className="identity">
+        <SiteFavicon entryUrl={current.entryUrl} fallback={<ErpIcon size={18} />} />
+        <span className="text"><strong>{current.name}</strong><span className="meta">{current.entryUrl}</span><span className="meta">{t('continueHint')}</span></span>
+      </span>
       <button type="button" disabled={busy} onClick={() => { void open(current) }}>{busy ? t('working') : t('continue')}</button>
     </div> : null}
     {current?.sessionId ? <div className="actions">
       <button type="button" disabled={busy} onClick={() => { void open(current, true) }}>{t('newChat')}</button>
       <button type="button" disabled={busy} onClick={() => { void explore(current) }}>{t('explore')}</button>
       <button type="button" disabled={busy} onClick={() => { void share(current) }}>{t('share')}</button>
+      {/* The file control keeps the browser's own "Choose File" label. */}
       <label>{t('importPack')}<input type="file" accept=".zip,application/zip" disabled={busy} onChange={event => {
         const file = event.currentTarget.files?.[0]
         event.currentTarget.value = ''
@@ -314,7 +367,10 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     {firstRun ? <p className="note">{t('firstHint')}</p> : <>
       <ul>
         {sites.map(site => <li key={site.id}>
-          <span><strong>{site.name}</strong><span className="meta">{site.entryUrl}</span></span>
+          <span className="identity">
+            <SiteFavicon entryUrl={site.entryUrl} fallback={<ErpIcon size={18} />} />
+            <span className="text"><strong>{site.name}</strong><span className="meta">{site.entryUrl}</span></span>
+          </span>
           <button type="button" disabled={busy} onClick={() => { void open(site) }}>{busy ? t('working') : t('open')}</button>
           <button type="button" disabled={busy} onClick={() => { void share(site) }}>{t('share')}</button>
           <button type="button" onClick={() => { edit(site) }}>{t('edit')}</button>

@@ -111,6 +111,7 @@ test('a share pack round-trips schemaVersion 1 and refuses a newer pack', async 
   assert.equal(manifest.site.entryUrl, 'https://private.example/app/')
   assert.equal(manifest.site.name, 'Private ERP')
   assert.equal(manifest.site.workspaceId, 'site_private')
+  assert.deepEqual(Object.keys(manifest.site).sort(), ['entryUrl', 'name', 'workspaceId'])
   assert.equal(manifest.inventory[0].path, 'knowledge.jsonl')
   const jsonl = files.get('knowledge.jsonl').toString('utf8')
   for (const secret of ['sender-account', 'sender-tenant', 'secret-business-value', 'private-observation', 'private-customer-number', 'user:secret', 'token=abc']) assert.equal(jsonl.includes(secret), false, secret)
