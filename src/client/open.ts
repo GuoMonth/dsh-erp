@@ -49,6 +49,30 @@ export interface OpenDeps {
   submitLine?(sessionId: string, line: string): Promise<void> | void
 }
 
+export interface SessionListSnapshot {
+  phase: string
+  ids: readonly string[]
+  byId: Readonly<Record<string, { cwd?: string; origin?: string }>>
+}
+
+export interface ListedErpSite {
+  workspaceDir: string
+  entryUrl: string
+}
+
+export interface WatchDeps {
+  sessions: {
+    list?: {
+      getSnapshot(): SessionListSnapshot
+      subscribe(listener: () => void): () => void
+    }
+  }
+  sidebar: OpenDeps['sidebar']
+  layout: OpenDeps['layout']
+  /** Current bookmarks. `undefined` means the list could not be read and the scan should retry. */
+  sites(): readonly ListedErpSite[] | Promise<readonly ListedErpSite[] | undefined> | undefined
+}
+
 export interface OpenOptions {
   fresh?: boolean
   /** Composer draft. Not sent. */
@@ -163,6 +187,96 @@ async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceRecor
   }
   if (options?.prefill) prefillDraft(deps, sessionId, options.prefill)
   return sessionId
+}
+
+function normalizeDir(path: string): string {
+  return path.replace(/[\\/]+/g, '/').replace(/\/+$/, '')
+}
+
+/** Entry URL when `cwd` is that site's workspace folder. */
+export function sessionEntry(sites: readonly ListedErpSite[], cwd: string | undefined): string | undefined {
+  if (!cwd) return undefined
+  const actual = normalizeDir(cwd)
+  return sites.find(site => {
+    const root = normalizeDir(site.workspaceDir)
+    return actual === root || actual.startsWith(`${root}/`)
+  })?.entryUrl
+}
+
+/**
+ * Open the site entry when a session is created inside that site's workspace.
+ * The host has no new-chat plugin hook. `sessions.list` is the catalog, and
+ * `sidebar.mounted` is the session on screen. `openTab` only acts on that session,
+ * so a new row waits until it is shown. Sessions already listed at startup are left alone.
+ * A subagent is not a chat. The 70% width still follows {@link widenErpBrowser}.
+ */
+export function watchWorkspaceSessions(deps: WatchDeps): () => void {
+  const list = deps.sessions.list
+  if (!list) return () => {}
+  const seen = new Set<string>()
+  const pending = new Map<string, string>()
+  let seeded = false
+  let scanning = false
+  let again = false
+  let alive = true
+  const flush = () => {
+    const current = deps.sidebar.mounted?.getSnapshot()
+    if (typeof current !== 'string') return
+    const url = pending.get(current)
+    if (!url) return
+    pending.delete(current)
+    widenErpBrowser(deps.layout)
+    try { deps.sidebar.openTab('browser', { params: { url } }) }
+    catch { /* The official browser is not available in this host. */ }
+  }
+  const scan = async () => {
+    if (!alive) return
+    if (scanning) { again = true; return }
+    scanning = true
+    try {
+      do {
+        again = false
+        const snap = list.getSnapshot()
+        if (snap.phase !== 'ready') continue
+        if (!seeded) {
+          for (const id of snap.ids) seen.add(id)
+          seeded = true
+          continue
+        }
+        const fresh: string[] = []
+        for (const id of snap.ids) {
+          if (seen.has(id)) continue
+          seen.add(id)
+          fresh.push(id)
+        }
+        if (!fresh.length) continue
+        let sites: readonly ListedErpSite[] | undefined
+        try { sites = await deps.sites() ?? undefined }
+        catch { sites = undefined }
+        if (!alive) return
+        if (!sites) {
+          for (const id of fresh) seen.delete(id)
+          continue
+        }
+        const current = list.getSnapshot().byId
+        for (const id of fresh) {
+          const summary = current[id]
+          if (!summary || summary.origin === 'subagent') continue
+          const url = sessionEntry(sites, summary.cwd)
+          if (url) pending.set(id, url)
+        }
+        flush()
+      } while (again && alive)
+    } finally { scanning = false }
+  }
+  const stopList = list.subscribe(() => { void scan() })
+  const stopMounted = deps.sidebar.mounted?.subscribe(flush) ?? (() => {})
+  void scan()
+  return () => {
+    alive = false
+    stopList()
+    stopMounted()
+  }
 }
 
 /**

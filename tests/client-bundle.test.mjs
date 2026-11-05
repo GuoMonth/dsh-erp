@@ -58,6 +58,10 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.match(code, /explore-update/)
   assert.match(code, /更新探索/)
   assert.equal(dict.zh.newChat, '新对话')
+  assert.match(dict.zh.newChatHint, /共用这次登录/)
+  assert.match(dict.en.newChatHint, /share that sign-in/)
+  assert.match(dict.zh.newChatHint, /再登录/)
+  assert.match(dict.en.newChatHint, /sign in again/)
   assert.equal(dict.zh.password.includes('密码'), true)
   const slots = value => [...value.matchAll(/\{[a-z]+\}/g)].map(match => match[0]).sort()
   assert.deepEqual(Object.keys(dict.zh).sort(), Object.keys(dict.en).sort())
@@ -178,4 +182,53 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', sessionId: 'sess-1' })
   assert.deepEqual(titled.slice(-3), [['session', 'sess-1'], ['panel', null], ['tab', 'https://erp.example/app/']])
   assert.equal(widths.length, 1)
+  const openedTabs = []
+  let snapshot = { phase: 'pending', ids: [], byId: {} }
+  let shown
+  const listListeners = new Set()
+  const shownListeners = new Set()
+  const stopWatch = exports.watchWorkspaceSessions({
+    sessions: { list: {
+      getSnapshot: () => snapshot,
+      subscribe(listener) { listListeners.add(listener); return () => listListeners.delete(listener) },
+    } },
+    sidebar: {
+      openTab(kind, options) { openedTabs.push([shown, kind, options.params.url]) },
+      mounted: {
+        getSnapshot: () => shown,
+        subscribe(listener) { shownListeners.add(listener); return () => shownListeners.delete(listener) },
+      },
+    },
+    layout: { selectPanel() {}, panels: { setRightbar(px) { widths.push(px) } } },
+    async sites() { return [{ workspaceDir: '/tmp/erp-a/', entryUrl: 'https://erp.example/app/' }] },
+  })
+  const drain = () => new Promise(resolve => { setImmediate(resolve) })
+  snapshot = { phase: 'ready', ids: ['old'], byId: { old: { cwd: '/tmp/erp-a' } } }
+  for (const listener of listListeners) listener()
+  await drain()
+  assert.deepEqual(openedTabs, [])
+  snapshot = {
+    phase: 'ready',
+    ids: ['old', 'new', 'other', 'child'],
+    byId: {
+      old: { cwd: '/tmp/erp-a' },
+      new: { cwd: '/tmp/erp-a' },
+      other: { cwd: '/tmp/other' },
+      child: { cwd: '/tmp/erp-a', origin: 'subagent' },
+    },
+  }
+  shown = 'old'
+  for (const listener of listListeners) listener()
+  await drain()
+  assert.deepEqual(openedTabs, [])
+  shown = 'new'
+  for (const listener of shownListeners) listener()
+  assert.deepEqual(openedTabs, [['new', 'browser', 'https://erp.example/app/']])
+  shown = 'other'
+  for (const listener of shownListeners) listener()
+  shown = 'child'
+  for (const listener of shownListeners) listener()
+  assert.equal(openedTabs.length, 1)
+  assert.equal(widths.length, 1)
+  stopWatch()
 })
