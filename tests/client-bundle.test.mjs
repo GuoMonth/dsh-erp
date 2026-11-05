@@ -76,6 +76,16 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.match(dict.en.saved, /workspace folder/)
   assert.equal(dict.zh.importPack, '导入分享包')
   assert.equal(dict.en.importPack, 'Import share pack')
+  assert.equal(dict.zh.chooseZip, '选择 .zip 文件')
+  assert.equal(dict.en.chooseZip, 'Choose .zip')
+  assert.equal(dict.zh.exportPack, '导出分享包')
+  assert.equal(dict.en.exportPack, 'Export share pack')
+  assert.equal(dict.zh.addSite, '添加站点')
+  assert.equal(dict.en.addSite, 'Add a site')
+  assert.match(dict.zh.newChatHint, /站点入口/)
+  assert.match(dict.en.newChatHint, /site entry/)
+  assert.match(dict.zh.importDrop, /\.zip/)
+  assert.match(dict.en.importDrop, /\.zip/)
   assert.equal(dict.zh.url, '网址')
   assert.equal(dict.en.url, 'URL')
   assert.equal(dict.zh.name, '显示名')
@@ -85,6 +95,10 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.match(dict.zh.explorePartial, /未完成的范围保持未完成/)
   assert.match(dict.en.explorePartial, /Unfinished scope stays unfinished/)
   assert.equal(code.includes('Choose File'), false)
+  assert.equal(code.includes('No file chosen'), false)
+  assert.match(code, /file-input/)
+  assert.match(code, /opacity:0/)
+  assert.match(code, /onDrop/)
   assert.match(code, /data-erp-favicon/)
   assert.match(code, /\/favicon\.ico/)
   assert.match(code, /credentials:\s*["']omit["']/)
@@ -231,4 +245,153 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.equal(openedTabs.length, 1)
   assert.equal(widths.length, 1)
   stopWatch()
+})
+
+test('the guide panel is cards and the share pack control is not the browser file chrome', async () => {
+  const code = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
+  let registered
+  const context = {
+    window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } },
+    console,
+    btoa: globalThis.btoa,
+    atob: globalThis.atob,
+    Uint8Array,
+  }
+  vm.createContext(context)
+  vm.runInContext(code, context)
+  let preset = null
+  let cursor = 0
+  const react = {
+    useEffect() {},
+    useRef(value) { return { current: value } },
+    useState(initial) {
+      if (!preset) return [typeof initial === 'function' ? initial() : initial, () => {}]
+      const value = cursor < preset.length ? preset[cursor] : (typeof initial === 'function' ? initial() : initial)
+      cursor += 1
+      return [value, () => {}]
+    },
+  }
+  function element(type, props) {
+    return { type, props: props ?? {} }
+  }
+  const exports = registered.factory(spec => {
+    if (spec === 'react') return react
+    if (spec === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: Symbol.for('react.fragment') }
+    throw new Error(`unexpected require ${spec}`)
+  })
+  const dict = {}
+  let guide
+  const calls = []
+  const ctx = {
+    effect(fn) { fn() },
+    get(name) {
+      if (name === 'connection') return { rpc: { async call(_channel, _endpoint, body) {
+        calls.push(body)
+        return { ok: true, value: { sites: [], imported: { warnings: [] } } }
+      } } }
+      return undefined
+    },
+    locale: {
+      register(_ns, dicts) { Object.assign(dict, dicts); return () => {} },
+      bind() { return key => dict.zh[key] },
+    },
+    slots: {
+      inject(_name, register) { register() },
+      register(options, component) {
+        if (options.name === 'main') guide = component
+        return () => {}
+      },
+    },
+  }
+  exports.apply(ctx)
+  const site = { id: 'site_a', name: 'sg-pf', entryUrl: 'https://pftest.example/manage/', workspaceDir: '/tmp/a', sessionId: 'sess-1' }
+  // Guide's useState order: sites, lastOpenedId, name, url, editing, error, status, busy, adding, dragOver, importFile, importNote, importBad, ready.
+  const guideState = (sites, ready) => [sites, sites[0]?.id ?? '', '', '', '', '', '', false, false, false, '', '', false, ready]
+  function collect(next) {
+    preset = next
+    cursor = 0
+    const nodes = []
+    const walk = node => {
+      if (node == null || typeof node !== 'object') return
+      if (Array.isArray(node)) { for (const item of node) walk(item); return }
+      if (typeof node.type === 'function') { walk(node.type(node.props ?? {})); return }
+      nodes.push(node)
+      walk(node.props.children)
+    }
+    walk(element(guide, {}))
+    return nodes
+  }
+  const text = node => {
+    if (node == null || node === false || node === true) return ''
+    if (typeof node === 'string' || typeof node === 'number') return String(node)
+    if (Array.isArray(node)) return node.map(text).join('')
+    if (typeof node.type === 'function') return ''
+    return text(node.props?.children)
+  }
+  const buttonLabel = node => {
+    const kids = node.props?.children
+    const parts = Array.isArray(kids) ? kids : [kids]
+    const direct = parts.filter(item => typeof item === 'string' || typeof item === 'number').map(String).join('')
+    if (direct) return direct
+    const strong = parts.find(item => item && item.type === 'strong')
+    return strong ? text(strong) : text(node)
+  }
+  const buttons = nodes => nodes.filter(node => node.type === 'button').map(node => ({ label: buttonLabel(node), className: String(node.props.className ?? ''), title: node.props.title }))
+  const first = collect(guideState([], true))
+  const firstButtons = buttons(first)
+  assert.equal(firstButtons.some(button => button.label === '选择 .zip 文件'), false)
+  assert.equal(first.some(node => node.type === 'input' && node.props.type === 'file'), false)
+  assert.equal(firstButtons.some(button => button.label === '添加'), true)
+  assert.ok(first.some(node => String(node.props.className ?? '').includes('add-card open')))
+  assert.ok(first.some(node => text(node).includes('索引还留在这台机器上')))
+  const nodes = collect(guideState([site], true))
+  const labels = buttons(nodes)
+  const byLabel = label => labels.find(button => button.label === label)
+  assert.equal(byLabel('继续').className.includes('primary'), true)
+  assert.equal(byLabel('打开').className.includes('primary'), true)
+  assert.equal(byLabel('选择 .zip 文件').className.includes('primary'), true)
+  assert.equal(byLabel('新对话').className.includes('link'), true)
+  assert.equal(byLabel('新对话').title, dict.zh.newChatHint)
+  assert.equal(byLabel('一键探索').className.includes('link'), true)
+  assert.equal(byLabel('导出分享包').className.includes('link'), true)
+  assert.equal(byLabel('分享').className.includes('link'), true)
+  assert.equal(byLabel('编辑').className.includes('link'), true)
+  assert.equal(byLabel('移除').className.includes('danger'), true)
+  assert.equal(byLabel('添加'), undefined)
+  assert.equal(byLabel('添加站点').className.includes('add-hit'), true)
+  const file = nodes.find(node => node.type === 'input' && node.props.type === 'file')
+  assert.equal(file.props.className, 'file-input')
+  assert.equal(file.props.accept, '.zip,application/zip')
+  assert.equal(String(file.props['aria-hidden']), 'true')
+  assert.equal(file.props.tabIndex, -1)
+  const zone = nodes.find(node => String(node.props.className ?? '').split(' ').includes('drop'))
+  assert.equal(typeof zone.props.onDrop, 'function')
+  const joined = nodes.map(text).join('\n')
+  assert.equal(joined.includes('Choose File'), false)
+  assert.equal(joined.includes('No file chosen'), false)
+  assert.ok(joined.includes(dict.zh.importDrop))
+  assert.ok(joined.includes(dict.zh.newChatHint))
+  function zip(name, size = 4) {
+    return { name, type: name.endsWith('.zip') ? 'application/zip' : 'text/plain', async arrayBuffer() { return new Uint8Array(size).buffer } }
+  }
+  const flush = () => new Promise(resolve => setImmediate(resolve))
+  await zone.props.onDrop({ preventDefault() {}, dataTransfer: { files: [zip('notes.txt')] } })
+  await flush()
+  assert.equal(calls.length, 0)
+  await zone.props.onDrop({ preventDefault() {}, dataTransfer: { files: [zip('pack.zip')] } })
+  await flush()
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].op, 'import-pack')
+  assert.equal(calls[0].id, 'site_a')
+  assert.equal(typeof calls[0].bytes, 'string')
+  assert.equal(calls[0].bytes.length > 0, true)
+  const target = { files: [zip('again.zip')], value: 'picked' }
+  await file.props.onChange({ currentTarget: target })
+  await flush()
+  assert.equal(target.value, '')
+  assert.equal(calls[1].op, 'import-pack')
+  assert.equal(calls.length, 2)
+  await file.props.onChange({ currentTarget: { files: [zip('huge.zip', 16_000_001)], value: 'huge' } })
+  await flush()
+  assert.equal(calls.length, 2)
 })
