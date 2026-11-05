@@ -32,6 +32,11 @@ const zh: Record<string, string> = {
   explorePaused: '还看不到已登录界面，探索已暂停。登录后在对话里继续这一轮。未完成的范围不会标成完成。',
   explorePartial: '探索已开始，这一轮还没有走完。已有结果可以读，未完成的范围保持未完成。',
   exploreRound: '这一轮已经走完。覆盖率只算这一轮。',
+  exploreHint: '先在右侧浏览器登录，再发送 /探索。还没登录时，探索会停下来等你。',
+  exploreCommand: '探索',
+  exploreCommandHint: '读取菜单和结构，深度停在 3。还没登录会暂停。',
+  updateCommand: '更新探索',
+  updateCommandHint: '再走一轮，覆盖这个站点上一次探索。',
   share: '分享',
   importPack: '导入分享包',
   imported: '已导入分享包，记录待复核。导入不授予登录或写入权限。',
@@ -78,6 +83,11 @@ const en: Record<string, string> = {
   explorePaused: 'The logged-in page is not visible yet, so exploration is paused. Continue this round in the conversation after you sign in. Unfinished scope is not marked complete.',
   explorePartial: 'Exploration has started, and this round is not finished. Results so far stay readable. Unfinished scope stays unfinished.',
   exploreRound: 'This round is finished. Coverage counts this round only.',
+  exploreHint: 'Sign in on the right first, then send /探索. If you are not signed in yet, exploration waits.',
+  exploreCommand: 'Explore',
+  exploreCommandHint: 'Read the menu and structure, stopping at depth 3. It pauses until you are signed in.',
+  updateCommand: 'Update explore',
+  updateCommandHint: 'Run another round. This round covers the previous explore for this site.',
   share: 'Share',
   importPack: 'Import share pack',
   imported: 'Share pack imported. Records need review. Import grants no login or write permission.',
@@ -145,6 +155,7 @@ const STYLE = `
 .erp-assistant .meta{display:block;color:var(--dsw-alias-label-secondary,inherit);font-size:12px}
 .erp-assistant .continue{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 20px;padding:12px 14px;border:1px solid var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:8px}
 .erp-assistant .error{color:var(--dsw-alias-danger,inherit)}
+.erp-explore-hint{margin:8px 0 0;max-width:28rem;color:var(--dsw-alias-label-secondary,inherit);font-size:13px;line-height:1.45}
 `
 
 function installStyle(): () => void {
@@ -228,6 +239,82 @@ async function encodeFile(file: File): Promise<string> {
   return btoa(binary)
 }
 
+let hintedSession = ''
+
+function markExploreHint(sessionId: string): void {
+  hintedSession = sessionId
+}
+
+function hostCommands(ctx: ClientCtx): { execute(sessionId: string, line: string, attachments: readonly never[]): Promise<unknown> } | undefined {
+  const remote = (ctx.get('remote') ?? (ctx as { remote?: unknown }).remote) as {
+    commands?: { execute(sessionId: string, line: string, attachments: readonly never[]): Promise<unknown> }
+  } | undefined
+  return remote?.commands
+}
+
+function executeHost(ctx: ClientCtx, sessionId: string, line: '/explore' | '/explore-update'): void {
+  void hostCommands(ctx)?.execute(sessionId, line, [])
+}
+
+function submitLine(ctx: ClientCtx, sessionId: string, line: string): void {
+  const hostLine = line === '/更新探索' || line === '/explore-update' ? '/explore-update' : '/explore'
+  if (ctx.get('commandUi')) {
+    const sessions = ctx.get('sessions') as { binding?(id: string): { ctx?: unknown } | undefined } | undefined
+    const conversation = ctx.get('conversation') as { input?: { for?(actx: unknown): { setDraft(text: string): void; submit(): void } } } | undefined
+    const binding = sessions?.binding?.(sessionId)
+    try {
+      const input = binding?.ctx ? conversation?.input?.for?.(binding.ctx) : undefined
+      if (input) { input.setDraft(line); input.submit(); return }
+    } catch { /* The composer is not mounted yet; the host command still runs. */ }
+  }
+  executeHost(ctx, sessionId, hostLine)
+}
+
+function ExploreHint({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
+  const sidebar = ctx.get('sidebarRight') as { mounted?: { getSnapshot(): unknown; subscribe(listener: () => void): () => void } } | undefined
+  const [sessionId, setSessionId] = useState(() => String(sidebar?.mounted?.getSnapshot() ?? ''))
+  useEffect(() => {
+    const mounted = sidebar?.mounted
+    if (!mounted) return
+    const read = () => { setSessionId(String(mounted.getSnapshot() ?? '')) }
+    read()
+    return mounted.subscribe(read)
+  }, [sidebar])
+  if (!sessionId || sessionId !== hintedSession) return null
+  return <p className="erp-explore-hint">{t('exploreHint')}</p>
+}
+
+interface SlashUi {
+  register(contribution: {
+    name: string
+    label?: () => string
+    description?: () => string
+    available(session: { sessionId?: string }): boolean
+    ui: { kind: 'action'; run(session: { sessionId?: string }): void }
+  }): () => void
+}
+
+function registerSlash(ctx: ClientCtx, t: (key: string) => string): void {
+  const commandUi = ctx.get('commandUi') as SlashUi | undefined
+  if (!commandUi) return
+  const action = (hostLine: '/explore' | '/explore-update') => (session: { sessionId?: string }) => {
+    if (session.sessionId) executeHost(ctx, session.sessionId, hostLine)
+  }
+  ctx.effect(() => {
+    const stop = [
+      commandUi.register({
+        name: '探索', label: () => t('exploreCommand'), description: () => t('exploreCommandHint'), available: () => true,
+        ui: { kind: 'action', run: action('/explore') },
+      }),
+      commandUi.register({
+        name: '更新探索', label: () => t('updateCommand'), description: () => t('updateCommandHint'), available: () => true,
+        ui: { kind: 'action', run: action('/explore-update') },
+      }),
+    ]
+    return () => { for (const dispose of stop) dispose() }
+  })
+}
+
 function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   const [sites, setSites] = useState<ListedSite[]>([])
   const [lastOpenedId, setLastOpenedId] = useState('')
@@ -253,7 +340,11 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     setUrl('')
   }
   function workspaces() {
-    return ctx.get('workspaces') as { create(input: { path: string }): Promise<unknown> } | undefined
+    return ctx.get('workspaces') as {
+      create(input: { path: string }): Promise<unknown>
+      rename?(workspaceId: string, title: string): Promise<unknown>
+      list?: { getSnapshot(): { items?: readonly unknown[] } }
+    } | undefined
   }
   useEffect(() => {
     let alive = true
@@ -271,28 +362,35 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     try {
       const value = await guideOf(ctx, editing ? { op: 'update', id: editing, ...fields } : { op: 'add', ...fields })
       applyGuide(value)
-      if (!editing) {
-        const created = value.sites.find(site => site.entryUrl === bookmark.entryUrl)
-        if (created) await ensureWorkspace(workspaces(), created.workspaceDir)
-      }
+      const edited = editing
       clearForm()
+      if (!edited) {
+        const created = value.sites.find(site => site.entryUrl === bookmark.entryUrl)
+        if (created) await open(created, false, { prefill: '/探索' })
+      } else {
+        const saved = value.sites.find(site => site.id === edited)
+        if (saved) await ensureWorkspace(workspaces(), saved.workspaceDir, saved.name)
+      }
     } catch (cause) { setError(message(t, cause)) }
     finally { setBusy(false) }
   }
-  async function open(site: ListedSite, fresh = false) {
+  async function open(site: ListedSite, fresh = false, follow?: { prefill?: string; submit?: string }) {
     setBusy(true)
     setError('')
     try {
-      const layout = ctx.get('layout') as { selectPanel(id: string | null): void } | undefined
-      const sessions = ctx.get('sessions') as { create(input: { cwd: string }): Promise<string> } | undefined
-      const uiWorkspace = ctx.get('uiWorkspace') as { openSession(id: string): void } | undefined
+      const layout = ctx.get('layout') as { selectPanel(id: string | null): void; panels?: { setRightbar?(px: number): void } } | undefined
+      const sessions = ctx.get('sessions') as { create(input: { cwd?: string; workspaceId?: string }): Promise<string>; binding?(id: string): unknown } | undefined
+      const uiWorkspace = ctx.get('uiWorkspace') as { openSession(id: string): void; openWorkspace?(workspaceId: string, beforeOpen?: (sessionId: string) => void): Promise<void> } | undefined
       const sidebar = ctx.get('sidebarRight') as { openTab(kind: 'browser', options: { params: { url: string } }): void; mounted?: { getSnapshot(): unknown; subscribe(listener: () => void): () => void } } | undefined
+      const conversation = ctx.get('conversation') as { input?: { requestDraftInitialization?(binding: unknown, options: { prompt?: string; whenDraftExists?: 'keep' }): unknown } } | undefined
       const hostWorkspaces = workspaces()
       if (!layout || !sessions || !uiWorkspace || !sidebar) throw new Error('ERP_BROWSER_UNAVAILABLE')
       await openErpSite({
-        layout, sessions, uiWorkspace, sidebar, ...(hostWorkspaces ? { workspaces: hostWorkspaces } : {}),
+        layout, sessions, uiWorkspace, sidebar, ...(conversation ? { conversation } : {}), ...(hostWorkspaces ? { workspaces: hostWorkspaces } : {}),
         bind: async (siteId, sessionId) => { await guideOf(ctx, { op: 'bind', siteId, sessionId }) },
-      }, site, fresh ? { fresh: true } : undefined)
+        hint: markExploreHint,
+        submitLine: (sessionId, line) => { submitLine(ctx, sessionId, line) },
+      }, site, { ...(fresh ? { fresh: true } : {}), ...(follow?.prefill ? { prefill: follow.prefill } : {}), ...(follow?.submit ? { submit: follow.submit } : {}) })
       applyGuide(await guideOf(ctx, { op: 'opened', id: site.id }))
     } catch (cause) { setError(message(t, cause)) }
     finally { setBusy(false) }
@@ -311,11 +409,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     setError('')
   }
   async function explore(site: ListedSite) {
-    setBusy(true)
-    setError('')
-    try { applyGuide(await guideOf(ctx, { op: 'explore', id: site.id })) }
-    catch (cause) { setError(message(t, cause)) }
-    finally { setBusy(false) }
+    await open(site, false, { submit: '/探索' })
   }
   async function share(site: ListedSite) {
     setBusy(true)
@@ -386,6 +480,14 @@ export function apply(ctx: ClientCtx): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }))
   ctx.effect(installStyle)
   const t = ctx.locale.bind(NS)
+  const host = ctx as ClientCtx & { inject?(names: string[], plugin: (scope: ClientCtx) => void): void }
+  if (host.inject) host.inject(['commandUi'], scope => { registerSlash(scope, t) })
+  else registerSlash(ctx, t)
+  ctx.slots.inject('conversation.hero.options', () => ctx.slots.register({
+    name: 'conversation.hero.options', id: 'erp-explore-hint', order: 20, locale: NS,
+  }, function ErpExploreHint(props: { t?: (key: string) => string }) {
+    return <ExploreHint ctx={ctx} t={props.t ?? t} />
+  }))
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
     name: 'sidebar.panellist', id: PRODUCT_PANEL, order: 8, locale: NS, label: () => t('entry'),
   }, ErpIcon))

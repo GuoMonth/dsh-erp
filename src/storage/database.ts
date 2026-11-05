@@ -206,8 +206,11 @@ export class StoreDatabase {
       if (!record) throw new StorageError('INVALID_INDEX_NODE')
       const scope = scopeKey(input.scope)
       const leaves = this.indexLeaves(scope, summary.observationIds, summary.leafKinds)
-      this.db.prepare('INSERT INTO index_nodes(scope,id,round_id,level,parent_id,title,summary,leaf_count,record_version) VALUES(?,?,?,?,?,?,?,?,?)')
+      this.db.prepare(`INSERT INTO index_nodes(scope,id,round_id,level,parent_id,title,summary,leaf_count,record_version) VALUES(?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(scope, id) DO UPDATE SET round_id=excluded.round_id, level=excluded.level, parent_id=excluded.parent_id,
+          title=excluded.title, summary=excluded.summary, leaf_count=excluded.leaf_count, record_version=excluded.record_version`)
         .run(scope, record.id, input.id, summary.level, summary.parentId ?? null, record.name, record.description, leaves.length, record.version)
+      this.db.prepare('DELETE FROM index_leaves WHERE scope=? AND node_id=?').run(scope, record.id)
       const insert = this.db.prepare('INSERT INTO index_leaves(scope,node_id,record_id,ordinal) VALUES(?,?,?,?)')
       leaves.forEach((leafId, ordinal) => insert.run(scope, record.id, leafId, ordinal))
       return { checkpoint, summary: record, leafCount: leaves.length }

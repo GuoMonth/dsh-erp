@@ -9,6 +9,7 @@ import { SiteCatalog } from '../dist/sites/catalog.js'
 import { LearningRuntime } from '../dist/learning/runtime.js'
 import { normalizeBookmark } from '../dist/product/bookmark.js'
 import { loggedInUiVisible, startExplore } from '../dist/learning/explore.js'
+import { runExploreCommand } from '../dist/product/commands.js'
 import { exportSharePack, importSharePack } from '../dist/knowledge/pack.js'
 import { unzipArchive, zipArchive } from '../dist/knowledge/zip.js'
 import { erpRequest } from '../dist/product/api.js'
@@ -88,6 +89,30 @@ test('explore persists a paused round until a logged-in page is visible', async 
   assert.equal(started.state, 'running')
   const found = await client.call('knowledgeSearch', { scope, query: 'Orders', after: '', limit: 20 })
   assert.equal(found.items.some(item => item.record.name === 'Orders'), true)
+  const replaced = await startExplore(runtime, scope, signal(), undefined, true)
+  assert.equal(replaced.pausedUntilLogin, true)
+  assert.equal(replaced.state, 'paused')
+  assert.ok(replaced.version > started.version)
+})
+
+test('slash explore pauses without a login and refuses a conversation with no workspace', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'erp-slash-'))
+  const catalog = new SiteCatalog(join(root, 'data'), { system: { url: 'https://erp.example/app/', name: 'Alpha' } })
+  t.after(async () => { await catalog.dispose(); await rm(root, { recursive: true, force: true }) })
+  const site = catalog.list()[0]
+  const agent = { session: { id: 'sess-1', header: { id: 'sess-1', cwd: site.workspaceDir } } }
+  const signal = AbortSignal.timeout(5_000)
+  const paused = await runExploreCommand(catalog, { agent, signal }, false)
+  assert.equal(paused.kind, 'success')
+  assert.match(paused.text, /探索已暂停/)
+  assert.match(paused.text, /paused/)
+  const updated = await runExploreCommand(catalog, { agent, signal }, true)
+  assert.equal(updated.kind, 'success')
+  assert.match(updated.text, /覆盖/)
+  assert.match(updated.text, /covers the previous explore/)
+  const loose = await runExploreCommand(catalog, { agent: { session: { id: 'sess-2', header: { id: 'sess-2' } } }, signal }, false)
+  assert.equal(loose.kind, 'error')
+  assert.match(loose.text, /工作区/)
 })
 
 test('a share pack round-trips schemaVersion 1 and refuses a newer pack', async t => {

@@ -43,9 +43,10 @@ function outcome(view: ExplorationView, pausedUntilLogin: boolean): ExploreOutco
  * Start the controller-owned depth-3 round and persist it immediately.
  * Without a visible logged-in page the round pauses and is not marked complete.
  */
-export async function startExplore(runtime: LearningRuntime, scope: Scope, signal: AbortSignal, observation?: { id: string; text: string }): Promise<ExploreOutcome> {
+export async function startExplore(runtime: LearningRuntime, scope: Scope, signal: AbortSignal, observation?: { id: string; text: string }, replace = false): Promise<ExploreOutcome> {
   let view = await runtime.status(scope, EXPLORE_ID, signal)
-  if (!view) view = await runtime.begin(scope, EXPLORE_ID, signal)
+  if (replace && view) view = await runtime.begin(scope, EXPLORE_ID, signal, view.version)
+  else if (!view) view = await runtime.begin(scope, EXPLORE_ID, signal)
   const visible = loggedInUiVisible(observation?.text)
   if (!visible) {
     if (view.state === 'running') view = await runtime.pause(scope, EXPLORE_ID, view.version, false, signal)
