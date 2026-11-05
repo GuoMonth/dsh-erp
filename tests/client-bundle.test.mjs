@@ -8,7 +8,7 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.doesNotMatch(code, /账户标签|Account label|应用根地址|Application root/)
   assert.doesNotMatch(code, /type:"password"|type: "password"/)
   let registered
-  const context = { window: { __ModuleLoader__: { load(entry) { registered = entry } } }, console }
+  const context = { window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } }, console }
   vm.createContext(context)
   vm.runInContext(code, context)
   assert.equal(registered.id, '@guosheng_047/dsh-erp')
@@ -48,6 +48,15 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.match(dict.zh.continueHint, /入口/)
   assert.equal(dict.zh.explore, '一键探索')
   assert.equal(dict.en.explore, 'Start exploring')
+  assert.match(dict.zh.exploreHint, /\/探索/)
+  assert.match(dict.en.exploreHint, /\/探索/)
+  assert.equal(dict.zh.exploreCommand, '探索')
+  assert.equal(dict.en.exploreCommand, 'Explore')
+  assert.match(dict.zh.updateCommandHint, /覆盖/)
+  assert.match(dict.en.updateCommandHint, /covers the previous explore/)
+  assert.match(code, /setRightbar/)
+  assert.match(code, /explore-update/)
+  assert.match(code, /更新探索/)
   assert.equal(dict.zh.newChat, '新对话')
   assert.equal(dict.zh.password.includes('密码'), true)
   const slots = value => [...value.matchAll(/\{[a-z]+\}/g)].map(match => match[0]).sort()
@@ -118,4 +127,55 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', sessionId: 'sess-1' }, { fresh: true })
   assert.deepEqual(fresh, ['/tmp/erp-a', '/tmp/erp-a'])
   assert.equal(calls[0][2], 'sess-3')
+  const titled = []
+  const drafted = []
+  const widths = []
+  const opened = await exports.openErpSite({
+    sessions: {
+      async create() { throw new Error('openWorkspace creates the session') },
+      binding(id) { return { id } },
+    },
+    uiWorkspace: {
+      openSession() { throw new Error('a new site is not a member yet') },
+      async openWorkspace(id, before) { titled.push(['open', id]); before('sess-new') },
+    },
+    layout: {
+      selectPanel(id) { titled.push(['panel', id]) },
+      panels: { setRightbar(px) { widths.push(px) } },
+    },
+    sidebar: { openTab(kind, options) { titled.push(['tab', kind, options.params.url]) } },
+    workspaces: {
+      async create(input) { return { workspaceId: 'ws-1', path: input.path, title: 'site_abc', sessionIds: [] } },
+      async rename(id, title) { titled.push(['rename', id, title]); return { workspaceId: id, path: '/tmp/erp-a', title, sessionIds: [] } },
+    },
+    conversation: { input: { requestDraftInitialization(binding, options) { drafted.push([binding.id, options.prompt, options.whenDraftExists]) } } },
+    hint(id) { drafted.push(['hint', id]) },
+    async bind(siteId, id) { titled.push(['bind', siteId, id]) },
+  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha' }, { prefill: '/探索' })
+  assert.equal(opened, 'sess-new')
+  assert.deepEqual(titled, [
+    ['rename', 'ws-1', 'Alpha'],
+    ['open', 'ws-1'],
+    ['bind', 'site_a', 'sess-new'],
+    ['panel', null],
+    ['tab', 'browser', 'https://erp.example/app/'],
+  ])
+  assert.deepEqual(drafted, [['hint', 'sess-new'], ['sess-new', '/探索', 'keep']])
+  assert.deepEqual(widths, [Math.round((1400 - 280) * 0.7)])
+  await exports.openErpSite({
+    sessions: { async create() { throw new Error('member session is restored') } },
+    uiWorkspace: {
+      openSession(id) { titled.push(['session', id]) },
+      async openWorkspace() { throw new Error('member session stays open') },
+    },
+    layout: { selectPanel(id) { titled.push(['panel', id]) }, panels: { setRightbar(px) { widths.push(px) } } },
+    sidebar: { openTab(_kind, options) { titled.push(['tab', options.params.url]) } },
+    workspaces: {
+      async create() { return { workspaceId: 'ws-1', path: '/tmp/erp-a', title: 'Alpha', sessionIds: ['sess-1'] } },
+      async rename() { throw new Error('title already matches') },
+    },
+    async bind() { throw new Error('already bound') },
+  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', sessionId: 'sess-1' })
+  assert.deepEqual(titled.slice(-3), [['session', 'sess-1'], ['panel', null], ['tab', 'https://erp.example/app/']])
+  assert.equal(widths.length, 1)
 })

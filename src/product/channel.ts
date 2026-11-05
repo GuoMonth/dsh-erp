@@ -2,11 +2,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { SiteCatalog } from '../sites/catalog.js'
 import { API_PATH } from './names.js'
 import { erpFailure, erpRequest } from './api.js'
-import type { ErpResult, ExploreStatus } from './api.js'
+import type { ErpResult } from './api.js'
 
 interface Envelope { type?: unknown; rpcId?: unknown; payload?: unknown }
 export interface ErpActions {
-  explore(siteId: string): Promise<ExploreStatus>
   exportPack(siteId: string): Promise<{ fileName: string; bytes: string }>
   importPack(siteId: string, bytes: Buffer): Promise<{ warnings: string[] }>
 }
@@ -26,7 +25,6 @@ async function desktopAction(catalog: SiteCatalog, actions: ErpActions | undefin
   const body = payload as { op?: unknown; id?: unknown; bytes?: unknown }
   const id = typeof body.id === 'string' ? body.id.trim() : ''
   if (!id) return erpFailure(new Error('ERP_UNKNOWN_SITE'))
-  if (body.op === 'explore') return merged(catalog, { explore: await actions.explore(id) })
   if (body.op === 'export-pack') {
     const pack = await actions.exportPack(id)
     return merged(catalog, { pack })
@@ -56,7 +54,7 @@ export function registerErpChannel(ctx: Context, catalog: SiteCatalog, actions?:
         const payload = body.payload
         const op = payload && typeof payload === 'object' ? (payload as { op?: unknown }).op : undefined
         try {
-          const result = op === 'explore' || op === 'export-pack' || op === 'import-pack'
+          const result = op === 'export-pack' || op === 'import-pack'
             ? await desktopAction(catalog, actions, payload as object)
             : erpRequest(catalog, payload)
           return json(200, { type: 'server-response', rpcId: body.rpcId, result })

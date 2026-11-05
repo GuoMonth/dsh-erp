@@ -11,8 +11,6 @@ import { StorageClient } from './storage/client.js'
 import { contracts, storageStatusSchema } from './storage/contract.js'
 import { BrowserRuntime, registerBrowserTools } from './browser/runtime.js'
 import { registerLearningTools } from './learning/tools.js'
-import { startExplore } from './learning/explore.js'
-import { LearningRuntime } from './learning/runtime.js'
 import { registerKnowledgeTools } from './knowledge/tools.js'
 import { exportSharePack, importSharePack } from './knowledge/pack.js'
 import { systemBrowserInput } from './system.js'
@@ -22,6 +20,7 @@ import { markdown, openUiHost, presentTitle, registerErpPrompt } from './present
 import { SiteCatalog } from './sites/catalog.js'
 import { bindToolExecution, RoutedStorage, sessionHint } from './sites/router.js'
 import { registerErpChannel } from './product/channel.js'
+import { registerErpCommands } from './product/commands.js'
 
 export type { KnowledgeWrite, KnowledgeRecord, KnowledgeView, Verification } from './knowledge/contract.js'
 export { StorageClient, restoreBackup } from './storage/client.js'
@@ -144,12 +143,8 @@ function applyEngine(ctx: Context, config: Config): void {
     if (!site) throw new Error('ERP_UNKNOWN_SITE')
     return site
   }
+  registerErpCommands(ctx, runtime.catalog)
   registerErpChannel(ctx, runtime.catalog, {
-    explore: async id => {
-      const site = siteById(id)
-      const outcome = await startExplore(new LearningRuntime(runtime.catalog.client(id)), site.profile.scope, AbortSignal.timeout(30_000))
-      return { state: outcome.state, reason: outcome.reason, pausedUntilLogin: outcome.pausedUntilLogin, complete: outcome.complete, version: outcome.version }
-    },
     exportPack: async id => {
       const site = siteById(id)
       const pack = await exportSharePack(runtime.catalog.client(id), site.profile.scope, {

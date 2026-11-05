@@ -89,12 +89,12 @@ function leafKinds(level: Level): string[] {
 /** Owns the frontier. Callers submit observations; they do not submit units. */
 export class LearningRuntime {
   constructor(private readonly storage: StorageClient) {}
-  async begin(scope: ScopeInput, id: string, signal: AbortSignal): Promise<ExplorationView> {
+  async begin(scope: ScopeInput, id: string, signal: AbortSignal, expectedVersion = 0): Promise<ExplorationView> {
     const entry: InternalUnit = { id: 'L1-entry', level: 1, mode: 'snapshot', label: 'Entry snapshot', targetName: '', targetHref: '',
       boundObservationId: '', discoveredFromUrl: '', discoveredObservationId: '' }
     const cursor: Cursor = { format: 2, depth: 3, level: 1, units: [entry], settled: [], parked: [], summaries: [], dropped: 0 }
-    const task = await this.storage.call('checkpoint', { scope, id, expectedVersion: 0, state: 'running', frontier: [entry.id],
-      cursor, reason: 'bfs-depth-3' }, signal)
+    const task = await this.storage.call('checkpoint', { scope, id, expectedVersion, state: 'running', frontier: [entry.id],
+      cursor, reason: expectedVersion > 0 ? 'explore-replaced' : 'bfs-depth-3' }, signal)
     return this.view(task)
   }
   async status(scope: ScopeInput, id: string, signal: AbortSignal): Promise<ExplorationView | null> {
@@ -193,7 +193,7 @@ export class LearningRuntime {
     if (frontier.length === 0) {
       const sealed = await this.summary(scope, id, cursor, head.level, signal)
       summary = sealed.summary
-      cursor.summaries.push({ level: head.level, id: sealed.summary.record.id, version: 1 })
+      cursor.summaries.push({ level: head.level, id: sealed.summary.record.id, version: sealed.summary.record.expectedVersion + 1 })
       if (head.level < 3 && cursor.parked.length) {
         const promoted = [...cursor.parked].sort((a, b) => a.id.localeCompare(b.id))
         cursor.parked = []
@@ -230,10 +230,12 @@ export class LearningRuntime {
       if (!observation) fail('LEARNING_SCOPE_OR_EVIDENCE')
       evidence.push({ observationId, quote: quoteFor(observation.text) })
     }
+    const summaryId = `summary-${roundId}-L${level}`
+    const previous = await this.storage.call('knowledgeGet', { scope, id: summaryId }, signal)
     const parent = cursor.summaries.find(item => item.level === level - 1)
     const record: KnowledgeWrite = {
-      id: `summary-${roundId}-L${level}`, kind: 'summary', name: `Level ${level} summary`, aliases: [], description,
-      expectedVersion: 0, stage: evidence.length ? 'observed' : 'discovered',
+      id: summaryId, kind: 'summary', name: `Level ${level} summary`, aliases: [], description,
+      expectedVersion: previous?.record.version ?? 0, stage: evidence.length ? 'observed' : 'discovered',
       flags: blocked ? ['blocked', 'needs-review'] : ['needs-review'], lifecycle: 'active', evidence,
       dependencies: parent ? [{ id: parent.id, version: parent.version }] : [],
       context: { detail: 'internal-node' },
