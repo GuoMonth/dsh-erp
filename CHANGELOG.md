@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A site workspace is titled with its display name. Adding or opening a site enters that folder's conversation, so the composer is not left on "Choose a workspace". The right browser starts near 70% of the chat and browser together, and a later drag is kept.
+- A new conversation in an ERP workspace opens that site's entry in the right browser. This includes the panel's New chat and a session the host creates in that folder. Chats in one workspace share the desktop browser sign-in for this run. Restarting the app may require signing in again. The plugin does not store passwords or cookies.
 - `/探索` and `/更新探索` run the depth-3 explore. `/explore` and `/explore-update` are the host names. The first conversation after adding a site prefills `/探索` and does not send it. Start exploring sends that same command. An update covers the previous round for that site. Explore pauses, with a plain explanation, until a logged-in page is visible, and it does not run when no workspace is selected.
 
 ## 0.1.5 — 2026-11-04
