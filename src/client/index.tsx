@@ -4,10 +4,10 @@ import { resumeTarget } from '../product/resume.ts'
 import { normalizeBookmark } from '../product/bookmark.ts'
 import { entryIssue } from '../product/wizard.ts'
 import { SiteFavicon } from './favicon.tsx'
-import { ensureWorkspace, openErpSite } from './open.ts'
+import { ensureWorkspace, openErpSite, watchWorkspaceSessions } from './open.ts'
 import type { OpenSite } from './open.ts'
 
-export { ensureWorkspace, openErpSite } from './open.ts'
+export { ensureWorkspace, openErpSite, watchWorkspaceSessions } from './open.ts'
 export { PRODUCT_ENTRY, PRODUCT_PANEL }
 
 const NS = 'erp-assistant'
@@ -29,6 +29,7 @@ const zh: Record<string, string> = {
   continueHint: '恢复该站点的对话，并在右侧浏览器打开站点入口。登录由你自己完成。',
   explore: '一键探索',
   newChat: '新对话',
+  newChatHint: '新对话仍在这个 ERP 里。右侧浏览器会打开站点入口。同一文件夹里的对话共用这次登录；重启应用后可能要再登录一次。',
   explorePaused: '还看不到已登录界面，探索已暂停。登录后在对话里继续这一轮。未完成的范围不会标成完成。',
   explorePartial: '探索已开始，这一轮还没有走完。已有结果可以读，未完成的范围保持未完成。',
   exploreRound: '这一轮已经走完。覆盖率只算这一轮。',
@@ -80,6 +81,7 @@ const en: Record<string, string> = {
   continueHint: 'Restore this site\'s conversation and open its site entry on the right. Sign in yourself.',
   explore: 'Start exploring',
   newChat: 'New chat',
+  newChatHint: 'New chat stays on this ERP. The browser on the right opens the site entry. Chats in this folder share that sign-in. Restarting the app may ask you to sign in again.',
   explorePaused: 'The logged-in page is not visible yet, so exploration is paused. Continue this round in the conversation after you sign in. Unfinished scope is not marked complete.',
   explorePartial: 'Exploration has started, and this round is not finished. Results so far stay readable. Unfinished scope stays unfinished.',
   exploreRound: 'This round is finished. Coverage counts this round only.',
@@ -440,7 +442,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
       <button type="button" disabled={busy} onClick={() => { void open(current) }}>{busy ? t('working') : t('continue')}</button>
     </div> : null}
     {current?.sessionId ? <div className="actions">
-      <button type="button" disabled={busy} onClick={() => { void open(current, true) }}>{t('newChat')}</button>
+      <button type="button" disabled={busy} title={t('newChatHint')} onClick={() => { void open(current, true) }}>{t('newChat')}</button>
       <button type="button" disabled={busy} onClick={() => { void explore(current) }}>{t('explore')}</button>
       <button type="button" disabled={busy} onClick={() => { void share(current) }}>{t('share')}</button>
       {/* The file control keeps the browser's own "Choose File" label. */}
@@ -450,6 +452,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
         if (file) void importPack(current, file)
       }} /></label>
     </div> : null}
+    {current?.sessionId ? <p className="note">{t('newChatHint')}</p> : null}
     <form onSubmit={event => { void submit(event) }} autoComplete="off">
       <label>{t('url')}<input value={url} onChange={event => setUrl(event.target.value)} type="url" inputMode="url" required autoComplete="off" /></label>
       <label>{t('name')}<input value={name} onChange={event => setName(event.target.value)} autoComplete="off" placeholder={t('nameHint')} /></label>
@@ -479,6 +482,19 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
 export function apply(ctx: ClientCtx): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }))
   ctx.effect(installStyle)
+  ctx.effect(() => {
+    const sessions = ctx.get('sessions') as { list?: { getSnapshot(): { phase: string; ids: readonly string[]; byId: Readonly<Record<string, { cwd?: string; origin?: string }>> }; subscribe(listener: () => void): () => void } } | undefined
+    const sidebar = ctx.get('sidebarRight') as { openTab(kind: 'browser', options: { params: { url: string } }): void; mounted?: { getSnapshot(): unknown; subscribe(listener: () => void): () => void } } | undefined
+    const layout = ctx.get('layout') as { selectPanel(id: string | null): void; panels?: { setRightbar?(px: number): void } } | undefined
+    if (!sessions?.list || !sidebar?.openTab || !layout) return
+    return watchWorkspaceSessions({
+      sessions, sidebar, layout,
+      sites: async () => {
+        try { return (await guideOf(ctx, { op: 'list' })).sites }
+        catch { return undefined }
+      },
+    })
+  })
   const t = ctx.locale.bind(NS)
   const host = ctx as ClientCtx & { inject?(names: string[], plugin: (scope: ClientCtx) => void): void }
   if (host.inject) host.inject(['commandUi'], scope => { registerSlash(scope, t) })
