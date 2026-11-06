@@ -437,6 +437,10 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
   const submitted = []
   const executed = []
   const rejected = []
+  const inits = []
+  let draftText = ''
+  let phase = 'plain'
+  let acceptSubmit = true
   let bindingReady = false
   let remoteMode = 'throw'
   const onRejection = reason => { rejected.push(reason) }
@@ -456,7 +460,24 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
         scope(id) { return bindingReady ? { id } : undefined },
       }
       if (name === 'conversation') return {
-        input: { for() { return { setDraft(text) { drafts.push(text) }, submit() { submitted.push(drafts.at(-1)) } } } },
+        input: {
+          for() {
+            return {
+              setDraft(text) { draftText = text; drafts.push(text) },
+              submit() {
+                submitted.push(draftText)
+                if (acceptSubmit) { draftText = ''; phase = 'plain' }
+              },
+              get snapshot() { return { draft: draftText, phase } },
+            }
+          },
+          requestDraftInitialization(binding, options) {
+            inits.push([binding.ctx.id, options.prompt, options.whenDraftExists])
+            if (options.whenDraftExists === 'keep' && draftText.trim() !== '') return 'preserved'
+            draftText = options.prompt ?? ''
+            return 'applied'
+          },
+        },
       }
       if (name === 'commandUi') return { register(contribution) { slash.push(contribution); return () => {} } }
       if (name === 'remote.commands' || name === 'remote') {
@@ -512,6 +533,8 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
     await new Promise(resolve => { setTimeout(resolve, 80) })
     assert.deepEqual(drafts, ['/探索'])
     assert.deepEqual(submitted, ['/探索'])
+    assert.equal(draftText, '')
+    assert.deepEqual(inits, [])
     assert.deepEqual(executed, [])
     assert.deepEqual(rejected, [])
 
@@ -562,6 +585,146 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
     cursor = 0
     const hintNodes = collect(element(hint, {}))
     assert.equal(hintNodes.some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint), true)
+  } finally {
+    process.off('unhandledRejection', onRejection)
+  }
+})
+
+test('a composer submit that does not take the draft leaves /探索 and the sign-in hint', async () => {
+  const code = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
+  let registered
+  const context = {
+    window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } },
+    console,
+    setTimeout,
+    clearTimeout,
+  }
+  vm.createContext(context)
+  vm.runInContext(code, context)
+  let preset = null
+  let cursor = 0
+  const react = {
+    useEffect() {},
+    useRef(value) { return { current: value } },
+    useState(initial) {
+      if (!preset) return [typeof initial === 'function' ? initial() : initial, () => {}]
+      const value = cursor < preset.length ? preset[cursor] : (typeof initial === 'function' ? initial() : initial)
+      cursor += 1
+      return [value, () => {}]
+    },
+  }
+  function element(type, props) {
+    return { type, props: props ?? {} }
+  }
+  const exports = registered.factory(spec => {
+    if (spec === 'react') return react
+    if (spec === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: Symbol.for('react.fragment') }
+    throw new Error(`unexpected require ${spec}`)
+  })
+  const dict = {}
+  let guide
+  let hint
+  const slash = []
+  const site = { id: 'site_a', name: 'Suite Local', entryUrl: 'https://pftest.example/manage/', workspaceDir: '/tmp/a', sessionId: 'sess-1' }
+  const guideState = (sites, ready) => [sites, sites[0]?.id ?? '', '', '', '', '', '', false, false, false, '', '', false, ready]
+  const drafts = []
+  const submitted = []
+  const inits = []
+  const rejected = []
+  let draftText = ''
+  const phase = 'plain'
+  const onRejection = reason => { rejected.push(reason) }
+  process.on('unhandledRejection', onRejection)
+  const INJECT = 'cannot get property "remote.commands" without inject'
+  const ctx = {
+    effect(fn) { fn() },
+    inject(_names, plugin) { plugin(ctx) },
+    get(name) {
+      if (name === 'connection') return { rpc: { async call() { return { ok: true, value: { sites: [site], lastOpenedId: site.id } } } } }
+      if (name === 'layout') return { selectPanel() {}, panels: { setRightbar() {} } }
+      if (name === 'uiWorkspace') return { openSession() {} }
+      if (name === 'sidebarRight') return { openTab() {}, mounted: { getSnapshot: () => 'sess-1', subscribe() { return () => {} } } }
+      if (name === 'workspaces') return { async create() { return { workspaceId: 'ws-1', path: site.workspaceDir, title: site.name, sessionIds: ['sess-1'] } } }
+      if (name === 'sessions') return { binding(id) { return { ctx: { id } } } }
+      if (name === 'conversation') return {
+        input: {
+          for() {
+            return {
+              setDraft(text) { draftText = text; drafts.push(text) },
+              submit() { submitted.push(draftText) },
+              get snapshot() { return { draft: draftText, phase } },
+            }
+          },
+          requestDraftInitialization(binding, options) {
+            inits.push([binding.ctx.id, options.prompt, options.whenDraftExists])
+            if (options.whenDraftExists === 'keep' && draftText.trim() !== '') return 'preserved'
+            draftText = options.prompt ?? ''
+            drafts.push(draftText)
+            return 'applied'
+          },
+        },
+      }
+      if (name === 'commandUi') return { register(contribution) { slash.push(contribution); return () => {} } }
+      if (name === 'remote.commands' || name === 'remote') throw new Error(INJECT)
+      return undefined
+    },
+    locale: {
+      register(_ns, dicts) { Object.assign(dict, dicts); return () => {} },
+      bind() { return key => dict.zh[key] },
+    },
+    slots: {
+      inject(_name, register) { register() },
+      register(options, component) {
+        if (options.name === 'main') guide = component
+        if (options.id === 'erp-explore-hint') hint = component
+        return () => {}
+      },
+    },
+  }
+  function collect(node) {
+    const nodes = []
+    const walk = current => {
+      if (current == null || typeof current !== 'object') return
+      if (Array.isArray(current)) { for (const item of current) walk(item); return }
+      if (typeof current.type === 'function') { walk(current.type(current.props ?? {})); return }
+      nodes.push(current)
+      walk(current.props.children)
+    }
+    walk(node)
+    return nodes
+  }
+  const hintText = () => {
+    preset = null
+    cursor = 0
+    return collect(element(hint, {})).some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint)
+  }
+  try {
+    exports.apply(ctx)
+    assert.equal(hintText(), false)
+    preset = guideState([site], true)
+    cursor = 0
+    const explore = collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索')
+    explore.props.onClick()
+    await new Promise(resolve => { setTimeout(resolve, 80) })
+    assert.deepEqual(submitted, ['/探索'])
+    assert.equal(draftText, '/探索')
+    assert.deepEqual(drafts, ['/探索'])
+    assert.deepEqual(inits, [['sess-1', '/探索', 'keep']])
+    assert.equal(hintText(), true)
+    assert.deepEqual(rejected, [])
+
+    drafts.length = 0
+    submitted.length = 0
+    inits.length = 0
+    draftText = ''
+    const exploreAction = slash.find(item => item.name === '探索')
+    exploreAction.ui.run({ sessionId: 'sess-1' })
+    await new Promise(resolve => { setTimeout(resolve, 40) })
+    assert.deepEqual(submitted, ['/explore'])
+    assert.equal(draftText, '/explore')
+    assert.deepEqual(inits, [['sess-1', '/explore', 'keep']])
+    assert.equal(hintText(), true)
+    assert.deepEqual(rejected, [])
   } finally {
     process.off('unhandledRejection', onRejection)
   }

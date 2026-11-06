@@ -308,9 +308,18 @@ interface HostCommandApi {
   execute(sessionId: string, line: string, attachments: readonly never[]): Promise<unknown>
 }
 
+interface ComposerView {
+  draft?: string
+  phase?: string
+}
+
 interface ComposerInput {
   setDraft(text: string): void
   submit(): void
+  /** Published input state. A submit is real only when this view shows it. */
+  readonly snapshot?: ComposerView
+  state?: { getSnapshot(): ComposerView }
+  draft?: string
 }
 
 /** Cordis `get` returns `undefined` for a service this fiber did not inject. Property access throws. */
@@ -399,30 +408,98 @@ async function sendHost(ctx: ClientCtx, sessionId: string, hostLine: '/explore' 
   }
 }
 
-async function sendComposer(input: ComposerInput, line: string): Promise<boolean> {
+const COMPOSER_SETTLE_MS = 480
+const BUSY_PHASE = new Set(['adjudicating', 'submitting', 'sending'])
+
+function composerView(input: ComposerInput): ComposerView | undefined {
+  const snapshot = input.snapshot ?? input.state?.getSnapshot()
+  if (snapshot && typeof snapshot === 'object') return snapshot
+  if (typeof input.draft === 'string') return { draft: input.draft }
+  return undefined
+}
+
+/** Copy the strings now. A later publish must not change the reading. */
+function observeComposer(input: ComposerInput): ComposerView {
+  const view = composerView(input)
+  return {
+    ...(typeof view?.draft === 'string' ? { draft: view.draft } : {}),
+    ...(typeof view?.phase === 'string' ? { phase: view.phase } : {}),
+  }
+}
+
+function phaseBusy(phase: string | undefined): boolean {
+  return phase !== undefined && BUSY_PHASE.has(phase)
+}
+
+/**
+ * A submit did something only when the armed line leaves the composer,
+ * or the composer is still sending it. A call that returns without throwing
+ * and leaves the same draft is a silent no-op.
+ */
+function submitTaken(armed: ComposerView | undefined, after: ComposerView | undefined, line: string, stillBusy: boolean): boolean {
+  if (stillBusy) return true
+  const want = line.trim()
+  const armedText = armed?.draft?.trim()
+  const afterText = after?.draft?.trim()
+  return armedText === want && afterText !== undefined && afterText !== want
+}
+
+async function sendComposer(input: ComposerInput, line: string): Promise<'sent' | 'idle' | 'threw'> {
   try {
     input.setDraft(line)
+    const armed = observeComposer(input)
     input.submit()
-    return true
+    let after = observeComposer(input)
+    if (phaseBusy(after.phase)) {
+      const deadline = Date.now() + COMPOSER_SETTLE_MS
+      do {
+        await wait(COMPOSER_WAIT_MS)
+        after = observeComposer(input)
+        if (!phaseBusy(after.phase)) break
+      } while (Date.now() < deadline)
+    }
+    return submitTaken(armed, after, line, phaseBusy(after.phase)) ? 'sent' : 'idle'
   } catch {
-    return false
+    return 'threw'
   }
+}
+
+/** The line was not sent. Keep it in the composer and show the sign-in hint. */
+function leaveExploreDraft(ctx: ClientCtx, sessionId: string, line: string): void {
+  markExploreHint(sessionId)
+  const sessions = readService(ctx, 'sessions') as { binding?(id: string): unknown } | undefined
+  let binding: unknown
+  try { binding = sessions?.binding?.(sessionId) } catch { binding = undefined }
+  const conversation = readService(ctx, 'conversation') as {
+    input?: {
+      requestDraftInitialization?(binding: unknown, options: { prompt?: string; whenDraftExists?: 'keep' | 'replace' | 'append' }): unknown
+    }
+  } | undefined
+  if (binding && typeof conversation?.input?.requestDraftInitialization === 'function') {
+    try {
+      conversation.input.requestDraftInitialization(binding, { prompt: line, whenDraftExists: 'keep' })
+      return
+    } catch { /* The mounted composer can still hold the line. */ }
+  }
+  try { readComposer(ctx, sessionId)?.setDraft(line) } catch { /* The composer disappeared during the retry. */ }
 }
 
 /**
  * Start explore the way typing the slash line does.
- * The composer is preferred. The host command is the fallback when the composer is not mounted.
- * Neither a missing `remote.commands` nor a failed submit throws.
+ * The composer is preferred. A submit counts only when the line leaves the
+ * draft or stays in flight. A silent no-op keeps the line as a draft and
+ * shows the sign-in hint. The host command is the fallback when the composer
+ * is not mounted. Neither a missing `remote.commands` nor a failed submit throws.
  */
 async function submitLine(ctx: ClientCtx, sessionId: string, line: string): Promise<boolean> {
   const hostLine = hostLineOf(line)
   const spelling = line.startsWith('/') ? line : hostLine
   const input = await composerInput(ctx, sessionId)
-  if (input && await sendComposer(input, spelling)) return true
+  const composed = input ? await sendComposer(input, spelling) : undefined
+  if (composed === 'sent') return true
   if (await sendHost(ctx, sessionId, hostLine)) return true
-  if (input && spelling !== hostLine && await sendComposer(input, hostLine)) return true
-  try { input?.setDraft(spelling) } catch { /* The composer disappeared during the retry. */ }
-  markExploreHint(sessionId)
+  if (input && composed === 'threw' && spelling !== hostLine && await sendComposer(input, hostLine) === 'sent') return true
+  leaveExploreDraft(ctx, sessionId, spelling)
   return false
 }
 
@@ -432,9 +509,8 @@ function runSlash(ctx: ClientCtx, sessionId: string, hostLine: '/explore' | '/ex
     void (async () => {
       if (await sendHost(ctx, sessionId, hostLine)) return
       const input = readComposer(ctx, sessionId)
-      if (input && await sendComposer(input, hostLine)) return
-      try { input?.setDraft(hostLine) } catch { /* Leave the conversation hint instead. */ }
-      markExploreHint(sessionId)
+      if (input && await sendComposer(input, hostLine) === 'sent') return
+      leaveExploreDraft(ctx, sessionId, hostLine)
     })()
   }, 0)
 }
