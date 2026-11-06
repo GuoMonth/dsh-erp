@@ -395,3 +395,174 @@ test('the guide panel is cards and the share pack control is not the browser fil
   await flush()
   assert.equal(calls.length, 2)
 })
+
+test('start exploring submits /探索 when remote.commands is not injected', async () => {
+  const code = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
+  let registered
+  const context = {
+    window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } },
+    console,
+    setTimeout,
+    clearTimeout,
+  }
+  vm.createContext(context)
+  vm.runInContext(code, context)
+  let preset = null
+  let cursor = 0
+  const react = {
+    useEffect() {},
+    useRef(value) { return { current: value } },
+    useState(initial) {
+      if (!preset) return [typeof initial === 'function' ? initial() : initial, () => {}]
+      const value = cursor < preset.length ? preset[cursor] : (typeof initial === 'function' ? initial() : initial)
+      cursor += 1
+      return [value, () => {}]
+    },
+  }
+  function element(type, props) {
+    return { type, props: props ?? {} }
+  }
+  const exports = registered.factory(spec => {
+    if (spec === 'react') return react
+    if (spec === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: Symbol.for('react.fragment') }
+    throw new Error(`unexpected require ${spec}`)
+  })
+  const dict = {}
+  let guide
+  let hint
+  const slash = []
+  const site = { id: 'site_a', name: 'sg-pf', entryUrl: 'https://pftest.example/manage/', workspaceDir: '/tmp/a', sessionId: 'sess-1' }
+  const guideState = (sites, ready) => [sites, sites[0]?.id ?? '', '', '', '', '', '', false, false, false, '', '', false, ready]
+  const drafts = []
+  const submitted = []
+  const executed = []
+  const rejected = []
+  let bindingReady = false
+  let remoteMode = 'throw'
+  const onRejection = reason => { rejected.push(reason) }
+  process.on('unhandledRejection', onRejection)
+  const INJECT = 'cannot get property "remote.commands" without inject'
+  const ctx = {
+    effect(fn) { fn() },
+    inject(_names, plugin) { plugin(ctx) },
+    get(name) {
+      if (name === 'connection') return { rpc: { async call() { return { ok: true, value: { sites: [site], lastOpenedId: site.id } } } } }
+      if (name === 'layout') return { selectPanel() {}, panels: { setRightbar() {} } }
+      if (name === 'uiWorkspace') return { openSession() {} }
+      if (name === 'sidebarRight') return { openTab() {}, mounted: { getSnapshot: () => 'sess-1', subscribe() { return () => {} } } }
+      if (name === 'workspaces') return { async create() { return { workspaceId: 'ws-1', path: site.workspaceDir, title: site.name, sessionIds: ['sess-1'] } } }
+      if (name === 'sessions') return {
+        binding(id) { return bindingReady ? { ctx: { id } } : undefined },
+        scope(id) { return bindingReady ? { id } : undefined },
+      }
+      if (name === 'conversation') return {
+        input: { for() { return { setDraft(text) { drafts.push(text) }, submit() { submitted.push(drafts.at(-1)) } } } },
+      }
+      if (name === 'commandUi') return { register(contribution) { slash.push(contribution); return () => {} } }
+      if (name === 'remote.commands' || name === 'remote') {
+        if (remoteMode === 'throw') throw new Error(INJECT)
+        if (remoteMode === 'missing') return undefined
+        if (remoteMode === 'getter' && name === 'remote') {
+          return { get commands() { throw new Error(INJECT) } }
+        }
+        if (remoteMode === 'present' && name === 'remote.commands') {
+          return { async execute(sessionId, line, attachments) { executed.push([sessionId, line, attachments]) } }
+        }
+        return undefined
+      }
+      return undefined
+    },
+    locale: {
+      register(_ns, dicts) { Object.assign(dict, dicts); return () => {} },
+      bind() { return key => dict.zh[key] },
+    },
+    slots: {
+      inject(_name, register) { register() },
+      register(options, component) {
+        if (options.name === 'main') guide = component
+        if (options.id === 'erp-explore-hint') hint = component
+        return () => {}
+      },
+    },
+  }
+  function collect(node) {
+    const nodes = []
+    const walk = current => {
+      if (current == null || typeof current !== 'object') return
+      if (Array.isArray(current)) { for (const item of current) walk(item); return }
+      if (typeof current.type === 'function') { walk(current.type(current.props ?? {})); return }
+      nodes.push(current)
+      walk(current.props.children)
+    }
+    walk(node)
+    return nodes
+  }
+  try {
+    exports.apply(ctx)
+    assert.deepEqual(slash.map(item => item.name), ['探索', '更新探索'])
+    preset = guideState([site], true)
+    cursor = 0
+    const explore = collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索')
+    assert.equal(typeof explore.props.onClick, 'function')
+    bindingReady = false
+    explore.props.onClick()
+    await new Promise(resolve => { setTimeout(resolve, 50) })
+    assert.deepEqual(drafts, [])
+    bindingReady = true
+    await new Promise(resolve => { setTimeout(resolve, 80) })
+    assert.deepEqual(drafts, ['/探索'])
+    assert.deepEqual(submitted, ['/探索'])
+    assert.deepEqual(executed, [])
+    assert.deepEqual(rejected, [])
+
+    drafts.length = 0
+    submitted.length = 0
+    remoteMode = 'getter'
+    const exploreAction = slash.find(item => item.name === '探索')
+    exploreAction.ui.run({ sessionId: 'sess-1' })
+    await new Promise(resolve => { setTimeout(resolve, 20) })
+    assert.deepEqual(drafts, ['/explore'])
+    assert.deepEqual(submitted, ['/explore'])
+    assert.deepEqual(rejected, [])
+    const updateAction = slash.find(item => item.name === '更新探索')
+    drafts.length = 0
+    submitted.length = 0
+    updateAction.ui.run({ sessionId: 'sess-1' })
+    await new Promise(resolve => { setTimeout(resolve, 20) })
+    assert.deepEqual(submitted, ['/explore-update'])
+
+    drafts.length = 0
+    submitted.length = 0
+    executed.length = 0
+    bindingReady = false
+    remoteMode = 'present'
+    cursor = 0
+    collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索').props.onClick()
+    await new Promise(resolve => { setTimeout(resolve, 500) })
+    assert.deepEqual(drafts, [])
+    assert.equal(executed.length, 1)
+    assert.equal(executed[0][0], 'sess-1')
+    assert.equal(executed[0][1], '/explore')
+    assert.equal(JSON.stringify([...executed[0][2]]), '[]')
+    assert.deepEqual(rejected, [])
+
+    executed.length = 0
+    preset = null
+    cursor = 0
+    assert.equal(collect(element(hint, {})).some(node => node.type === 'p'), false)
+    remoteMode = 'throw'
+    cursor = 0
+    preset = guideState([site], true)
+    collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索').props.onClick()
+    await new Promise(resolve => { setTimeout(resolve, 500) })
+    assert.deepEqual(executed, [])
+    assert.deepEqual(drafts, [])
+    assert.deepEqual(rejected, [])
+    preset = null
+    cursor = 0
+    const hintNodes = collect(element(hint, {}))
+    assert.equal(hintNodes.some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint), true)
+  } finally {
+    process.off('unhandledRejection', onRejection)
+  }
+})

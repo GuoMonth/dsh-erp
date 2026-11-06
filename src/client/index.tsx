@@ -292,34 +292,151 @@ interface FileDrop {
 }
 
 let hintedSession = ''
+const hintListeners = new Set<() => void>()
 
 function markExploreHint(sessionId: string): void {
   hintedSession = sessionId
+  for (const listener of hintListeners) listener()
 }
 
-function hostCommands(ctx: ClientCtx): { execute(sessionId: string, line: string, attachments: readonly never[]): Promise<unknown> } | undefined {
-  const remote = (ctx.get('remote') ?? (ctx as { remote?: unknown }).remote) as {
-    commands?: { execute(sessionId: string, line: string, attachments: readonly never[]): Promise<unknown> }
-  } | undefined
-  return remote?.commands
+function watchExploreHint(listener: () => void): () => void {
+  hintListeners.add(listener)
+  return () => { hintListeners.delete(listener) }
 }
 
-function executeHost(ctx: ClientCtx, sessionId: string, line: '/explore' | '/explore-update'): void {
-  void hostCommands(ctx)?.execute(sessionId, line, [])
+interface HostCommandApi {
+  execute(sessionId: string, line: string, attachments: readonly never[]): Promise<unknown>
 }
 
-function submitLine(ctx: ClientCtx, sessionId: string, line: string): void {
-  const hostLine = line === '/更新探索' || line === '/explore-update' ? '/explore-update' : '/explore'
-  if (ctx.get('commandUi')) {
-    const sessions = ctx.get('sessions') as { binding?(id: string): { ctx?: unknown } | undefined } | undefined
-    const conversation = ctx.get('conversation') as { input?: { for?(actx: unknown): { setDraft(text: string): void; submit(): void } } } | undefined
-    const binding = sessions?.binding?.(sessionId)
-    try {
-      const input = binding?.ctx ? conversation?.input?.for?.(binding.ctx) : undefined
-      if (input) { input.setDraft(line); input.submit(); return }
-    } catch { /* The composer is not mounted yet; the host command still runs. */ }
+interface ComposerInput {
+  setDraft(text: string): void
+  submit(): void
+}
+
+/** Cordis `get` returns `undefined` for a service this fiber did not inject. Property access throws. */
+function readService(ctx: ClientCtx, name: string): unknown {
+  try {
+    return (ctx.get as (service: string, strict?: boolean) => unknown).call(ctx, name, false)
+  } catch {
+    return undefined
   }
-  executeHost(ctx, sessionId, hostLine)
+}
+
+/**
+ * Host slash execution. `remote.commands` is its own service.
+ * Reading it as `remote.commands` throws `cannot get property "remote.commands" without inject`
+ * when this plugin did not declare that inject. `get` does not.
+ */
+function hostCommands(ctx: ClientCtx): HostCommandApi | undefined {
+  const direct = readService(ctx, 'remote.commands') as HostCommandApi | undefined
+  if (typeof direct?.execute === 'function') return direct
+  try {
+    const remote = readService(ctx, 'remote') as { commands?: HostCommandApi } | undefined
+    const commands = remote?.commands
+    if (typeof commands?.execute === 'function') return commands
+  } catch {
+    /* Not injected. The composer path still sends the line. */
+  }
+  return undefined
+}
+
+function sessionScope(ctx: ClientCtx, sessionId: string): unknown {
+  const sessions = readService(ctx, 'sessions') as {
+    binding?(id: string): { ctx?: unknown } | undefined
+    scope?(id: string): unknown
+  } | undefined
+  try {
+    return sessions?.binding?.(sessionId)?.ctx ?? sessions?.scope?.(sessionId)
+  } catch {
+    return undefined
+  }
+}
+
+function readComposer(ctx: ClientCtx, sessionId: string): ComposerInput | undefined {
+  const conversation = readService(ctx, 'conversation') as {
+    input?: { for?(actx: unknown): ComposerInput | undefined }
+  } | undefined
+  const actx = sessionScope(ctx, sessionId)
+  if (!actx || !conversation?.input?.for) return undefined
+  try {
+    const input = conversation.input.for(actx)
+    if (!input || typeof input.setDraft !== 'function' || typeof input.submit !== 'function') return undefined
+    return input
+  } catch {
+    return undefined
+  }
+}
+
+const COMPOSER_TRIES = 8
+const COMPOSER_WAIT_MS = 40
+
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => { setTimeout(resolve, ms) })
+}
+
+/** The session view can publish its binding just after it is shown. */
+async function composerInput(ctx: ClientCtx, sessionId: string): Promise<ComposerInput | undefined> {
+  for (let attempt = 0; attempt < COMPOSER_TRIES; attempt += 1) {
+    const input = readComposer(ctx, sessionId)
+    if (input) return input
+    if (attempt < COMPOSER_TRIES - 1) await wait(COMPOSER_WAIT_MS)
+  }
+  return undefined
+}
+
+function hostLineOf(line: string): '/explore' | '/explore-update' {
+  return line === '/更新探索' || line === '/explore-update' ? '/explore-update' : '/explore'
+}
+
+async function sendHost(ctx: ClientCtx, sessionId: string, hostLine: '/explore' | '/explore-update'): Promise<boolean> {
+  const commands = hostCommands(ctx)
+  if (!commands) return false
+  try {
+    await commands.execute(sessionId, hostLine, [])
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function sendComposer(input: ComposerInput, line: string): Promise<boolean> {
+  try {
+    input.setDraft(line)
+    input.submit()
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Start explore the way typing the slash line does.
+ * The composer is preferred. The host command is the fallback when the composer is not mounted.
+ * Neither a missing `remote.commands` nor a failed submit throws.
+ */
+async function submitLine(ctx: ClientCtx, sessionId: string, line: string): Promise<boolean> {
+  const hostLine = hostLineOf(line)
+  const spelling = line.startsWith('/') ? line : hostLine
+  const input = await composerInput(ctx, sessionId)
+  if (input && await sendComposer(input, spelling)) return true
+  if (await sendHost(ctx, sessionId, hostLine)) return true
+  if (input && spelling !== hostLine && await sendComposer(input, hostLine)) return true
+  try { input?.setDraft(spelling) } catch { /* The composer disappeared during the retry. */ }
+  markExploreHint(sessionId)
+  return false
+}
+
+/** Client slash actions run inside command adjudication, so the host submit is deferred one turn. */
+function runSlash(ctx: ClientCtx, sessionId: string, hostLine: '/explore' | '/explore-update'): void {
+  setTimeout(() => {
+    void (async () => {
+      if (await sendHost(ctx, sessionId, hostLine)) return
+      const input = readComposer(ctx, sessionId)
+      if (input && await sendComposer(input, hostLine)) return
+      try { input?.setDraft(hostLine) } catch { /* Leave the conversation hint instead. */ }
+      markExploreHint(sessionId)
+    })()
+  }, 0)
 }
 
 function ExploreHint({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
@@ -327,10 +444,11 @@ function ExploreHint({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string })
   const [sessionId, setSessionId] = useState(() => String(sidebar?.mounted?.getSnapshot() ?? ''))
   useEffect(() => {
     const mounted = sidebar?.mounted
-    if (!mounted) return
-    const read = () => { setSessionId(String(mounted.getSnapshot() ?? '')) }
+    const read = () => { setSessionId(String(mounted?.getSnapshot() ?? '')) }
     read()
-    return mounted.subscribe(read)
+    const stopMounted = mounted?.subscribe(read)
+    const stopHint = watchExploreHint(read)
+    return () => { stopMounted?.(); stopHint() }
   }, [sidebar])
   if (!sessionId || sessionId !== hintedSession) return null
   return <p className="erp-explore-hint">{t('exploreHint')}</p>
@@ -350,7 +468,7 @@ function registerSlash(ctx: ClientCtx, t: (key: string) => string): void {
   const commandUi = ctx.get('commandUi') as SlashUi | undefined
   if (!commandUi) return
   const action = (hostLine: '/explore' | '/explore-update') => (session: { sessionId?: string }) => {
-    if (session.sessionId) executeHost(ctx, session.sessionId, hostLine)
+    if (session.sessionId) runSlash(ctx, session.sessionId, hostLine)
   }
   ctx.effect(() => {
     const stop = [
@@ -452,7 +570,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
         layout, sessions, uiWorkspace, sidebar, ...(conversation ? { conversation } : {}), ...(hostWorkspaces ? { workspaces: hostWorkspaces } : {}),
         bind: async (siteId, sessionId) => { await guideOf(ctx, { op: 'bind', siteId, sessionId }) },
         hint: markExploreHint,
-        submitLine: (sessionId, line) => { submitLine(ctx, sessionId, line) },
+        submitLine: (sessionId, line) => submitLine(ctx, sessionId, line),
       }, site, { ...(fresh ? { fresh: true } : {}), ...(follow?.prefill ? { prefill: follow.prefill } : {}), ...(follow?.submit ? { submit: follow.submit } : {}) })
       applyGuide(await guideOf(ctx, { op: 'opened', id: site.id }))
     } catch (cause) { setError(message(t, cause)) }

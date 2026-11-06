@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Start exploring sends `/探索` through the open conversation. The composer is retried briefly after the session is shown. When it is not mounted, the host command still runs if `remote.commands` can be read with `get`. A host that does not inject that service no longer shows `cannot get property "remote.commands" without inject`. The same guard covers `/探索` and `/更新探索`.
 - The guide panel is a set of cards. Continue and Open are filled primary buttons. When the current site already has a conversation, that site is a workspace card: New chat, Start exploring, and Export share pack, then a drop zone for a share pack. The pack is chosen with 选择 .zip 文件 / Choose .zip, or by dropping a .zip on that zone. The browser's file-button chrome is not shown. Saved sites are cards. Add a site is a dashed card that opens the URL form, and the form stays open when the list is empty.
 - A site workspace is titled with its display name. Adding or opening a site enters that folder's conversation, so the composer is not left on "Choose a workspace". The right browser starts near 70% of the chat and browser together, and a later drag is kept.
 - A new conversation in an ERP workspace opens that site's entry in the right browser. This includes the panel's New chat and a session the host creates in that folder. Chats in one workspace share the desktop browser sign-in for this run. Restarting the app may require signing in again. The plugin does not store passwords or cookies.
