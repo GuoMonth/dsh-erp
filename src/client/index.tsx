@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_CHANNEL, API_ENDPOINT, PRODUCT_ENTRY, PRODUCT_PANEL } from '../product/names.ts'
 import { resumeTarget } from '../product/resume.ts'
 import { normalizeBookmark } from '../product/bookmark.ts'
@@ -39,7 +39,12 @@ const zh: Record<string, string> = {
   updateCommand: '更新探索',
   updateCommandHint: '再走一轮，覆盖这个站点上一次探索。',
   share: '分享',
+  exportPack: '导出分享包',
   importPack: '导入分享包',
+  chooseZip: '选择 .zip 文件',
+  importDrop: '把 .zip 拖到这里，导入当前站点。',
+  importing: '正在导入…',
+  addSite: '添加站点',
   imported: '已导入分享包，记录待复核。导入不授予登录或写入权限。',
   packInvalid: '这份分享包无法读取。请换一份 schemaVersion 1 的 zip，或检查文件是否完整。',
   packLine: '第 {line} 行已跳过 {kind}（{reason}）。',
@@ -91,7 +96,12 @@ const en: Record<string, string> = {
   updateCommand: 'Update explore',
   updateCommandHint: 'Run another round. This round covers the previous explore for this site.',
   share: 'Share',
+  exportPack: 'Export share pack',
   importPack: 'Import share pack',
+  chooseZip: 'Choose .zip',
+  importDrop: 'Drop a .zip here to import it into the current site.',
+  importing: 'Importing…',
+  addSite: 'Add a site',
   imported: 'Share pack imported. Records need review. Import grants no login or write permission.',
   packInvalid: 'This share pack cannot be read. Use a schemaVersion 1 zip, or check that the file is intact.',
   packLine: 'Line {line}: skipped {kind} ({reason}).',
@@ -139,23 +149,45 @@ export const inject = ['slots', 'locale']
 const STYLE = `
 .erp-assistant{box-sizing:border-box;height:100%;overflow:auto;padding:28px 32px;color:var(--dsw-alias-label-primary,inherit);font:inherit}
 .erp-assistant h1{margin:0 0 8px;font-size:22px;font-weight:600}
-.erp-assistant .lede,.erp-assistant .note{margin:0 0 16px;max-width:42rem;color:var(--dsw-alias-label-secondary,inherit)}
-.erp-assistant form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;margin:0 0 20px}
+.erp-assistant h2{margin:0 0 10px;font-size:15px;font-weight:600}
+.erp-assistant .lede,.erp-assistant>.note{margin:0 0 16px;max-width:42rem;color:var(--dsw-alias-label-secondary,inherit)}
 .erp-assistant label{display:grid;gap:4px;font-size:12px}
 .erp-assistant input,.erp-assistant button{font:inherit;color:inherit;background:transparent;border:1px solid var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:8px;padding:8px 10px}
 .erp-assistant button{cursor:pointer}
-.erp-assistant ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}
-.erp-assistant li{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;gap:8px;align-items:center}
-.erp-assistant .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 16px}
-.erp-assistant .actions label{display:flex;flex-direction:row;gap:8px;align-items:center;font-size:inherit}
+.erp-assistant button:disabled{cursor:default;opacity:.55}
+.erp-assistant button.primary{background:var(--dsw-alias-label-primary,#1c1c1c);color:Canvas;border-color:transparent;font-weight:600;white-space:nowrap}
+.erp-assistant button.primary:hover:not(:disabled){opacity:.88}
+.erp-assistant button.link{border:none;background:transparent;padding:2px 0;border-radius:0;color:var(--dsw-alias-label-secondary,inherit)}
+.erp-assistant button.link:hover:not(:disabled){color:var(--dsw-alias-label-primary,inherit);text-decoration:underline}
+.erp-assistant button.link.danger,.erp-assistant button.link.danger:hover:not(:disabled){color:var(--dsw-alias-danger,inherit)}
+.erp-assistant button:focus-visible{outline:2px solid var(--dsw-alias-label-primary,currentColor);outline-offset:2px}
+.erp-assistant .card,.erp-assistant .continue{border:1px solid var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:10px;padding:14px;background:transparent;min-width:0}
+.erp-assistant .continue{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 12px}
+.erp-assistant .workspace{margin:0 0 16px}
+.erp-assistant .card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .erp-assistant .identity{display:flex;gap:10px;align-items:flex-start;min-width:0}
 .erp-assistant .continue .identity{flex:1}
 .erp-assistant .identity .text{min-width:0}
 .erp-assistant .identity strong,.erp-assistant .meta{overflow-wrap:anywhere}
 .erp-assistant .mark{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
 .erp-assistant .mark img{width:18px;height:18px;object-fit:contain;border-radius:4px;display:block}
-.erp-assistant .meta{display:block;color:var(--dsw-alias-label-secondary,inherit);font-size:12px}
-.erp-assistant .continue{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 20px;padding:12px 14px;border:1px solid var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:8px}
+.erp-assistant .meta,.erp-assistant .hint{display:block;color:var(--dsw-alias-label-secondary,inherit);font-size:12px;line-height:1.45}
+.erp-assistant .hint{margin:8px 0 0}
+.erp-assistant .links{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px}
+.erp-assistant .drop{position:relative;display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:14px;padding:12px;border:1px dashed var(--dsw-alias-separator,rgba(127,127,127,.45));border-radius:8px}
+.erp-assistant .continue .primary,.erp-assistant .card-head .primary,.erp-assistant .drop .primary{flex:none}
+.erp-assistant .drop.over{border-color:var(--dsw-alias-label-primary,inherit)}
+.erp-assistant .drop-copy{display:grid;gap:4px;min-width:0}
+.erp-assistant input.file-input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;opacity:0;pointer-events:none}
+.erp-assistant .sites{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.erp-assistant .sites>li{display:block}
+.erp-assistant .add-card{border-style:dashed}
+.erp-assistant .add-card.open{grid-column:1/-1}
+.erp-assistant .add-hit{display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;min-height:96px;border:none;background:transparent;padding:0;text-align:left;border-radius:0}
+.erp-assistant .add-hit strong{font-size:15px}
+.erp-assistant .add-card form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end;margin:0 0 8px}
+.erp-assistant .form-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.erp-assistant>.error{margin:0 0 12px}
 .erp-assistant .error{color:var(--dsw-alias-danger,inherit)}
 .erp-explore-hint{margin:8px 0 0;max-width:28rem;color:var(--dsw-alias-label-secondary,inherit);font-size:13px;line-height:1.45}
 `
@@ -239,6 +271,24 @@ async function encodeFile(file: File): Promise<string> {
   let binary = ''
   for (let index = 0; index < data.length; index += 0x8000) binary += String.fromCharCode(...data.subarray(index, index + 0x8000))
   return btoa(binary)
+}
+
+function isZip(file: File): boolean {
+  return /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed'
+}
+
+function zipFrom(list: ArrayLike<File> | undefined): File | undefined {
+  if (!list) return undefined
+  for (let index = 0; index < list.length; index += 1) {
+    const file = list[index]
+    if (file && isZip(file)) return file
+  }
+  return undefined
+}
+
+interface FileDrop {
+  preventDefault(): void
+  dataTransfer?: { files?: ArrayLike<File>; dropEffect?: string }
 }
 
 let hintedSession = ''
@@ -326,13 +376,23 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [importFile, setImportFile] = useState('')
+  const [importNote, setImportNote] = useState('')
+  const [importBad, setImportBad] = useState(false)
+  const [ready, setReady] = useState(false)
+  const fileRef = useRef<HTMLInputElement | null>(null)
+  const dragDepth = useRef(0)
+  const addRef = useRef<HTMLLIElement | null>(null)
   function applyGuide(value: GuideValue) {
     setSites(value.sites)
     setLastOpenedId(value.lastOpenedId ?? '')
     if (value.explore) setStatus(exploreNote(t, value.explore))
     if (value.imported) {
       const warnings = packWarnings(t, value.imported.warnings)
-      setStatus(warnings ? `${t('imported')} ${warnings}` : t('imported'))
+      setImportNote(warnings ? `${t('imported')} ${warnings}` : t('imported'))
+      setImportBad(false)
     }
     if (value.pack) downloadPack(value.pack.fileName, value.pack.bytes)
   }
@@ -340,6 +400,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     setEditing('')
     setName('')
     setUrl('')
+    setAdding(false)
   }
   function workspaces() {
     return ctx.get('workspaces') as {
@@ -350,7 +411,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   }
   useEffect(() => {
     let alive = true
-    guideOf(ctx, { op: 'list' }).then(value => { if (alive) applyGuide(value) }, cause => { if (alive) setError(message(t, cause)) })
+    guideOf(ctx, { op: 'list' }).then(value => { if (alive) { applyGuide(value); setReady(true) } }, cause => { if (alive) { setError(message(t, cause)); setReady(true) } })
     return () => { alive = false }
   }, [ctx, t])
   async function submit(event: { preventDefault(): void }) {
@@ -409,6 +470,8 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     setName(site.name)
     setUrl(site.entryUrl)
     setError('')
+    setAdding(false)
+    queueMicrotask(() => addRef.current?.scrollIntoView({ block: 'nearest' }))
   }
   async function explore(site: ListedSite) {
     await open(site, false, { submit: '/探索' })
@@ -423,59 +486,139 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   async function importPack(site: ListedSite, file: File) {
     setBusy(true)
     setError('')
+    setImportFile(file.name)
+    setImportNote('')
+    setImportBad(false)
     try {
       const bytes = await encodeFile(file)
       applyGuide(await guideOf(ctx, { op: 'import-pack', id: site.id, bytes }))
-    } catch (cause) { setError(message(t, cause)) }
-    finally { setBusy(false) }
+    } catch (cause) {
+      setImportNote(message(t, cause))
+      setImportBad(true)
+    } finally { setBusy(false) }
+  }
+  function rejectPack() {
+    setImportFile('')
+    setImportNote(t('packInvalid'))
+    setImportBad(true)
   }
   const firstRun = sites.length === 0
   const current = resumeTarget(sites, lastOpenedId)
+  const formOpen = (ready && firstRun) || adding || editing !== ''
+  function enterDrag(event: FileDrop) {
+    event.preventDefault()
+    if (busy) return
+    dragDepth.current += 1
+    setDragOver(true)
+  }
+  function leaveDrag(event: FileDrop) {
+    event.preventDefault()
+    if (busy) return
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) setDragOver(false)
+  }
+  function allowDrag(event: FileDrop) {
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+  }
+  function acceptDrop(event: FileDrop) {
+    event.preventDefault()
+    dragDepth.current = 0
+    setDragOver(false)
+    if (busy || !current?.sessionId) return
+    const file = zipFrom(event.dataTransfer?.files)
+    if (!file) { rejectPack(); return }
+    void importPack(current, file)
+  }
+  function pickPack(file: File | undefined) {
+    if (!file || !current?.sessionId) return
+    if (!isZip(file)) { rejectPack(); return }
+    void importPack(current, file)
+  }
   return <section className="erp-assistant" data-dsh-plugin="@guosheng_047/dsh-erp" data-erp-assistant={firstRun ? 'first-run' : 'returning'}>
     <h1>{t('title')}</h1>
     <p className="lede">{firstRun ? t('firstRun') : t('returning')}</p>
-    {current && !firstRun ? <div className="continue">
+    {current && !firstRun ? <div className="card continue">
       <span className="identity">
         <SiteFavicon entryUrl={current.entryUrl} fallback={<ErpIcon size={18} />} />
         <span className="text"><strong>{current.name}</strong><span className="meta">{current.entryUrl}</span><span className="meta">{t('continueHint')}</span></span>
       </span>
-      <button type="button" disabled={busy} onClick={() => { void open(current) }}>{busy ? t('working') : t('continue')}</button>
+      <button type="button" className="primary" disabled={busy} onClick={() => { void open(current) }}>{busy ? t('working') : t('continue')}</button>
     </div> : null}
-    {current?.sessionId ? <div className="actions">
-      <button type="button" disabled={busy} title={t('newChatHint')} onClick={() => { void open(current, true) }}>{t('newChat')}</button>
-      <button type="button" disabled={busy} onClick={() => { void explore(current) }}>{t('explore')}</button>
-      <button type="button" disabled={busy} onClick={() => { void share(current) }}>{t('share')}</button>
-      {/* The file control keeps the browser's own "Choose File" label. */}
-      <label>{t('importPack')}<input type="file" accept=".zip,application/zip" disabled={busy} onChange={event => {
-        const file = event.currentTarget.files?.[0]
-        event.currentTarget.value = ''
-        if (file) void importPack(current, file)
-      }} /></label>
-    </div> : null}
-    {current?.sessionId ? <p className="note">{t('newChatHint')}</p> : null}
-    <form onSubmit={event => { void submit(event) }} autoComplete="off">
-      <label>{t('url')}<input value={url} onChange={event => setUrl(event.target.value)} type="url" inputMode="url" required autoComplete="off" /></label>
-      <label>{t('name')}<input value={name} onChange={event => setName(event.target.value)} autoComplete="off" placeholder={t('nameHint')} /></label>
-      <button type="submit" disabled={busy || !url.trim()}>{editing ? t('save') : t('add')}</button>
-      {editing ? <button type="button" onClick={clearForm}>{t('cancel')}</button> : null}
-    </form>
+    {current?.sessionId ? <article className="card workspace">
+      <div className="card-head">
+        <span className="identity">
+          <SiteFavicon entryUrl={current.entryUrl} fallback={<ErpIcon size={18} />} />
+          <span className="text"><strong>{current.name}</strong><span className="meta">{current.entryUrl}</span></span>
+        </span>
+      </div>
+      <p className="hint">{t('newChatHint')}</p>
+      <div className="links">
+        <button type="button" className="link" title={t('newChatHint')} disabled={busy} onClick={() => { void open(current, true) }}>{t('newChat')}</button>
+        <button type="button" className="link" disabled={busy} onClick={() => { void explore(current) }}>{t('explore')}</button>
+        <button type="button" className="link" disabled={busy} onClick={() => { void share(current) }}>{t('exportPack')}</button>
+      </div>
+      <div className={dragOver ? 'drop over' : 'drop'} onDragEnter={enterDrag} onDragOver={allowDrag} onDragLeave={leaveDrag} onDrop={acceptDrop}>
+        <div className="drop-copy">
+          <strong>{t('importPack')}</strong>
+          <span className="meta">{t('importDrop')}</span>
+          {importFile ? <span className="meta">{busy ? `${t('importing')} ${importFile}` : importFile}</span> : null}
+          {importNote ? <span className={importBad ? 'error' : 'meta'}>{importNote}</span> : null}
+        </div>
+        <button type="button" className="primary" disabled={busy} onClick={() => { fileRef.current?.click() }}>{t('chooseZip')}</button>
+        <input
+          ref={fileRef}
+          className="file-input"
+          type="file"
+          accept=".zip,application/zip"
+          tabIndex={-1}
+          aria-hidden="true"
+          disabled={busy}
+          onChange={event => {
+            const input = event.currentTarget
+            const file = input.files?.[0]
+            input.value = ''
+            pickPack(file)
+          }}
+        />
+      </div>
+    </article> : null}
     {error ? <p className="error">{error}</p> : null}
     {status ? <p className="note">{status}</p> : null}
-    {firstRun ? <p className="note">{t('firstHint')}</p> : <>
-      <ul>
-        {sites.map(site => <li key={site.id}>
+    <ul className="sites">
+      {sites.map(site => <li className="card" key={site.id}>
+        <div className="card-head">
           <span className="identity">
             <SiteFavicon entryUrl={site.entryUrl} fallback={<ErpIcon size={18} />} />
             <span className="text"><strong>{site.name}</strong><span className="meta">{site.entryUrl}</span></span>
           </span>
-          <button type="button" disabled={busy} onClick={() => { void open(site) }}>{busy ? t('working') : t('open')}</button>
-          <button type="button" disabled={busy} onClick={() => { void share(site) }}>{t('share')}</button>
-          <button type="button" onClick={() => { edit(site) }}>{t('edit')}</button>
-          <button type="button" onClick={() => { void remove(site.id) }}>{t('remove')}</button>
-        </li>)}
-      </ul>
-      <p className="note">{editing ? t('editHint') : t('saved')}</p>
-    </>}
+          <button type="button" className="primary" disabled={busy} onClick={() => { void open(site) }}>{busy ? t('working') : t('open')}</button>
+        </div>
+        <div className="links">
+          <button type="button" className="link" disabled={busy} onClick={() => { void share(site) }}>{t('share')}</button>
+          <button type="button" className="link" onClick={() => { edit(site) }}>{t('edit')}</button>
+          <button type="button" className="link danger" onClick={() => { void remove(site.id) }}>{t('remove')}</button>
+        </div>
+      </li>)}
+      <li className={formOpen ? 'card add-card open' : 'card add-card'} ref={addRef}>
+        {formOpen ? <>
+          <h2>{editing ? t('edit') : t('addSite')}</h2>
+          <form onSubmit={event => { void submit(event) }} autoComplete="off">
+            <label>{t('url')}<input value={url} onChange={event => setUrl(event.target.value)} type="url" inputMode="url" required autoComplete="off" /></label>
+            <label>{t('name')}<input value={name} onChange={event => setName(event.target.value)} autoComplete="off" placeholder={t('nameHint')} /></label>
+            <div className="form-actions">
+              <button type="submit" className="primary" disabled={busy || !url.trim()}>{editing ? t('save') : t('add')}</button>
+              {editing || (adding && !firstRun) ? <button type="button" onClick={clearForm}>{t('cancel')}</button> : null}
+            </div>
+          </form>
+          <p className="meta">{editing ? t('editHint') : t('saved')}</p>
+          {firstRun && !editing ? <p className="meta">{t('firstHint')}</p> : null}
+        </> : <button type="button" className="add-hit" onClick={() => { setAdding(true) }}>
+          <strong>{t('addSite')}</strong>
+          <span className="meta">{t('saved')}</span>
+        </button>}
+      </li>
+    </ul>
   </section>
 }
 
