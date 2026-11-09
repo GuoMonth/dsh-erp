@@ -126,6 +126,8 @@ test('the wizard rejects a bad entry and an edited account stays off other sessi
   const cleaned = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://user:pw@b.example/app/' })
   assert.equal(cleaned.ok, true)
   assert.equal(cleaned.value.sites.find(site => site.entryUrl.includes('b.example')).entryUrl, 'https://b.example/app/')
+  const again = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/app/orders/9' })
+  assert.equal(again.value.sites.filter(site => site.entryUrl.includes('b.example')).length, 1)
   assert.doesNotMatch(JSON.stringify(cleaned.value), /user:pw|pw@/)
   const rooted = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://c.example/login' })
   assert.equal(rooted.ok, true)

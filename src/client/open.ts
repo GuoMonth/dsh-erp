@@ -91,6 +91,50 @@ export function widenErpBrowser(layout: OpenDeps['layout']): void {
   setRightbar(Math.round(Math.max(0, viewport - sidebar) * BROWSER_SHARE))
 }
 
+interface BrowserTab {
+  id: string
+  kind: string
+}
+
+interface BrowserTabs {
+  tabsIn?(sessionId: string): readonly BrowserTab[]
+  tabDomain?: {
+    occurrence(sessionId: string, tab: { id: string }): { navigation: { getSnapshot(): { params?: { url?: string } } } }
+  }
+  focus?(tabId: string): void
+}
+
+/** Compare site entries without the query string. A trailing slash does not make a second page. */
+function entryKey(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const path = parsed.pathname.replace(/\/+$/, '')
+    return `${parsed.origin}${path}/`
+  } catch { return url }
+}
+
+/**
+ * Browser pages are `multiple: true`, so `openTab('browser')` always mints a new tab.
+ * The controller can still list the session's tabs and focus one whose opener URL is this entry.
+ */
+export function revealSiteTab(sidebar: OpenDeps['sidebar'], sessionId: string | undefined, entryUrl: string): void {
+  const reader = sidebar as OpenDeps['sidebar'] & BrowserTabs
+  const want = entryKey(entryUrl)
+  if (sessionId && reader.tabsIn && reader.tabDomain && reader.focus) {
+    for (const tab of reader.tabsIn(sessionId)) {
+      if (tab.kind !== 'browser') continue
+      let current: string | undefined
+      try { current = reader.tabDomain.occurrence(sessionId, tab).navigation.getSnapshot().params?.url }
+      catch { continue }
+      if (current && entryKey(current) === want) {
+        reader.focus(tab.id)
+        return
+      }
+    }
+  }
+  sidebar.openTab('browser', { params: { url: entryUrl } })
+}
+
 function waitUntilShown(sidebar: OpenDeps['sidebar'], sessionId: string): Promise<void> {
   const mounted = sidebar.mounted
   if (!mounted) return Promise.resolve()
@@ -104,11 +148,15 @@ function waitUntilShown(sidebar: OpenDeps['sidebar'], sessionId: string): Promis
   })
 }
 
-function prefillDraft(deps: OpenDeps, sessionId: string, text: string): void {
-  deps.hint?.(sessionId)
+function placeDraft(deps: OpenDeps, sessionId: string, text: string): void {
   const binding = deps.sessions.binding(sessionId)
   if (!binding) return
   deps.conversation?.input.requestDraftInitialization(binding, { prompt: text, whenDraftExists: 'keep' })
+}
+
+function prefillDraft(deps: OpenDeps, sessionId: string, text: string): void {
+  deps.hint?.(sessionId)
+  placeDraft(deps, sessionId, text)
 }
 
 async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView | undefined, options: OpenOptions | undefined): Promise<string> {
@@ -116,6 +164,7 @@ async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView 
   if (member && site.sessionId) {
     deps.uiWorkspace.openSession(site.sessionId)
     if (options?.prefill) prefillDraft(deps, site.sessionId, options.prefill)
+    if (options?.submit) placeDraft(deps, site.sessionId, options.submit)
     return site.sessionId
   }
   if (!view) throw new Error('ERP_SESSION_ID')
@@ -123,6 +172,7 @@ async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView 
   await deps.uiWorkspace.openWorkspace(view.workspaceId, id => {
     opened = id
     if (options?.prefill) prefillDraft(deps, id, options.prefill)
+    if (options?.submit) placeDraft(deps, id, options.submit)
   })
   if (!opened) throw new Error('ERP_SESSION_ID')
   if (opened !== site.sessionId) await deps.bind(site.id, opened)
@@ -165,7 +215,7 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
     if (!url) return
     pending.delete(current)
     widenErpBrowser(deps.layout)
-    try { deps.sidebar.openTab('browser', { params: { url } }) }
+    try { revealSiteTab(deps.sidebar, current, url) }
     catch { /* The official browser is not available in this host. */ }
   }
   const scan = async () => {
@@ -232,10 +282,23 @@ export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: Open
   deps.layout.selectPanel(null)
   await waitUntilShown(deps.sidebar, sessionId)
   if (options?.submit) await deps.submitLine?.(sessionId, options.submit)
-  try { deps.sidebar.openTab('browser', { params: { url: site.entryUrl } }) }
-  catch (error) {
+  let opened = false
+  let last: unknown
+  for (let attempt = 0; attempt < 40 && !opened; attempt += 1) {
+    try {
+      revealSiteTab(deps.sidebar, sessionId, site.entryUrl)
+      opened = true
+    } catch (error) {
+      last = error
+      const message = error instanceof Error ? error.message : String(error)
+      if (!message.includes('no session surface is mounted')) break
+      await new Promise(resolve => { setTimeout(resolve, 100) })
+    }
+  }
+  if (!opened) {
+    const detail = last instanceof Error ? last.message : ''
     deps.layout.selectPanel(PRODUCT_PANEL)
-    throw error
+    throw new Error(detail.startsWith('ERP_') ? detail : 'ERP_BROWSER_UNAVAILABLE')
   }
   return sessionId
 }
