@@ -5,10 +5,13 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
+import Sessions, { SessionId } from '@deepseek-ai/dsh-session'
+import Agents from '@deepseek-ai/dsh-agent'
+import Loop from '@deepseek-ai/dsh-agent-loop'
 import * as plugin from '../dist/index.js'
 import { mount, exercise } from './harness.mjs'
 
-test('real DSH 0.2.1-rc.5 tools, model service, schema and unload lifecycle', async () => { await exercise(plugin) })
+test('real DSH 0.2.2-rc.1 tools, model service, schema and unload lifecycle', async () => { await exercise(plugin) })
 test('cancelling execution worker leaves independent durable storage usable', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-isolation-'))
   const host = await mount(plugin, undefined, { dataDir: join(root, 'data') })
@@ -38,20 +41,25 @@ test('plugin can be disabled and reloaded with a fresh worker', async t => {
 test('host approval grants once, rejects and leaves an audit trail', async t => {
   const host = await mount(plugin)
   t.after(() => host.dispose())
-  const events = [{ type: 'turn/start' }]
-  const agent = { session: {
-    get seq() { return events.length },
-    eventAt(seq) { return events[seq] },
-    append(type, data) { const e = { type, data }; events.push(e); return e },
-  } }
+  await host.ctx.plugin(Sessions)
+  await host.ctx.plugin(Agents)
+  await host.ctx.plugin(Loop, { agents: [] })
+  const created = await host.ctx.agents.create({ sessionId: SessionId('approval-probe'), meta: { cwd: process.cwd() } })
+  t.after(() => created.dispose())
+  await created.agent.whenIdle()
+  created.agent.session.append('turn/start', { turn: 1 })
   let answer = 'allowed-once'
   const stop = host.ctx.on('approval/request', async () => answer)
   t.after(stop)
+  const agent = created.agent
   assert.equal((await host.run('erp_approval_probe', {}, { agent })).isError, false)
   answer = 'rejected'
   assert.equal((await host.run('erp_approval_probe', {}, { agent })).isError, true)
-  assert.equal(events.filter(e => e.type === 'approval/asked').length, 2)
-  assert.deepEqual(events.filter(e => e.type === 'approval/decided').map(e => e.data.outcome), ['allowed-once', 'rejected'])
+  const session = agent.session
+  const events = []
+  for (let seq = 0; seq < session.seq; seq += 1) events.push(session.eventAt(seq))
+  assert.equal(events.filter(event => event.type === 'approval/asked').length, 2)
+  assert.deepEqual(events.filter(event => event.type === 'approval/decided').map(event => event.data.outcome), ['allowed-once', 'rejected'])
 })
 test('model failure is reported as failure rather than a successful empty reply', async t => {
   class Failing extends LlmAdapter { async *stream() { throw new Error('provider failure') } }

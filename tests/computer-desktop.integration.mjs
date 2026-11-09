@@ -5,9 +5,11 @@ import { chromium } from 'playwright'
 import { Context } from '@deepseek-ai/cordis'
 import ComputerUse from '@deepseek-ai/dsh-computer-use'
 import Tools from '@deepseek-ai/dsh-tools'
+import * as NativeExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import * as Native from '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
+import { executeCall } from './harness.mjs'
 
 // Run explicitly inside an isolated Xvfb display; never send fixture input to the user's desktop.
 test('native Cua observes a real X11 window, clicks in background and reobserves the independently verified outcome',
@@ -16,9 +18,9 @@ test('native Cua observes a real X11 window, clicks in background and reobserves
     const ctx = new Context()
     let server, browser
     t.after(async () => { await ctx.fiber.dispose(); await browser?.close(); await server?.close() })
-    await ctx.plugin(ComputerUse); await ctx.plugin(Tools); await ctx.plugin(SystemPrompt); await ctx.plugin(Native)
+    await ctx.plugin(ComputerUse); await ctx.plugin(Tools); await ctx.plugin(SystemPrompt); await ctx.plugin(NativeExecutor); await ctx.plugin(Native)
     let sequence = 0
-    const run = (name, args = {}) => ctx.tools.execute({ name: `cua_driver_native__${name}`, arguments: args,
+    const run = (name, args = {}) => executeCall(ctx.tools, { name: `cua_driver_native__${name}`, args,
       signal: new AbortController().signal, callId: ToolCallId(`desktop-${++sequence}`) })
     assert.equal((await run('check_permissions', { prompt: false })).isError, false)
     server = await chromium.launchServer({ executablePath: chromium.executablePath(), headless: false,

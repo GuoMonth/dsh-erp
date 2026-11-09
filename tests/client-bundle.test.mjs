@@ -111,40 +111,57 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.equal(guide.options.key, 'erp-assistant')
   const calls = []
   const sessionId = await exports.openErpSite({
-    sessions: { async create() { return 'sess-1' } },
-    uiWorkspace: { openSession(id) { calls.push(['session', id]) } },
+    sessions: { binding() { return undefined } },
+    uiWorkspace: {
+      openSession() { throw new Error('a new site uses openWorkspace') },
+      async openWorkspace(id, before) { calls.push(['open', id]); before('sess-1') },
+    },
     layout: { selectPanel(id) { calls.push(['panel', id]) } },
     sidebar: { openTab(kind, options) { calls.push(['tab', kind, options]) } },
+    workspaces: {
+      async create(input) { return { workspaceId: 'ws-1', path: input.path, title: '', sessionIds: [] } },
+    },
     async bind(siteId, id) { calls.push(['bind', siteId, id]) },
   }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', account: 'work' })
   assert.equal(sessionId, 'sess-1')
   assert.equal(JSON.stringify(calls), JSON.stringify([
+    ['open', 'ws-1'],
     ['bind', 'site_a', 'sess-1'],
-    ['session', 'sess-1'],
     ['panel', null],
     ['tab', 'browser', { params: { url: 'https://erp.example/app/' } }],
   ]))
   calls.length = 0
   await exports.openErpSite({
-    sessions: { async create() { throw new Error('should reuse the bound session') } },
-    uiWorkspace: { openSession(id) { calls.push(['session', id]) } },
+    sessions: { binding() { return undefined } },
+    uiWorkspace: {
+      openSession(id) { calls.push(['session', id]) },
+      async openWorkspace() { throw new Error('a member session stays open') },
+    },
     layout: { selectPanel(id) { calls.push(['panel', id]) } },
     sidebar: { openTab(kind, options) { calls.push(['tab', kind, options]) } },
+    workspaces: {
+      async create() { return { workspaceId: 'ws-b', path: '/tmp/erp-b', title: '', sessionIds: ['sess-2'] } },
+    },
     async bind() { throw new Error('should not rebind') },
   }, { id: 'site_b', entryUrl: 'https://other.example/app/', workspaceDir: '/tmp/erp-b', sessionId: 'sess-2' })
   assert.equal(JSON.stringify(calls.map(call => call[0] === 'tab' ? call[2].params.url : call[1])), JSON.stringify(['sess-2', null, 'https://other.example/app/']))
   calls.length = 0
   const fresh = []
   await exports.openErpSite({
-    sessions: { async create(input) { fresh.push(input.cwd); return 'sess-3' } },
-    uiWorkspace: { openSession(id) { calls.push(['session', id]) } },
+    sessions: { binding() { return undefined } },
+    uiWorkspace: {
+      openSession() { throw new Error('a new chat uses openWorkspace') },
+      async openWorkspace(_id, before) { calls.push(['open']); before('sess-3') },
+    },
     layout: { selectPanel(id) { calls.push(['panel', id]) } },
     sidebar: { openTab(kind, options) { calls.push(['tab', kind, options]) } },
-    workspaces: { async create(input) { fresh.push(input.path) } },
+    workspaces: {
+      async create(input) { fresh.push(input.path); return { workspaceId: 'ws-a', path: input.path, title: 'Alpha', sessionIds: ['sess-1'] } },
+    },
     async bind(siteId, id) { calls.push(['bind', siteId, id]) },
-  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', sessionId: 'sess-1' }, { fresh: true })
-  assert.deepEqual(fresh, ['/tmp/erp-a', '/tmp/erp-a'])
-  assert.equal(calls[0][2], 'sess-3')
+  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', sessionId: 'sess-1' }, { fresh: true })
+  assert.deepEqual(fresh, ['/tmp/erp-a'])
+  assert.equal(calls[1][2], 'sess-3')
   const titled = []
   const drafted = []
   const widths = []
@@ -468,7 +485,7 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
                 submitted.push(draftText)
                 if (acceptSubmit) { draftText = ''; phase = 'plain' }
               },
-              get snapshot() { return { draft: draftText, phase } },
+              state: { getSnapshot: () => ({ draft: draftText, phase, attachmentIds: [] }) },
             }
           },
           requestDraftInitialization(binding, options) {
@@ -563,16 +580,13 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
     collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索').props.onClick()
     await new Promise(resolve => { setTimeout(resolve, 500) })
     assert.deepEqual(drafts, [])
-    assert.equal(executed.length, 1)
-    assert.equal(executed[0][0], 'sess-1')
-    assert.equal(executed[0][1], '/explore')
-    assert.equal(JSON.stringify([...executed[0][2]]), '[]')
+    assert.deepEqual(executed, [])
     assert.deepEqual(rejected, [])
 
     executed.length = 0
     preset = null
     cursor = 0
-    assert.equal(collect(element(hint, {})).some(node => node.type === 'p'), false)
+    assert.equal(collect(element(hint, {})).some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint), true)
     remoteMode = 'throw'
     cursor = 0
     preset = guideState([site], true)
@@ -632,7 +646,8 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
   const inits = []
   const rejected = []
   let draftText = ''
-  const phase = 'plain'
+  let phase = 'plain'
+  let attachmentIds = []
   const onRejection = reason => { rejected.push(reason) }
   process.on('unhandledRejection', onRejection)
   const INJECT = 'cannot get property "remote.commands" without inject'
@@ -652,7 +667,7 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
             return {
               setDraft(text) { draftText = text; drafts.push(text) },
               submit() { submitted.push(draftText) },
-              get snapshot() { return { draft: draftText, phase } },
+              state: { getSnapshot: () => ({ draft: draftText, phase, attachmentIds }) },
             }
           },
           requestDraftInitialization(binding, options) {
@@ -698,6 +713,12 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
     cursor = 0
     return collect(element(hint, {})).some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint)
   }
+  const pressExplore = () => {
+    preset = guideState([site], true)
+    cursor = 0
+    const button = collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索')
+    button.props.onClick()
+  }
   try {
     exports.apply(ctx)
     assert.equal(hintText(), false)
@@ -709,20 +730,46 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
     assert.deepEqual(submitted, ['/探索'])
     assert.equal(draftText, '/探索')
     assert.deepEqual(drafts, ['/探索'])
-    assert.deepEqual(inits, [['sess-1', '/探索', 'keep']])
+    assert.deepEqual(inits, [])
     assert.equal(hintText(), true)
     assert.deepEqual(rejected, [])
 
     drafts.length = 0
     submitted.length = 0
     inits.length = 0
+    draftText = '已有草稿'
+    pressExplore()
+    await new Promise(resolve => { setTimeout(resolve, 40) })
+    assert.deepEqual(submitted, [])
+    assert.equal(draftText, '已有草稿')
+    assert.deepEqual(drafts, [])
+    assert.equal(hintText(), true)
+
     draftText = ''
+    attachmentIds = ['file-1']
+    submitted.length = 0
+    pressExplore()
+    await new Promise(resolve => { setTimeout(resolve, 40) })
+    assert.deepEqual(submitted, [])
+    assert.deepEqual(attachmentIds, ['file-1'])
+    attachmentIds = []
+
+    phase = 'sending'
+    draftText = '/探索'
+    submitted.length = 0
+    pressExplore()
+    await new Promise(resolve => { setTimeout(resolve, 40) })
+    assert.deepEqual(submitted, [])
+    assert.equal(draftText, '/探索')
+    phase = 'plain'
+    draftText = ''
+
     const exploreAction = slash.find(item => item.name === '探索')
     exploreAction.ui.run({ sessionId: 'sess-1' })
     await new Promise(resolve => { setTimeout(resolve, 40) })
     assert.deepEqual(submitted, ['/explore'])
     assert.equal(draftText, '/explore')
-    assert.deepEqual(inits, [['sess-1', '/explore', 'keep']])
+    assert.deepEqual(inits, [])
     assert.equal(hintText(), true)
     assert.deepEqual(rejected, [])
   } finally {

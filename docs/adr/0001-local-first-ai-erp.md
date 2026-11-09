@@ -1,6 +1,6 @@
 # ADR 0001：效果优先的本地 ERP 插件
 
-日期：2026-09-11。状态：技术决策仍有效；学习策略由 [ADR 0002](0002-menu-first-domain-learning.md) 补充并替代相关条目。宿主钉扎 `dsh-v0.1.5-rc.2` 已过时，当前目标是 DSH 0.2.1-rc.5，见 [README](../../README.md)。探索队列以 [ADR 0003](0003-controller-bfs-index.md) 为准。站点书签、工作区文件夹与分享包见已接受的 [ADR 0004](0004-bookmark-workspace-share-pack.md)。
+日期：2026-09-11。状态：技术决策仍有效；学习策略由 [ADR 0002](0002-menu-first-domain-learning.md) 补充并替代相关条目。宿主钉扎 `dsh-v0.1.5-rc.2` 已过时，当前目标是 DSH 0.2.2-rc.1，见 [README](../../README.md)。探索队列以 [ADR 0003](0003-controller-bfs-index.md) 为准。站点书签、工作区文件夹与分享包见已接受的 [ADR 0004](0004-bookmark-workspace-share-pack.md)。
 
 ## 背景与优先级
 

@@ -1,3 +1,10 @@
+import type { ISessions, SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { IWorkspaces, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ILayout } from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-browser/client'
+import type { ISidebarRight } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
+import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { PRODUCT_PANEL } from '../product/names.ts'
 
 export interface OpenSite {
@@ -9,50 +16,21 @@ export interface OpenSite {
   name?: string
 }
 
-export interface WorkspaceRecord {
-  workspaceId: string
-  path: string
-  title: string
-  sessionIds?: readonly string[]
-}
-
-interface WorkspaceApi {
-  create(input: { path: string }): Promise<unknown>
-  rename?(workspaceId: string, title: string): Promise<unknown>
-  list?: { getSnapshot(): { items?: readonly unknown[] } }
-}
+/** `ILayout` publishes selection. The controller still holds the column actions. */
+export type LayoutColumns = ILayout & { readonly panels?: { setRightbar(px: number): void } }
 
 export interface OpenDeps {
-  sessions: {
-    create(input: { cwd?: string; workspaceId?: string }): Promise<string>
-    binding?(id: string): unknown
-  }
-  uiWorkspace: {
-    openSession(sessionId: string): void
-    openWorkspace?(workspaceId: string, beforeOpen?: (sessionId: string) => void): Promise<void>
-  }
-  layout: {
-    selectPanel(panelId: string | null): void
-    panels?: { setRightbar?(px: number): void }
-  }
-  sidebar: { openTab(kind: 'browser', options: { params: { url: string } }): void; mounted?: { getSnapshot(): unknown; subscribe(listener: () => void): () => void } }
-  workspaces?: WorkspaceApi
-  conversation?: {
-    input?: {
-      requestDraftInitialization?(binding: unknown, options: { prompt?: string; whenDraftExists?: 'keep' | 'replace' | 'append' }): unknown
-    }
-  }
+  sessions: Pick<ISessions, 'binding'>
+  uiWorkspace: Pick<UiWorkspace, 'openSession' | 'openWorkspace'>
+  layout: LayoutColumns
+  sidebar: Pick<ISidebarRight, 'openTab' | 'mounted'>
+  workspaces?: IWorkspaces
+  conversation?: Pick<IConversation, 'input'>
   bind(siteId: string, sessionId: string): Promise<void>
   /** Called when a first-run draft is prepared, before the composer is shown. */
   hint?(sessionId: string): void
-  /** Submit a slash line in the open conversation. Absent hosts skip it. */
+  /** Submit a slash line in the open conversation. */
   submitLine?(sessionId: string, line: string): Promise<void> | void
-}
-
-export interface SessionListSnapshot {
-  phase: string
-  ids: readonly string[]
-  byId: Readonly<Record<string, { cwd?: string; origin?: string }>>
 }
 
 export interface ListedErpSite {
@@ -61,12 +39,7 @@ export interface ListedErpSite {
 }
 
 export interface WatchDeps {
-  sessions: {
-    list?: {
-      getSnapshot(): SessionListSnapshot
-      subscribe(listener: () => void): () => void
-    }
-  }
+  sessions: Pick<ISessions, 'list'>
   sidebar: OpenDeps['sidebar']
   layout: OpenDeps['layout']
   /** Current bookmarks. `undefined` means the list could not be read and the scan should retry. */
@@ -87,36 +60,19 @@ const SIDEBAR_DEFAULT = 280
 const SIDEBAR_AUTO_COLLAPSE = 1024
 let browserWidened = false
 
-function basename(path: string): string {
-  const trimmed = path.replace(/[\\/]+$/, '')
-  const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
-  return cut === -1 ? trimmed : trimmed.slice(cut + 1)
-}
-
-function asWorkspace(value: unknown): WorkspaceRecord | undefined {
-  if (!value || typeof value !== 'object') return undefined
-  const nested = 'workspace' in value ? value.workspace : value
-  if (!nested || typeof nested !== 'object') return undefined
-  const row = nested as { workspaceId?: unknown; path?: unknown; title?: unknown; sessionIds?: unknown }
-  if (typeof row.workspaceId !== 'string' || typeof row.path !== 'string') return undefined
-  const sessionIds = Array.isArray(row.sessionIds) ? row.sessionIds.filter((id): id is string => typeof id === 'string') : undefined
-  return { workspaceId: row.workspaceId, path: row.path, title: typeof row.title === 'string' ? row.title : '', ...(sessionIds ? { sessionIds } : {}) }
-}
-
 /**
  * Register the site folder and name it with the display name.
- * `create` only accepts a path, so the hash basename is renamed when `rename` exists.
+ * `create` accepts a path and resolves an existing folder. The title is `rename`.
  */
-export async function ensureWorkspace(workspaces: OpenDeps['workspaces'], workspaceDir: string, title?: string): Promise<WorkspaceRecord | undefined> {
+export async function ensureWorkspace(workspaces: OpenDeps['workspaces'], workspaceDir: string, title?: string): Promise<WorkspaceView | undefined> {
   if (!workspaces) return undefined
-  let view = asWorkspace(await workspaces.create({ path: workspaceDir }).catch(() => undefined))
-  if (!view) {
-    const items = workspaces.list?.getSnapshot().items ?? []
-    view = items.map(asWorkspace).find(item => item?.path === workspaceDir)
-  }
+  let view: WorkspaceView | undefined
+  try { view = await workspaces.create({ path: workspaceDir }) }
+  catch { view = workspaces.list.getSnapshot().items.find(item => item.path === workspaceDir) }
   const name = title?.trim()
-  if (!view || !name || view.title === name || !workspaces.rename) return view
-  return asWorkspace(await workspaces.rename(view.workspaceId, name).catch(() => undefined)) ?? view
+  if (!view || !name || view.title === name) return view
+  try { return await workspaces.rename(view.workspaceId, name) }
+  catch { return view }
 }
 
 /**
@@ -150,43 +106,27 @@ function waitUntilShown(sidebar: OpenDeps['sidebar'], sessionId: string): Promis
 
 function prefillDraft(deps: OpenDeps, sessionId: string, text: string): void {
   deps.hint?.(sessionId)
-  const binding = deps.sessions.binding?.(sessionId)
+  const binding = deps.sessions.binding(sessionId)
   if (!binding) return
-  deps.conversation?.input?.requestDraftInitialization?.(binding, { prompt: text, whenDraftExists: 'keep' })
+  deps.conversation?.input.requestDraftInitialization(binding, { prompt: text, whenDraftExists: 'keep' })
 }
 
-async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceRecord | undefined, options: OpenOptions | undefined): Promise<string> {
-  const member = Boolean(site.sessionId && view?.sessionIds?.includes(site.sessionId))
-  if (!options?.fresh && member && site.sessionId) {
+async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView | undefined, options: OpenOptions | undefined): Promise<string> {
+  const member = Boolean(!options?.fresh && site.sessionId && view?.sessionIds.includes(site.sessionId))
+  if (member && site.sessionId) {
     deps.uiWorkspace.openSession(site.sessionId)
     if (options?.prefill) prefillDraft(deps, site.sessionId, options.prefill)
     return site.sessionId
   }
-  if (view && deps.uiWorkspace.openWorkspace) {
-    let opened = ''
-    await deps.uiWorkspace.openWorkspace(view.workspaceId, id => {
-      opened = id
-      if (options?.prefill) prefillDraft(deps, id, options.prefill)
-    })
-    if (!opened) throw new Error('ERP_SESSION_ID')
-    if (opened !== site.sessionId) await deps.bind(site.id, opened)
-    return opened
-  }
-  let sessionId = options?.fresh ? undefined : site.sessionId
-  const create = () => deps.sessions.create(view ? { workspaceId: view.workspaceId } : { cwd: site.workspaceDir })
-  if (!sessionId) {
-    sessionId = await create()
-    await deps.bind(site.id, sessionId)
-  }
-  try { deps.uiWorkspace.openSession(sessionId) }
-  catch {
-    await ensureWorkspace(deps.workspaces, site.workspaceDir, site.name)
-    sessionId = await create()
-    await deps.bind(site.id, sessionId)
-    deps.uiWorkspace.openSession(sessionId)
-  }
-  if (options?.prefill) prefillDraft(deps, sessionId, options.prefill)
-  return sessionId
+  if (!view) throw new Error('ERP_SESSION_ID')
+  let opened = ''
+  await deps.uiWorkspace.openWorkspace(view.workspaceId, id => {
+    opened = id
+    if (options?.prefill) prefillDraft(deps, id, options.prefill)
+  })
+  if (!opened) throw new Error('ERP_SESSION_ID')
+  if (opened !== site.sessionId) await deps.bind(site.id, opened)
+  return opened
 }
 
 function normalizeDir(path: string): string {
@@ -212,7 +152,6 @@ export function sessionEntry(sites: readonly ListedErpSite[], cwd: string | unde
  */
 export function watchWorkspaceSessions(deps: WatchDeps): () => void {
   const list = deps.sessions.list
-  if (!list) return () => {}
   const seen = new Set<string>()
   const pending = new Map<string, string>()
   let seeded = false
@@ -258,7 +197,7 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
           for (const id of fresh) seen.delete(id)
           continue
         }
-        const current = list.getSnapshot().byId
+        const current: SessionListState['byId'] = list.getSnapshot().byId
         for (const id of fresh) {
           const summary = current[id]
           if (!summary || summary.origin === 'subagent') continue
@@ -282,8 +221,8 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
 /**
  * Focus this site's conversation, then open its entry URL in the official sidebar Browser.
  * The user signs in there. This function never receives a password.
- * A returned workspace id is opened with `openWorkspace`, which attaches the session
- * so the composer selector shows that folder. `sessions.create({ cwd })` does not.
+ * `openWorkspace` attaches the session, so the composer is not left on "Choose a workspace".
+ * Continue reopens the bound member. A new chat reuses that folder's blank session.
  */
 export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: OpenOptions): Promise<string> {
   if (!deps.sidebar?.openTab) throw new Error('ERP_BROWSER_UNAVAILABLE')

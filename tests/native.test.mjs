@@ -12,6 +12,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import Tools from '@deepseek-ai/dsh-tools'
+import * as NativeExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import Llm, { ToolCallId } from '@deepseek-ai/dsh-llm'
 import Sessions, { SessionId } from '@deepseek-ai/dsh-session'
 import Agents from '@deepseek-ai/dsh-agent'
@@ -23,6 +24,7 @@ import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
 import ComputerUse from '@deepseek-ai/dsh-computer-use'
 import * as NativeComputer from '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'
 import * as NativeErp from '../dist/native.js'
+import { executeCall } from './harness.mjs'
 
 test('official Browser Use attaches to real Chromium, respects approval, saves evidence and cleans Session ownership', { timeout: 60000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-native-'))
@@ -39,7 +41,7 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   server.listen(0, '127.0.0.1'); await once(server, 'listening')
   const url = `http://127.0.0.1:${server.address().port}/erp/`
   const modules = new Map([
-    ['prompt', SystemPrompt], ['tools', Tools], ['llm', Llm], ['sessions', Sessions],
+    ['prompt', SystemPrompt], ['tools', Tools], ['executor', NativeExecutor], ['llm', Llm], ['sessions', Sessions],
     ['agents', Agents], ['loop', Loop], ['projections', Projections], ['approval', Approval],
     ['fs', Fs], ['workingDirectory', WorkingDirectory], ['erp', NativeErp],
   ])
@@ -57,15 +59,15 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   ctx.loader.internal = { version: 'v2', async import(name) { assert.ok(modules.has(name)); return modules.get(name) } }
   await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(config).href } }); await ctx.loader.await()
   for (const entry of ctx.loader.entries()) if (entry.fiber) await entry.fiber.await()
-  const status = await ctx.tools.execute({ name: 'erp_native_status', arguments: {}, callId: ToolCallId('native-status'), signal: new AbortController().signal })
+  const status = await executeCall(ctx.tools, { name: 'erp_native_status', callId: ToolCallId('native-status'), signal: new AbortController().signal })
   assert.equal(status.isError, false, JSON.stringify(status)); assert.equal(status.value.browserProvider, 'playwright-mcp')
   assert.equal(ctx.tools.schemas().some(tool => tool.name === 'erp_browser_action'), false)
   const first = await ctx.agents.create({ sessionId: SessionId('native-first'), meta: { cwd: root } })
   await first.agent.whenIdle(); first.agent.session.append('turn/start', { turn: 1 })
   let answer = 'rejected', sequence = 0, decisions = 0
   ctx.on('approval/request', async () => { decisions++; return answer })
-  const run = (name, arguments_ = {}, owner = first) => ctx.tools.execute({ agent: owner.agent,
-    callId: ToolCallId(`native-test-${++sequence}`), name, arguments: arguments_, signal: new AbortController().signal })
+  const run = (name, arguments_ = {}, owner = first) => executeCall(ctx.tools, { agent: owner.agent,
+    callId: ToolCallId(`native-test-${++sequence}`), name, args: arguments_, signal: new AbortController().signal })
   assert.equal((await run('mcp__playwright-mcp__browser_navigate', { url })).isError, true)
   assert.equal((await attached.contexts()[0].pages()[0]?.url()) ?? 'about:blank', 'about:blank')
   answer = 'allowed-once'
@@ -95,11 +97,11 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
 
 test('installed native Cua Driver exposes its catalog, reads permission status without prompting and unloads', { timeout: 30000 }, async t => {
   const ctx = new Context(); t.after(() => ctx.fiber.dispose())
-  await ctx.plugin(ComputerUse); await ctx.plugin(SystemPrompt); await ctx.plugin(Tools)
+  await ctx.plugin(ComputerUse); await ctx.plugin(SystemPrompt); await ctx.plugin(Tools); await ctx.plugin(NativeExecutor)
   const provider = await ctx.plugin(NativeComputer)
   assert.equal(ctx.computerUse.providerName, 'cua-driver-native')
   assert.ok(ctx.tools.schemas().some(tool => tool.name === 'cua_driver_native__get_window_state'))
-  const result = await ctx.tools.execute({ name: 'cua_driver_native__check_permissions', arguments: { prompt: false },
+  const result = await executeCall(ctx.tools, { name: 'cua_driver_native__check_permissions', args: { prompt: false },
     callId: ToolCallId('native-permissions'), signal: new AbortController().signal })
   assert.equal(result.isError, false, JSON.stringify(result))
   assert.ok(result.content.some(block => block.type === 'text')); assert.ok(!result.content.some(block => block.type === 'image'))

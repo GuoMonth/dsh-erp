@@ -164,8 +164,12 @@ test('v2 upgrade preserves observations and checkpoints; failed v3 migration res
   }
 })
 function agent() {
-  const events = [{ type: 'turn/start' }]
-  return { session: { get seq() { return events.length }, eventAt(seq) { return events[seq] }, append(type, data) { const e = { type, data }; events.push(e); return e } } }
+  const events = [{ type: 'turn/start', seq: 0 }]
+  return { session: {
+    header: undefined, inheritedEventCount: 0,
+    get seq() { return events.length }, eventAt(seq) { return events[seq] }, snapshotEvents() { return events },
+    append(type, data) { const e = { type, data, seq: events.length }; events.push(e); return e },
+  } }
 }
 test('native tools accumulate AI knowledge without asking; user attribution needs exact host approval and rejects stale confirmation', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-knowledge-tools-'))
