@@ -73,6 +73,7 @@ const zh: Record<string, string> = {
   unknownSite: '列表里没有这个站点。',
   session: '这段对话还不能绑到这个站点。',
   failed: '操作没有完成。请再试一次。',
+  duplicate: '这个网址已经在列表里，已打开那个站点。',
 }
 const en: Record<string, string> = {
   entry: PRODUCT_ENTRY.en,
@@ -130,6 +131,7 @@ const en: Record<string, string> = {
   unknownSite: 'That site is not in this list.',
   session: 'This conversation cannot be bound to this site.',
   failed: 'That action did not finish. Try again.',
+  duplicate: 'This URL is already listed. Opened that site.',
 }
 
 interface ClientCtx {
@@ -298,10 +300,20 @@ interface FileDrop {
 }
 
 let hintedSession = ''
+let notedSession = ''
+let notedText = ''
+let parkedGuideError = ''
 const hintListeners = new Set<() => void>()
 
 function markExploreHint(sessionId: string): void {
   hintedSession = sessionId
+  for (const listener of hintListeners) listener()
+}
+
+/** A one-line note on the session that is actually on screen. The guide unmounts when that session opens. */
+function markSessionNote(sessionId: string, text: string): void {
+  notedSession = sessionId
+  notedText = text
   for (const listener of hintListeners) listener()
 }
 
@@ -348,60 +360,81 @@ async function composerInput(ctx: ClientCtx, sessionId: string): Promise<Session
   return undefined
 }
 
-/** The line was not sent. Keep it when the composer is not mounted, and show the sign-in hint. */
-function leaveExploreDraft(ctx: ClientCtx, sessionId: string, line: string): void {
-  markExploreHint(sessionId)
+/** Put the line on the retained session. `keep` does not replace a draft the user already wrote. */
+function placeDraft(ctx: ClientCtx, sessionId: string, line: string): 'applied' | 'preserved' | 'blocked' | 'missing' {
   const binding = sessionsOf(ctx)?.binding(sessionId)
   const input = conversationOf(ctx)?.input
-  if (!binding || !input) return
-  try { input.requestDraftInitialization(binding, { prompt: line, whenDraftExists: 'keep' }) }
-  catch { /* The binding is not the retained generation. The hint still names the line. */ }
+  if (!binding || !input) return 'missing'
+  try { return input.requestDraftInitialization(binding, { prompt: line, whenDraftExists: 'keep' }) }
+  catch { return 'missing' }
 }
 
 /**
- * Send one explore line through the composer.
- * `sending` / `submitting` / `adjudicating` belong to the host: this does not
- * send again, and it does not treat an in-flight phase as acceptance.
- * An empty draft is filled, then submitted. A different draft is left alone.
- * A submit that stays `plain` with the line still in the draft did not send
- * (no model, or a preview that kept the draft). The line stays, with the sign-in hint.
+ * One-click explore.
+ * `/探索` is a client command: submitting it consumes the token and does not enter `sending`,
+ * so an empty composer afterwards is not a sent message. The draft is put back on the visible
+ * session, with the sign-in hint. A phase of `sending` means the host accepted an ordinary message.
+ * A draft the user already wrote is left alone.
  */
 async function submitLine(ctx: ClientCtx, sessionId: string, line: string): Promise<void> {
   const want = line.trim()
   const input = await composerInput(ctx, sessionId)
-  if (!input) { leaveExploreDraft(ctx, sessionId, line); return }
-  const before = input.state.getSnapshot()
+  placeDraft(ctx, sessionId, line)
+  const live = input ?? await composerInput(ctx, sessionId)
+  if (!live) { markExploreHint(sessionId); return }
+  const before = live.state.getSnapshot()
   if (BUSY_PHASE.has(before.phase)) return
   const text = before.draft.trim()
   if ((text !== '' && text !== want) || (text === '' && before.attachmentIds.length > 0)) {
     markExploreHint(sessionId)
     return
   }
-  if (text === '') input.setDraft(line)
-  input.submit()
-  const after = input.state.getSnapshot()
-  if (BUSY_PHASE.has(after.phase)) return
-  if (after.draft.trim() === want) markExploreHint(sessionId)
+  if (text === '') live.setDraft(line)
+  live.submit()
+  let sawSending = false
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const snap = live.state.getSnapshot()
+    if (snap.phase === 'sending') sawSending = true
+    if (!BUSY_PHASE.has(snap.phase)) break
+    await wait(COMPOSER_WAIT_MS)
+  }
+  const after = live.state.getSnapshot()
+  if (sawSending && after.phase === 'sending') return
+  if (sawSending && after.draft.trim() === '') return
+  if (after.draft.trim() !== want) placeDraft(ctx, sessionId, line)
+  markExploreHint(sessionId)
 }
 
-/** Client slash actions run inside command adjudication, so the submit is deferred one turn. */
+/** The menu consumes the token before this runs. Put the visible spelling back; do not submit again. */
 function runSlash(ctx: ClientCtx, sessionId: string, hostLine: '/explore' | '/explore-update'): void {
-  setTimeout(() => { void submitLine(ctx, sessionId, hostLine) }, 0)
+  const shown = hostLine === '/explore-update' ? '/更新探索' : '/探索'
+  setTimeout(() => {
+    placeDraft(ctx, sessionId, shown)
+    markExploreHint(sessionId)
+  }, 0)
 }
 
 function ExploreHint({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   const sidebar = readService(ctx, 'sidebarRight') as ISidebarRight | undefined
   const [sessionId, setSessionId] = useState(() => String(sidebar?.mounted?.getSnapshot() ?? ''))
+  const [rev, setRev] = useState(0)
   useEffect(() => {
     const mounted = sidebar?.mounted
-    const read = () => { setSessionId(String(mounted?.getSnapshot() ?? '')) }
+    const read = () => { setSessionId(String(mounted?.getSnapshot() ?? '')); setRev(value => value + 1) }
     read()
     const stopMounted = mounted?.subscribe(read)
     const stopHint = watchExploreHint(read)
     return () => { stopMounted?.(); stopHint() }
   }, [sidebar])
-  if (!sessionId || sessionId !== hintedSession) return null
-  return <p className="erp-explore-hint">{t('exploreHint')}</p>
+  void rev
+  if (!sessionId) return null
+  const note = sessionId === notedSession ? notedText : ''
+  const explore = sessionId === hintedSession
+  if (!note && !explore) return null
+  return <>
+    {note ? <p className="erp-explore-hint">{note}</p> : null}
+    {explore ? <p className="erp-explore-hint">{t('exploreHint')}</p> : null}
+  </>
 }
 
 function registerSlash(ctx: ClientCtx, t: (key: string) => string): void {
@@ -433,6 +466,11 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   const [editing, setEditing] = useState('')
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  useEffect(() => {
+    if (!parkedGuideError) return
+    setError(parkedGuideError)
+    parkedGuideError = ''
+  }, [])
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -475,6 +513,22 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     const bookmark = normalizeBookmark(url)
     setBusy(true)
     setError('')
+    if (!editing) {
+      const existing = sites.find(site => {
+        try { return normalizeBookmark(site.entryUrl).entryUrl === bookmark.entryUrl }
+        catch { return false }
+      })
+      if (existing) {
+        const text = t('duplicate')
+        setStatus(text)
+        clearForm()
+        try {
+          const sessionId = await open(existing)
+          if (sessionId) markSessionNote(sessionId, text)
+        } finally { setBusy(false) }
+        return
+      }
+    }
     const fields = { url: bookmark.entryUrl, ...(name.trim() ? { name: name.trim() } : editing ? { name: '' } : {}) }
     try {
       const value = await guideOf(ctx, editing ? { op: 'update', id: editing, ...fields } : { op: 'add', ...fields })
@@ -491,7 +545,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     } catch (cause) { setError(message(t, cause)) }
     finally { setBusy(false) }
   }
-  async function open(site: ListedSite, fresh = false, follow?: { prefill?: string; submit?: string }) {
+  async function open(site: ListedSite, fresh = false, follow?: { prefill?: string; submit?: string }): Promise<string | undefined> {
     setBusy(true)
     setError('')
     try {
@@ -502,14 +556,19 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
       const conversation = readService(ctx, 'conversation') as IConversation | undefined
       const hostWorkspaces = workspaces()
       if (!layout || !sessions || !uiWorkspace || !sidebar) throw new Error('ERP_BROWSER_UNAVAILABLE')
-      await openErpSite({
+      const sessionId = await openErpSite({
         layout, sessions, uiWorkspace, sidebar, ...(conversation ? { conversation } : {}), ...(hostWorkspaces ? { workspaces: hostWorkspaces } : {}),
         bind: async (siteId, sessionId) => { await guideOf(ctx, { op: 'bind', siteId, sessionId }) },
         hint: markExploreHint,
         submitLine: (sessionId, line) => submitLine(ctx, sessionId, line),
       }, site, { ...(fresh ? { fresh: true } : {}), ...(follow?.prefill ? { prefill: follow.prefill } : {}), ...(follow?.submit ? { submit: follow.submit } : {}) })
       applyGuide(await guideOf(ctx, { op: 'opened', id: site.id }))
-    } catch (cause) { setError(message(t, cause)) }
+      return sessionId
+    } catch (cause) {
+      parkedGuideError = message(t, cause)
+      setError(parkedGuideError)
+      return undefined
+    }
     finally { setBusy(false) }
   }
   async function remove(id: string) {

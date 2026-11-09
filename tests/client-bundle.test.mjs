@@ -8,7 +8,7 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.doesNotMatch(code, /账户标签|Account label|应用根地址|Application root/)
   assert.doesNotMatch(code, /type:"password"|type: "password"/)
   let registered
-  const context = { window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } }, console }
+  const context = { window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } }, console, setTimeout, clearTimeout, URL }
   vm.createContext(context)
   vm.runInContext(code, context)
   assert.equal(registered.id, '@guosheng_047/dsh-erp')
@@ -213,6 +213,25 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', sessionId: 'sess-1' })
   assert.deepEqual(titled.slice(-3), [['session', 'sess-1'], ['panel', null], ['tab', 'https://erp.example/app/']])
   assert.equal(widths.length, 1)
+  const focused = []
+  await exports.openErpSite({
+    sessions: { binding() { return undefined } },
+    uiWorkspace: {
+      openSession(id) { focused.push(['session', id]) },
+      async openWorkspace() { throw new Error('member session stays open') },
+    },
+    layout: { selectPanel() {}, panels: { setRightbar() {} } },
+    sidebar: {
+      openTab() { focused.push(['tab']) },
+      mounted: { getSnapshot: () => 'sess-1', subscribe() { return () => {} } },
+      tabsIn() { return [{ id: 'tab-1', kind: 'browser' }, { id: 'tab-2', kind: 'browser' }] },
+      tabDomain: { occurrence(_id, tab) { return { navigation: { getSnapshot: () => ({ params: { url: tab.id === 'tab-1' ? 'https://erp.example/app' : 'https://other.example/' } }) } } } },
+      focus(id) { focused.push(['focus', id]) },
+    },
+    workspaces: { async create() { return { workspaceId: 'ws-1', path: '/tmp/erp-a', title: 'Alpha', sessionIds: ['sess-1'] } } },
+    async bind() { throw new Error('already bound') },
+  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', sessionId: 'sess-1' })
+  assert.deepEqual(focused, [['session', 'sess-1'], ['focus', 'tab-1']])
   const openedTabs = []
   let snapshot = { phase: 'pending', ids: [], byId: {} }
   let shown
@@ -483,7 +502,7 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
               setDraft(text) { draftText = text; drafts.push(text) },
               submit() {
                 submitted.push(draftText)
-                if (acceptSubmit) { draftText = ''; phase = 'plain' }
+                if (acceptSubmit) { phase = 'sending'; draftText = '' }
               },
               state: { getSnapshot: () => ({ draft: draftText, phase, attachmentIds: [] }) },
             }
@@ -548,10 +567,9 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
     assert.deepEqual(drafts, [])
     bindingReady = true
     await new Promise(resolve => { setTimeout(resolve, 80) })
-    assert.deepEqual(drafts, ['/探索'])
     assert.deepEqual(submitted, ['/探索'])
     assert.equal(draftText, '')
-    assert.deepEqual(inits, [])
+    assert.equal(phase, 'sending')
     assert.deepEqual(executed, [])
     assert.deepEqual(rejected, [])
 
@@ -561,15 +579,17 @@ test('start exploring submits /探索 when remote.commands is not injected', asy
     const exploreAction = slash.find(item => item.name === '探索')
     exploreAction.ui.run({ sessionId: 'sess-1' })
     await new Promise(resolve => { setTimeout(resolve, 20) })
-    assert.deepEqual(drafts, ['/explore'])
-    assert.deepEqual(submitted, ['/explore'])
+    assert.equal(draftText, '/探索')
+    assert.deepEqual(submitted, [])
     assert.deepEqual(rejected, [])
     const updateAction = slash.find(item => item.name === '更新探索')
     drafts.length = 0
     submitted.length = 0
+    draftText = ''
     updateAction.ui.run({ sessionId: 'sess-1' })
     await new Promise(resolve => { setTimeout(resolve, 20) })
-    assert.deepEqual(submitted, ['/explore-update'])
+    assert.equal(draftText, '/更新探索')
+    assert.deepEqual(submitted, [])
 
     drafts.length = 0
     submitted.length = 0
@@ -648,6 +668,7 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
   let draftText = ''
   let phase = 'plain'
   let attachmentIds = []
+  let consume = false
   const onRejection = reason => { rejected.push(reason) }
   process.on('unhandledRejection', onRejection)
   const INJECT = 'cannot get property "remote.commands" without inject'
@@ -666,13 +687,16 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
           for() {
             return {
               setDraft(text) { draftText = text; drafts.push(text) },
-              submit() { submitted.push(draftText) },
+              submit() {
+                submitted.push(draftText)
+                if (consume) { draftText = ''; phase = 'plain' }
+              },
               state: { getSnapshot: () => ({ draft: draftText, phase, attachmentIds }) },
             }
           },
           requestDraftInitialization(binding, options) {
             inits.push([binding.ctx.id, options.prompt, options.whenDraftExists])
-            if (options.whenDraftExists === 'keep' && draftText.trim() !== '') return 'preserved'
+            if (options.whenDraftExists === 'keep' && (draftText.trim() !== '' || attachmentIds.length > 0)) return 'preserved'
             draftText = options.prompt ?? ''
             drafts.push(draftText)
             return 'applied'
@@ -729,8 +753,7 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
     await new Promise(resolve => { setTimeout(resolve, 80) })
     assert.deepEqual(submitted, ['/探索'])
     assert.equal(draftText, '/探索')
-    assert.deepEqual(drafts, ['/探索'])
-    assert.deepEqual(inits, [])
+    assert.deepEqual(inits, [['sess-1', '/探索', 'keep'], ['sess-1', '/探索', 'keep']])
     assert.equal(hintText(), true)
     assert.deepEqual(rejected, [])
 
@@ -764,12 +787,31 @@ test('a composer submit that does not take the draft leaves /探索 and the sign
     phase = 'plain'
     draftText = ''
 
+    consume = true
+    draftText = ''
+    phase = 'plain'
+    drafts.length = 0
+    submitted.length = 0
+    inits.length = 0
+    pressExplore()
+    await new Promise(resolve => { setTimeout(resolve, 200) })
+    assert.deepEqual(submitted, ['/探索'])
+    assert.equal(phase, 'plain')
+    assert.equal(draftText, '/探索')
+    assert.equal(hintText(), true)
+    assert.deepEqual(rejected, [])
+
     const exploreAction = slash.find(item => item.name === '探索')
+    consume = false
+    draftText = ''
+    drafts.length = 0
+    submitted.length = 0
+    inits.length = 0
     exploreAction.ui.run({ sessionId: 'sess-1' })
     await new Promise(resolve => { setTimeout(resolve, 40) })
-    assert.deepEqual(submitted, ['/explore'])
-    assert.equal(draftText, '/explore')
-    assert.deepEqual(inits, [])
+    assert.deepEqual(submitted, [])
+    assert.equal(draftText, '/探索')
+    assert.deepEqual(inits, [['sess-1', '/探索', 'keep']])
     assert.equal(hintText(), true)
     assert.deepEqual(rejected, [])
   } finally {
