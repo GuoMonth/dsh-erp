@@ -4,11 +4,11 @@
 
 只有工具、没有入口的安装，助手不在导航里。下一个问题会打开一段空白对话，你登录过的 ERP 也不是这段对话旁边的浏览器。第二家公司用的是同一个对话和同一份索引。
 
-**ERP 助手**就是桌面上的这个工作区。英文界面显示 **Adapt ERP**。要安装的包是 `@guosheng_047/dsh-erp`。在 DSH **0.2.1-rc.5** 上把它加进 **desktop** profile，然后重启。左侧导航列出你的站点。继续会把该站点的对话放在中间，并在右侧官方侧栏浏览器中打开它的入口网址。登录由你自己完成。没有密码栏。每个站点有自己的对话和自己的本地 SQLite 索引。
+**ERP 助手**就是桌面上的这个工作区。英文界面显示 **Adapt ERP**。要安装的包是 `@guosheng_047/dsh-erp`。在 DSH **0.2.2-rc.1** 上把它加进 **desktop** profile，然后重启。左侧导航列出你的站点。继续会把该站点的对话放在中间，并在右侧官方侧栏浏览器中打开它的入口网址。登录由你自己完成。没有密码栏。每个站点有自己的对话和自己的本地 SQLite 索引。
 
 插件仍然只学习浏览器实际显示过的内容。之后的问题读取一段短的层级摘要和一页证据。ERP 写入要等一次新的批准。插件不带你公司的站点知识。
 
-当前版本 **0.1.5**，使用 **DSH 0.2.1-rc.5**（上游预发布版），需要 Node **>=24.18.0 <25**。桌面检查覆盖 Linux x64。Windows 与 macOS 验收仍待完成。`npm run verify` 不包含在线模型或真实 ERP。
+当前版本 **0.1.5**，使用 **DSH 0.2.2-rc.1**（上游预发布版）。DSH 0.2.2-rc.1 需要 Node **>=24.9.0**。本包需要 Node **>=24.18.0 <25**。桌面检查覆盖 Linux x64。Windows 与 macOS 验收仍待完成。`npm run verify` 不包含在线模型或真实 ERP。
 
 ## ERP 还没有找得到的工作区时
 
@@ -36,7 +36,7 @@ Adapt ERP 放在 dsh 里做这件事。它按浏览器实际显示的内容建�
 
 ### 构建者留在原生 dsh 上
 
-你希望模型调用普通的 dsh 浏览器工具，沿用宿主的批准和 Skill，并读取本地索引。安装后的行是 DSH 0.2.1-rc.5 上的 `@guosheng_047/dsh-erp`。桌面入口挂在这个包根本身上。需要插件自带浏览器时，设置 `browserMode: managed`。当前插件不使用 Deskwork。
+你希望模型调用普通的 dsh 浏览器工具，沿用宿主的批准和 Skill，并读取本地索引。安装后的行是 DSH 0.2.2-rc.1 上的 `@guosheng_047/dsh-erp`。桌面入口挂在这个包根本身上。需要插件自带浏览器时，设置 `browserMode: managed`。当前插件不使用 Deskwork。
 
 ## 适合谁
 
@@ -51,7 +51,7 @@ Adapt ERP 放在 dsh 里做这件事。它按浏览器实际显示的内容建�
 - 不无人值守地爬完整套 ERP。一轮结束也不等于覆盖了每种权限或业务规则。深度停在 3。计数只描述这一轮。
 - 编辑本地知识不会改变 ERP。填写字段、选择选项，或标明为变更的点击，各自需要一次 dsh 批准。滚动属于导航。动作之后核对页面。
 - 不依赖 Deskwork，不绑定 Deskwork 网站，也不恢复由模型提交的旧探索队列。宿主路径是原生 Browser Use、官方 Playwright MCP、dsh 批准和 Skill。
-- 不宣称已完成 Windows、macOS、在线模型或真实 ERP 验收。冒烟测试安装打包后的插件，用确定性测试提供方检查 DSH 0.2.1-rc.5 CLI、批准、SQLite 和 Chromium。
+- 不宣称已完成 Windows、macOS、在线模型或真实 ERP 验收。冒烟测试安装打包后的插件，用确定性测试提供方检查 DSH 0.2.2-rc.1 CLI、批准、SQLite 和 Chromium。
 
 页面和摘要里的文字是证据。它不是给模型的指令，也不是过账许可。
 
@@ -68,7 +68,7 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosh
 只有 Node：
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=@deepseek-ai/dsh@0.2.2-rc.1 --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
 ```
 
 使用完整包名。固定版本时，将 `@latest` 换成 `@0.1.5`。浏览器提供方会准备 Chromium。Linux 还需要图形会话和 Chromium 系统库。
@@ -115,7 +115,7 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add @guosheng_
 
 ## 索引如何工作
 
-插件是一项 DSH 服务。标准安装从包根 `@guosheng_047/dsh-erp` 加载原生入口：已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。只有设置 `computerUse: true` 时才加载 Computer Use。这条路径需要可选的 Cua Driver Native 包和操作系统权限。工具结果是带标题的短 Markdown。仅当宿主里存在 OpenUI 服务时才附加一段载荷。DSH 0.2.1-rc.5 不要求该服务。
+插件是一项 DSH 服务。标准安装从包根 `@guosheng_047/dsh-erp` 加载原生入口：已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。只有设置 `computerUse: true` 时才加载 Computer Use。这条路径需要可选的 Cua Driver Native 包和操作系统权限。工具结果是带标题的短 Markdown。仅当宿主里存在 OpenUI 服务时才附加一段载荷。DSH 0.2.2-rc.1 不要求该服务。
 
 原生快照入库前会整理成 `browser-learning-v1`，因此同一条导入路径可以读取它。探索是广度优先，由控制器持有：`erp_learning_begin`、`erp_learning_accept`、`erp_learning_block`、`erp_learning_status`、`erp_learning_pause`。调用方提交观察，不提交下一个单元。
 

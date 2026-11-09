@@ -13,8 +13,12 @@ import { parseRequest } from '../dist/protocol.js'
 const resources = dirname(dirname(dirname(chromium.executablePath())))
 const signal = () => new AbortController().signal
 function agent() {
-  const events = [{ type: 'turn/start' }]
-  return { session: { get seq() { return events.length }, eventAt(i) { return events[i] }, append(type, data) { const e = { type, data }; events.push(e); return e } } }
+  const events = [{ type: 'turn/start', seq: 0 }]
+  return { session: {
+    header: undefined, inheritedEventCount: 0,
+    get seq() { return events.length }, eventAt(i) { return events[i] }, snapshotEvents() { return events },
+    append(type, data) { const e = { type, data, seq: events.length }; events.push(e); return e },
+  } }
 }
 
 for (const path of ['/suite/', '/office/']) test(`empty knowledge learns a distinct ERP UI through native tools and real IPC: ${path}`, async () => {

@@ -6,8 +6,22 @@ import { chromium } from 'playwright'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import Tools from '@deepseek-ai/dsh-tools'
+import * as NativeExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import Llm, { LlmAdapter, ToolCallId } from '@deepseek-ai/dsh-llm'
+import Projections from '@deepseek-ai/dsh-session-projection'
 import Approval from '@deepseek-ai/dsh-user-approval'
+
+/** One native-executor batch call. Arguments are the model's raw JSON. */
+export async function executeCall(tools, { name, args = {}, callId, signal, agent }) {
+  const batch = await tools.execute({
+    signal,
+    calls: [{ type: 'tool-call', id: callId, name, arguments: JSON.stringify(args) }],
+    ...(agent ? { agent } : {}),
+  })
+  const row = batch.results.find(item => item.callId === callId)
+  if (!row) throw new Error(`missing tool result for ${name}`)
+  return row.result
+}
 
 export class ProbeAdapter extends LlmAdapter {
   requests = []
@@ -28,7 +42,9 @@ export async function mount(plugin, adapter = new ProbeAdapter(), config = {}) {
   try {
     fibers.push(await ctx.plugin(SystemPrompt))
     fibers.push(await ctx.plugin(Tools))
+    fibers.push(await ctx.plugin(NativeExecutor))
     fibers.push(await ctx.plugin(Llm))
+    fibers.push(await ctx.plugin(Projections))
     fibers.push(await ctx.plugin(Approval))
     fibers.push(await ctx.plugin(Object.assign(inner => {
       inner.llm.registerAdapter(['erp-test'], adapter)
@@ -38,8 +54,10 @@ export async function mount(plugin, adapter = new ProbeAdapter(), config = {}) {
     let call = 0
     return { ctx, fiber, adapter,
       run(name, args = {}, options = {}) {
-        return ctx.tools.execute({ callId: ToolCallId(`erp-test-${++call}`), name, arguments: args,
-          signal: new AbortController().signal, ...options })
+        return executeCall(ctx.tools, {
+          name, args, callId: ToolCallId(`erp-test-${++call}`),
+          signal: options.signal ?? new AbortController().signal, agent: options.agent,
+        })
       },
       async dispose() { for (const f of fibers.reverse()) await f.dispose() },
     }
@@ -53,7 +71,7 @@ export async function exercise(plugin) {
     const status = await host.run('erp_runtime_status')
     assert.equal(status.isError, false, JSON.stringify(status))
     assert.notEqual(status.value.pid, process.pid)
-    assert.equal(host.ctx.erp.diagnostics().dsh, '0.2.1-rc.5')
+    assert.equal(host.ctx.erp.diagnostics().dsh, '0.2.2-rc.1')
     const model = await host.run('erp_model_probe', { provider: 'erp-test', model: 'fixture' })
     assert.equal(model.isError, false, JSON.stringify(model))
     assert.equal(model.value, 'ERP_MODEL_OK')

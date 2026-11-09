@@ -12,7 +12,7 @@ export function registerErpPrompt(ctx: Host): void {
   prompt?.section({ name: 'erp:index', order: 720, interpolate: false, text: ERP_PROMPT })
 }
 
-/** Third-party OpenUI hosts are optional. rc.5 does not ship one, and none is required. */
+/** Third-party OpenUI hosts are optional. DSH 0.2.2-rc.1 does not require one. */
 export function openUiHost(ctx: Host): boolean {
   return Boolean(ctx.get('openui') || ctx.get('intelligentUi'))
 }

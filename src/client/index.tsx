@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { IConversation, InputState, SessionInput } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { CommandContribution, CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
+import type { ISidebarRight } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
+import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { API_CHANNEL, API_ENDPOINT, PRODUCT_ENTRY, PRODUCT_PANEL } from '../product/names.ts'
 import { resumeTarget } from '../product/resume.ts'
 import { normalizeBookmark } from '../product/bookmark.ts'
 import { entryIssue } from '../product/wizard.ts'
 import { SiteFavicon } from './favicon.tsx'
 import { ensureWorkspace, openErpSite, watchWorkspaceSessions } from './open.ts'
-import type { OpenSite } from './open.ts'
+import type { LayoutColumns, OpenSite } from './open.ts'
 
 export { ensureWorkspace, openErpSite, watchWorkspaceSessions } from './open.ts'
 export { PRODUCT_ENTRY, PRODUCT_PANEL }
@@ -304,87 +310,36 @@ function watchExploreHint(listener: () => void): () => void {
   return () => { hintListeners.delete(listener) }
 }
 
-interface HostCommandApi {
-  execute(sessionId: string, line: string, attachments: readonly never[]): Promise<unknown>
-}
-
-interface ComposerView {
-  draft?: string
-  phase?: string
-}
-
-interface ComposerInput {
-  setDraft(text: string): void
-  submit(): void
-  /** Published input state. A submit is real only when this view shows it. */
-  readonly snapshot?: ComposerView
-  state?: { getSnapshot(): ComposerView }
-  draft?: string
-}
-
-/** Cordis `get` returns `undefined` for a service this fiber did not inject. Property access throws. */
+/** Cordis `get` returns `undefined` for a service this fiber did not inject. */
 function readService(ctx: ClientCtx, name: string): unknown {
-  try {
-    return (ctx.get as (service: string, strict?: boolean) => unknown).call(ctx, name, false)
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * Host slash execution. `remote.commands` is its own service.
- * Reading it as `remote.commands` throws `cannot get property "remote.commands" without inject`
- * when this plugin did not declare that inject. `get` does not.
- */
-function hostCommands(ctx: ClientCtx): HostCommandApi | undefined {
-  const direct = readService(ctx, 'remote.commands') as HostCommandApi | undefined
-  if (typeof direct?.execute === 'function') return direct
-  try {
-    const remote = readService(ctx, 'remote') as { commands?: HostCommandApi } | undefined
-    const commands = remote?.commands
-    if (typeof commands?.execute === 'function') return commands
-  } catch {
-    /* Not injected. The composer path still sends the line. */
-  }
-  return undefined
-}
-
-function sessionScope(ctx: ClientCtx, sessionId: string): unknown {
-  const sessions = readService(ctx, 'sessions') as {
-    binding?(id: string): { ctx?: unknown } | undefined
-    scope?(id: string): unknown
-  } | undefined
-  try {
-    return sessions?.binding?.(sessionId)?.ctx ?? sessions?.scope?.(sessionId)
-  } catch {
-    return undefined
-  }
-}
-
-function readComposer(ctx: ClientCtx, sessionId: string): ComposerInput | undefined {
-  const conversation = readService(ctx, 'conversation') as {
-    input?: { for?(actx: unknown): ComposerInput | undefined }
-  } | undefined
-  const actx = sessionScope(ctx, sessionId)
-  if (!actx || !conversation?.input?.for) return undefined
-  try {
-    const input = conversation.input.for(actx)
-    if (!input || typeof input.setDraft !== 'function' || typeof input.submit !== 'function') return undefined
-    return input
-  } catch {
-    return undefined
-  }
+  return (ctx.get as (service: string, strict?: boolean) => unknown).call(ctx, name, false)
 }
 
 const COMPOSER_TRIES = 8
 const COMPOSER_WAIT_MS = 40
+const BUSY_PHASE = new Set<InputState['phase']>(['adjudicating', 'submitting', 'sending'])
 
 function wait(ms: number): Promise<void> {
   return new Promise(resolve => { setTimeout(resolve, ms) })
 }
 
+function sessionsOf(ctx: ClientCtx): ISessions | undefined {
+  return readService(ctx, 'sessions') as ISessions | undefined
+}
+
+function conversationOf(ctx: ClientCtx): IConversation | undefined {
+  return readService(ctx, 'conversation') as IConversation | undefined
+}
+
+function readComposer(ctx: ClientCtx, sessionId: string): SessionInput | undefined {
+  const binding = sessionsOf(ctx)?.binding(sessionId)
+  const input = conversationOf(ctx)?.input
+  if (!binding || !input) return undefined
+  return input.for(binding.ctx)
+}
+
 /** The session view can publish its binding just after it is shown. */
-async function composerInput(ctx: ClientCtx, sessionId: string): Promise<ComposerInput | undefined> {
+async function composerInput(ctx: ClientCtx, sessionId: string): Promise<SessionInput | undefined> {
   for (let attempt = 0; attempt < COMPOSER_TRIES; attempt += 1) {
     const input = readComposer(ctx, sessionId)
     if (input) return input
@@ -393,130 +348,49 @@ async function composerInput(ctx: ClientCtx, sessionId: string): Promise<Compose
   return undefined
 }
 
-function hostLineOf(line: string): '/explore' | '/explore-update' {
-  return line === '/更新探索' || line === '/explore-update' ? '/explore-update' : '/explore'
-}
-
-async function sendHost(ctx: ClientCtx, sessionId: string, hostLine: '/explore' | '/explore-update'): Promise<boolean> {
-  const commands = hostCommands(ctx)
-  if (!commands) return false
-  try {
-    await commands.execute(sessionId, hostLine, [])
-    return true
-  } catch {
-    return false
-  }
-}
-
-const COMPOSER_SETTLE_MS = 480
-const BUSY_PHASE = new Set(['adjudicating', 'submitting', 'sending'])
-
-function composerView(input: ComposerInput): ComposerView | undefined {
-  const snapshot = input.snapshot ?? input.state?.getSnapshot()
-  if (snapshot && typeof snapshot === 'object') return snapshot
-  if (typeof input.draft === 'string') return { draft: input.draft }
-  return undefined
-}
-
-/** Copy the strings now. A later publish must not change the reading. */
-function observeComposer(input: ComposerInput): ComposerView {
-  const view = composerView(input)
-  return {
-    ...(typeof view?.draft === 'string' ? { draft: view.draft } : {}),
-    ...(typeof view?.phase === 'string' ? { phase: view.phase } : {}),
-  }
-}
-
-function phaseBusy(phase: string | undefined): boolean {
-  return phase !== undefined && BUSY_PHASE.has(phase)
-}
-
-/**
- * A submit did something only when the armed line leaves the composer,
- * or the composer is still sending it. A call that returns without throwing
- * and leaves the same draft is a silent no-op.
- */
-function submitTaken(armed: ComposerView | undefined, after: ComposerView | undefined, line: string, stillBusy: boolean): boolean {
-  if (stillBusy) return true
-  const want = line.trim()
-  const armedText = armed?.draft?.trim()
-  const afterText = after?.draft?.trim()
-  return armedText === want && afterText !== undefined && afterText !== want
-}
-
-async function sendComposer(input: ComposerInput, line: string): Promise<'sent' | 'idle' | 'threw'> {
-  try {
-    input.setDraft(line)
-    const armed = observeComposer(input)
-    input.submit()
-    let after = observeComposer(input)
-    if (phaseBusy(after.phase)) {
-      const deadline = Date.now() + COMPOSER_SETTLE_MS
-      do {
-        await wait(COMPOSER_WAIT_MS)
-        after = observeComposer(input)
-        if (!phaseBusy(after.phase)) break
-      } while (Date.now() < deadline)
-    }
-    return submitTaken(armed, after, line, phaseBusy(after.phase)) ? 'sent' : 'idle'
-  } catch {
-    return 'threw'
-  }
-}
-
-/** The line was not sent. Keep it in the composer and show the sign-in hint. */
+/** The line was not sent. Keep it when the composer is not mounted, and show the sign-in hint. */
 function leaveExploreDraft(ctx: ClientCtx, sessionId: string, line: string): void {
   markExploreHint(sessionId)
-  const sessions = readService(ctx, 'sessions') as { binding?(id: string): unknown } | undefined
-  let binding: unknown
-  try { binding = sessions?.binding?.(sessionId) } catch { binding = undefined }
-  const conversation = readService(ctx, 'conversation') as {
-    input?: {
-      requestDraftInitialization?(binding: unknown, options: { prompt?: string; whenDraftExists?: 'keep' | 'replace' | 'append' }): unknown
-    }
-  } | undefined
-  if (binding && typeof conversation?.input?.requestDraftInitialization === 'function') {
-    try {
-      conversation.input.requestDraftInitialization(binding, { prompt: line, whenDraftExists: 'keep' })
-      return
-    } catch { /* The mounted composer can still hold the line. */ }
-  }
-  try { readComposer(ctx, sessionId)?.setDraft(line) } catch { /* The composer disappeared during the retry. */ }
+  const binding = sessionsOf(ctx)?.binding(sessionId)
+  const input = conversationOf(ctx)?.input
+  if (!binding || !input) return
+  try { input.requestDraftInitialization(binding, { prompt: line, whenDraftExists: 'keep' }) }
+  catch { /* The binding is not the retained generation. The hint still names the line. */ }
 }
 
 /**
- * Start explore the way typing the slash line does.
- * The composer is preferred. A submit counts only when the line leaves the
- * draft or stays in flight. A silent no-op keeps the line as a draft and
- * shows the sign-in hint. The host command is the fallback when the composer
- * is not mounted. Neither a missing `remote.commands` nor a failed submit throws.
+ * Send one explore line through the composer.
+ * `sending` / `submitting` / `adjudicating` belong to the host: this does not
+ * send again, and it does not treat an in-flight phase as acceptance.
+ * An empty draft is filled, then submitted. A different draft is left alone.
+ * A submit that stays `plain` with the line still in the draft did not send
+ * (no model, or a preview that kept the draft). The line stays, with the sign-in hint.
  */
-async function submitLine(ctx: ClientCtx, sessionId: string, line: string): Promise<boolean> {
-  const hostLine = hostLineOf(line)
-  const spelling = line.startsWith('/') ? line : hostLine
+async function submitLine(ctx: ClientCtx, sessionId: string, line: string): Promise<void> {
+  const want = line.trim()
   const input = await composerInput(ctx, sessionId)
-  const composed = input ? await sendComposer(input, spelling) : undefined
-  if (composed === 'sent') return true
-  if (await sendHost(ctx, sessionId, hostLine)) return true
-  if (input && composed === 'threw' && spelling !== hostLine && await sendComposer(input, hostLine) === 'sent') return true
-  leaveExploreDraft(ctx, sessionId, spelling)
-  return false
+  if (!input) { leaveExploreDraft(ctx, sessionId, line); return }
+  const before = input.state.getSnapshot()
+  if (BUSY_PHASE.has(before.phase)) return
+  const text = before.draft.trim()
+  if ((text !== '' && text !== want) || (text === '' && before.attachmentIds.length > 0)) {
+    markExploreHint(sessionId)
+    return
+  }
+  if (text === '') input.setDraft(line)
+  input.submit()
+  const after = input.state.getSnapshot()
+  if (BUSY_PHASE.has(after.phase)) return
+  if (after.draft.trim() === want) markExploreHint(sessionId)
 }
 
-/** Client slash actions run inside command adjudication, so the host submit is deferred one turn. */
+/** Client slash actions run inside command adjudication, so the submit is deferred one turn. */
 function runSlash(ctx: ClientCtx, sessionId: string, hostLine: '/explore' | '/explore-update'): void {
-  setTimeout(() => {
-    void (async () => {
-      if (await sendHost(ctx, sessionId, hostLine)) return
-      const input = readComposer(ctx, sessionId)
-      if (input && await sendComposer(input, hostLine) === 'sent') return
-      leaveExploreDraft(ctx, sessionId, hostLine)
-    })()
-  }, 0)
+  setTimeout(() => { void submitLine(ctx, sessionId, hostLine) }, 0)
 }
 
 function ExploreHint({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
-  const sidebar = ctx.get('sidebarRight') as { mounted?: { getSnapshot(): unknown; subscribe(listener: () => void): () => void } } | undefined
+  const sidebar = readService(ctx, 'sidebarRight') as ISidebarRight | undefined
   const [sessionId, setSessionId] = useState(() => String(sidebar?.mounted?.getSnapshot() ?? ''))
   useEffect(() => {
     const mounted = sidebar?.mounted
@@ -530,18 +404,8 @@ function ExploreHint({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string })
   return <p className="erp-explore-hint">{t('exploreHint')}</p>
 }
 
-interface SlashUi {
-  register(contribution: {
-    name: string
-    label?: () => string
-    description?: () => string
-    available(session: { sessionId?: string }): boolean
-    ui: { kind: 'action'; run(session: { sessionId?: string }): void }
-  }): () => void
-}
-
 function registerSlash(ctx: ClientCtx, t: (key: string) => string): void {
-  const commandUi = ctx.get('commandUi') as SlashUi | undefined
+  const commandUi = readService(ctx, 'commandUi') as CommandUiContract | undefined
   if (!commandUi) return
   const action = (hostLine: '/explore' | '/explore-update') => (session: { sessionId?: string }) => {
     if (session.sessionId) runSlash(ctx, session.sessionId, hostLine)
@@ -551,11 +415,11 @@ function registerSlash(ctx: ClientCtx, t: (key: string) => string): void {
       commandUi.register({
         name: '探索', label: () => t('exploreCommand'), description: () => t('exploreCommandHint'), available: () => true,
         ui: { kind: 'action', run: action('/explore') },
-      }),
+      } satisfies CommandContribution),
       commandUi.register({
         name: '更新探索', label: () => t('updateCommand'), description: () => t('updateCommandHint'), available: () => true,
         ui: { kind: 'action', run: action('/explore-update') },
-      }),
+      } satisfies CommandContribution),
     ]
     return () => { for (const dispose of stop) dispose() }
   })
@@ -597,11 +461,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     setAdding(false)
   }
   function workspaces() {
-    return ctx.get('workspaces') as {
-      create(input: { path: string }): Promise<unknown>
-      rename?(workspaceId: string, title: string): Promise<unknown>
-      list?: { getSnapshot(): { items?: readonly unknown[] } }
-    } | undefined
+    return readService(ctx, 'workspaces') as IWorkspaces | undefined
   }
   useEffect(() => {
     let alive = true
@@ -635,11 +495,11 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     setBusy(true)
     setError('')
     try {
-      const layout = ctx.get('layout') as { selectPanel(id: string | null): void; panels?: { setRightbar?(px: number): void } } | undefined
-      const sessions = ctx.get('sessions') as { create(input: { cwd?: string; workspaceId?: string }): Promise<string>; binding?(id: string): unknown } | undefined
-      const uiWorkspace = ctx.get('uiWorkspace') as { openSession(id: string): void; openWorkspace?(workspaceId: string, beforeOpen?: (sessionId: string) => void): Promise<void> } | undefined
-      const sidebar = ctx.get('sidebarRight') as { openTab(kind: 'browser', options: { params: { url: string } }): void; mounted?: { getSnapshot(): unknown; subscribe(listener: () => void): () => void } } | undefined
-      const conversation = ctx.get('conversation') as { input?: { requestDraftInitialization?(binding: unknown, options: { prompt?: string; whenDraftExists?: 'keep' }): unknown } } | undefined
+      const layout = readService(ctx, 'layout') as LayoutColumns | undefined
+      const sessions = readService(ctx, 'sessions') as ISessions | undefined
+      const uiWorkspace = readService(ctx, 'uiWorkspace') as UiWorkspace | undefined
+      const sidebar = readService(ctx, 'sidebarRight') as ISidebarRight | undefined
+      const conversation = readService(ctx, 'conversation') as IConversation | undefined
       const hostWorkspaces = workspaces()
       if (!layout || !sessions || !uiWorkspace || !sidebar) throw new Error('ERP_BROWSER_UNAVAILABLE')
       await openErpSite({
@@ -820,9 +680,9 @@ export function apply(ctx: ClientCtx): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }))
   ctx.effect(installStyle)
   ctx.effect(() => {
-    const sessions = ctx.get('sessions') as { list?: { getSnapshot(): { phase: string; ids: readonly string[]; byId: Readonly<Record<string, { cwd?: string; origin?: string }>> }; subscribe(listener: () => void): () => void } } | undefined
-    const sidebar = ctx.get('sidebarRight') as { openTab(kind: 'browser', options: { params: { url: string } }): void; mounted?: { getSnapshot(): unknown; subscribe(listener: () => void): () => void } } | undefined
-    const layout = ctx.get('layout') as { selectPanel(id: string | null): void; panels?: { setRightbar?(px: number): void } } | undefined
+    const sessions = readService(ctx, 'sessions') as ISessions | undefined
+    const sidebar = readService(ctx, 'sidebarRight') as ISidebarRight | undefined
+    const layout = readService(ctx, 'layout') as LayoutColumns | undefined
     if (!sessions?.list || !sidebar?.openTab || !layout) return
     return watchWorkspaceSessions({
       sessions, sidebar, layout,

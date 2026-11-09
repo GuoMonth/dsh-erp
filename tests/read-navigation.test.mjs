@@ -170,8 +170,12 @@ test('missing/malformed policy and scope mismatch fail closed; IPC accepts route
   } finally { await client.dispose() }
 })
 function agent() {
-  const events = [{ type: 'turn/start' }]
-  return { session: { get seq() { return events.length }, eventAt(seq) { return events[seq] }, append(type, data) { const event = { type, data }; events.push(event); return event } } }
+  const events = [{ type: 'turn/start', seq: 0 }]
+  return { session: {
+    header: undefined, inheritedEventCount: 0,
+    get seq() { return events.length }, eventAt(seq) { return events[seq] }, snapshotEvents() { return events },
+    append(type, data) { const event = { type, data, seq: events.length }; events.push(event); return event },
+  } }
 }
 test('native confirmation binds scope and contract; successful read persists evidence, denied and failed attempts do not', async t => {
   const f = await fixture(t)

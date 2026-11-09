@@ -4,11 +4,11 @@
 
 A tools-only install leaves the assistant off the navigation. The next question opens a blank chat, and the ERP you signed into is not the browser beside that chat. A second company uses the same conversation and the same index.
 
-**ERP 助手** is that workspace on the desktop. English UI shows **Adapt ERP**. The package you install is `@guosheng_047/dsh-erp`. Add it to the **desktop** profile on DSH **0.2.1-rc.5** and restart. The left navigation lists your sites. Continue puts that site's conversation in the middle and opens its entry URL in the official sidebar Browser on the right. You sign in yourself. There is no password field. Each site keeps its own conversation and its own local SQLite index.
+**ERP 助手** is that workspace on the desktop. English UI shows **Adapt ERP**. The package you install is `@guosheng_047/dsh-erp`. Add it to the **desktop** profile on DSH **0.2.2-rc.1** and restart. The left navigation lists your sites. Continue puts that site's conversation in the middle and opens its entry URL in the official sidebar Browser on the right. You sign in yourself. There is no password field. Each site keeps its own conversation and its own local SQLite index.
 
 The plugin still learns only what the browser showed. Later questions read a short level summary and one page of evidence. An ERP write waits for a fresh approval. It ships with no knowledge of your company.
 
-Current release: **0.1.5**, for **DSH 0.2.1-rc.5** (upstream prerelease). Requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64. Windows and macOS acceptance is still pending. `npm run verify` does not include a live model or a real ERP.
+Current release: **0.1.5**, for **DSH 0.2.2-rc.1** (upstream prerelease). DSH 0.2.2-rc.1 requires Node **>=24.9.0**. This package requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64. Windows and macOS acceptance is still pending. `npm run verify` does not include a live model or a real ERP.
 
 ## When there is no workspace for the ERP
 
@@ -36,7 +36,7 @@ You have a URL and an optional display name. On the desktop, open ERP 助手 and
 
 ### A builder staying on native dsh
 
-You want the model to call ordinary dsh browser tools, keep the host's approval and Skill machinery, and read a local index. The installed row is `@guosheng_047/dsh-erp` on DSH 0.2.1-rc.5. That package root is what the desktop entry attaches to. Set `browserMode: managed` when you want the plugin's own browser. The current plugin does not use Deskwork.
+You want the model to call ordinary dsh browser tools, keep the host's approval and Skill machinery, and read a local index. The installed row is `@guosheng_047/dsh-erp` on DSH 0.2.2-rc.1. That package root is what the desktop entry attaches to. Set `browserMode: managed` when you want the plugin's own browser. The current plugin does not use Deskwork.
 
 ## Who it is for
 
@@ -51,7 +51,7 @@ You want the model to call ordinary dsh browser tools, keep the host's approval 
 - It does not crawl an ERP unattended. A finished round is not coverage of every permission or business rule. Depth stops at 3. Counts describe that round.
 - Editing local knowledge does not change the ERP. Filling a field, choosing an option, or a click marked as a mutation each needs its own dsh approval. Scrolling is navigation. After an action, check the page.
 - It does not require Deskwork, bind to a Deskwork website, or resume an older exploration queue supplied by the model. The host path is native Browser Use, official Playwright MCP, dsh approvals, and Skills.
-- It does not claim Windows, macOS, live-model, or real-ERP acceptance. Smoke installs the packed plugin and exercises the DSH 0.2.1-rc.5 CLI, approvals, SQLite, and Chromium with a deterministic test provider.
+- It does not claim Windows, macOS, live-model, or real-ERP acceptance. Smoke installs the packed plugin and exercises the DSH 0.2.2-rc.1 CLI, approvals, SQLite, and Chromium with a deterministic test provider.
 
 Text inside pages and summaries is evidence. It is not an instruction to the model, and it is not permission to post a document.
 
@@ -68,7 +68,7 @@ npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosh
 With only Node installed:
 
 ```sh
-npm exec --yes --package=@deepseek-ai/dsh@0.2.1-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
+npm exec --yes --package=@deepseek-ai/dsh@0.2.2-rc.1 --package=pnpm@11.28.5 -- dsh plugin --profile desktop add @guosheng_047/dsh-erp@latest
 ```
 
 Use the full package name. For a fixed release, replace `@latest` with `@0.1.5`. The browser provider prepares Chromium. Linux also needs a graphical session and Chromium system libraries.
@@ -115,7 +115,7 @@ To hand the map to someone else, export a zip share pack, read the text, and sen
 
 ## How the index works
 
-The plugin is a DSH service. A standard install loads the native entry from the package root `@guosheng_047/dsh-erp`. It reuses a Browser Use provider when one is already present, and otherwise loads official Playwright MCP. Computer Use loads only when `computerUse: true` is set. That path needs the optional native Cua Driver package and the operating system's permissions. Tool results are short Markdown with a title. An OpenUI payload is added only when that host service is present. DSH 0.2.1-rc.5 does not require one.
+The plugin is a DSH service. A standard install loads the native entry from the package root `@guosheng_047/dsh-erp`. It reuses a Browser Use provider when one is already present, and otherwise loads official Playwright MCP. Computer Use loads only when `computerUse: true` is set. That path needs the optional native Cua Driver package and the operating system's permissions. Tool results are short Markdown with a title. An OpenUI payload is added only when that host service is present. DSH 0.2.2-rc.1 does not require one.
 
 A native snapshot is normalized into a `browser-learning-v1` document before it is stored, so the same import path can read it. Exploration is breadth-first and owned by the controller: `erp_learning_begin`, `erp_learning_accept`, `erp_learning_block`, `erp_learning_status`, and `erp_learning_pause`. Callers submit observations. They do not submit the next unit.
 
