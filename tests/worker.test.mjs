@@ -13,9 +13,13 @@ import { parseRequest, parseResponse } from '../dist/protocol.js'
 const signal = () => new AbortController().signal
 const gone = pid => assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
 
-test('runtime rejects unsupported majors and older Node 24 releases', () => {
-  for (const version of ['22.20.0', '25.0.0', '24.17.1', 'invalid']) assert.throws(() => assertRuntime(version))
-  assert.doesNotThrow(() => assertRuntime('24.18.0'))
+test('runtime enforces the Node 24 and 26 minimum patches and accepts later stable versions', () => {
+  for (const version of ['22.23.5', '24.22.2', '25.9.0', '26.13.0', '27.0.0-alpha.1', 'invalid']) {
+    assert.throws(() => assertRuntime(version), /requires Node.js 24\.22\.3 or later in the 24\.x series, or 26\.13\.1 or later/, version)
+  }
+  for (const version of ['24.22.3', '24.22.4', '24.23.0', '26.13.1', '26.14.0', '27.0.0']) {
+    assert.doesNotThrow(() => assertRuntime(version), version)
+  }
 })
 test('IPC rejects unexpected shapes, protocol versions and operation names', () => {
   for (const message of [{ v: 2, kind: 'ready' }, { v: 1, kind: 'ready', token: 'private' }, null]) assert.throws(() => parseResponse(message))

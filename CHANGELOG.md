@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Require Node.js 24.22.3 or later in the 24.x series, or 26.13.1 or later.
 - Align all DSH packages with 0.2.2-rc.5.
 - Run the existing suites with Vitest and check host and client TypeScript separately, with type-aware Oxlint in local verification.
 
