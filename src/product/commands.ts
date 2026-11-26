@@ -36,8 +36,9 @@ function inWorkspace(workspace: string, cwd: string): boolean {
 
 /** The site whose workspace folder this conversation is already inside. */
 export function workspaceSite(catalog: SiteCatalog, hint: SessionHint | undefined): Site | undefined {
-  if (!hint?.id || !hint.cwd) return undefined
-  const site = catalog.list().find(item => inWorkspace(item.workspaceDir, hint.cwd!))
+  const cwd = hint?.cwd
+  if (!hint?.id || !cwd) return undefined
+  const site = catalog.list().find(item => inWorkspace(item.workspaceDir, cwd))
   if (!site) return undefined
   const selected = catalog.statusSite(hint)
   if (selected && selected.id !== site.id) return undefined

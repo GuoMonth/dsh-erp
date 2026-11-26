@@ -1,11 +1,11 @@
-// Real DSH 0.2.2-rc.1 web UI, no model configured.
+// Real DSH 0.2.2-rc.5 web UI, no model configured.
 // Catches the one-click explore that used to leave an empty composer: the client command consumes /探索 without entering sending.
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { site } from './fixtures/erp-site.mjs'
@@ -13,16 +13,14 @@ import { site } from './fixtures/erp-site.mjs'
 const repo = fileURLToPath(new URL('..', import.meta.url))
 const node = process.execPath
 const bin = join(repo, 'node_modules/@deepseek-ai/dsh/lib/bin.js')
-const chrome = ['/home/ubuntu/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome', process.env.PLAYWRIGHT_CHROME]
-  .find(path => path && existsSync(path))
-const shots = '/opt/cursor/artifacts'
+const chrome = process.env.PLAYWRIGHT_CHROME ?? chromium.executablePath()
+const shots = join(repo, 'artifacts', 'web-ui')
 
 function environment(home) {
   return {
     ...process.env,
     DSH_HOME: home,
-    PATH: `${join(repo, 'node_modules/.bin')}:${dirname(node)}:${process.env.PATH ?? ''}`,
-    PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || '/home/ubuntu/.cache/ms-playwright',
+    PATH: [join(repo, 'node_modules/.bin'), dirname(node), process.env.PATH].filter(Boolean).join(delimiter),
   }
 }
 
@@ -169,12 +167,12 @@ async function waitTabs(page, host, count, timeout = 12_000) {
   return last
 }
 
-test('rc1 web UI keeps /探索 when explore is not sent, reuses the site tab, and does not duplicate an entry URL', { timeout: 240_000 }, async t => {
+test('DSH web UI keeps /探索 when explore is not sent, reuses the site tab, and does not duplicate an entry URL', { timeout: 240_000 }, async t => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-erp-web-'))
   const fixture = await site()
   const children = []
   let browser
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await browser?.close().catch(() => {})
     for (const child of children) {
       try { process.kill(-child.pid, 'SIGTERM') } catch { try { child.kill('SIGTERM') } catch { /* already gone */ } }
@@ -183,7 +181,6 @@ test('rc1 web UI keeps /探索 when explore is not sent, reuses the site tab, an
     rmSync(home, { recursive: true, force: true })
   })
   const env = environment(home)
-  await command(node, ['scripts/build.mjs'], { cwd: repo, env })
   await command('npm', ['pack', '--pack-destination', home, '--ignore-scripts'], { cwd: repo, env })
   const tarball = readdirSync(home).find(name => name.endsWith('.tgz'))
   assert.ok(tarball, 'npm pack produced a tarball')
@@ -198,14 +195,14 @@ test('rc1 web UI keeps /探索 when explore is not sent, reuses the site tab, an
 
   browser = await chromium.launch({
     headless: true,
-    ...(chrome ? { executablePath: chrome } : {}),
+    executablePath: chrome,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, locale: 'en-US' })
   const pageErrors = []
   page.on('pageerror', error => { pageErrors.push(String(error)) })
   const fail = async message => {
-    await shot(page, 'rc1-failure.png')
+    await shot(page, 'web-failure.png')
     const text = await page.locator('body').innerText().catch(() => '')
     throw new Error(`${message}\nmodel-less page:\n${text.slice(0, 1800)}\npageerrors: ${pageErrors.slice(0, 4).join(' | ')}`)
   }
@@ -237,7 +234,7 @@ test('rc1 web UI keeps /探索 when explore is not sent, reuses the site tab, an
     catch { await fail('Start exploring did not show the sign-in hint') }
     const draft = await composerText(page)
     assert.match(draft, /\/探索/)
-    await shot(page, 'rc1-explore.png')
+    await shot(page, 'web-explore.png')
     const afterExplore = await waitTabs(page, '127.0.0.1', 1)
     if (afterExplore.length !== 1) await fail(`Start exploring opened another tab: ${JSON.stringify(afterExplore)}`)
 
@@ -245,7 +242,7 @@ test('rc1 web UI keeps /探索 when explore is not sent, reuses the site tab, an
     await page.locator('section.erp-assistant li.card').getByRole('button', { name: /^(Open|打开)$/ }).first().click()
     const afterOpen = await waitTabs(page, '127.0.0.1', 1)
     if (afterOpen.length !== 1) await fail(`Open stacked another tab: ${JSON.stringify(afterOpen)}`)
-    await shot(page, 'rc1-tabs.png')
+    await shot(page, 'web-tabs.png')
 
     await addSite(page, office, 'Office Local')
     await page.getByText('Office Local').first().waitFor({ timeout: 20_000 })
@@ -256,14 +253,16 @@ test('rc1 web UI keeps /探索 when explore is not sent, reuses the site tab, an
     catch { await fail('duplicate entry URL did not show the note on the opened site') }
     await page.getByText('Office Local').first().waitFor({ timeout: 10_000 })
     await openGuide(page)
-    const names = await page.locator('section.erp-assistant ul.sites > li.card strong').allInnerTexts()
+    const cards = page.locator('section.erp-assistant ul.sites > li.card strong')
+    await cards.filter({ hasText: /^Suite Local$/ }).waitFor()
+    const names = await cards.allInnerTexts()
     const sites = names.map(name => name.trim()).filter(name => name && name !== 'Add a site' && name !== '添加站点')
     assert.deepEqual(sites, ['Suite Local', 'Office Local'])
     assert.equal(sites.includes('127.0.0.1'), false)
-    await shot(page, 'rc1-duplicate.png')
+    await shot(page, 'web-duplicate.png')
     assert.equal(pageErrors.filter(error => !/favicon/i.test(error)).length, 0, pageErrors.join('\n'))
   } catch (error) {
-    if (!String(error?.message ?? error).includes('model-less page')) await shot(page, 'rc1-failure.png')
+    if (!String(error?.message ?? error).includes('model-less page')) await shot(page, 'web-failure.png')
     throw error
   }
 })

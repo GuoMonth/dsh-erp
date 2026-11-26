@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { createHash } from 'node:crypto'
 import { chromium } from 'playwright'
 import { Context } from '@deepseek-ai/cordis'
@@ -13,11 +13,11 @@ import { executeCall } from './harness.mjs'
 
 // Run explicitly inside an isolated Xvfb display; never send fixture input to the user's desktop.
 test('native Cua observes a real X11 window, clicks in background and reobserves the independently verified outcome',
-  { timeout: 30000, skip: process.env.ERP_CUA_DESKTOP_E2E !== '1' }, async t => {
+  { timeout: 30_000 }, async t => {
     assert.equal(process.platform, 'linux'); assert.ok(process.env.DISPLAY)
     const ctx = new Context()
     let server, browser
-    t.after(async () => { await ctx.fiber.dispose(); await browser?.close(); await server?.close() })
+    t.onTestFinished(async () => { await ctx.fiber.dispose(); await browser?.close(); await server?.close() })
     await ctx.plugin(ComputerUse); await ctx.plugin(Tools); await ctx.plugin(SystemPrompt); await ctx.plugin(NativeExecutor); await ctx.plugin(Native)
     let sequence = 0
     const run = (name, args = {}) => executeCall(ctx.tools, { name: `cua_driver_native__${name}`, args,

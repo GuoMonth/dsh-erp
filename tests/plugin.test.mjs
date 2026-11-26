@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { setTimeout as delay } from 'node:timers/promises'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -11,11 +11,11 @@ import Loop from '@deepseek-ai/dsh-agent-loop'
 import * as plugin from '../dist/index.js'
 import { mount, exercise } from './harness.mjs'
 
-test('real DSH 0.2.2-rc.1 tools, model service, schema and unload lifecycle', async () => { await exercise(plugin) })
+test('real DSH 0.2.2-rc.5 tools, model service, schema and unload lifecycle', async () => { await exercise(plugin) })
 test('cancelling execution worker leaves independent durable storage usable', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-isolation-'))
   const host = await mount(plugin, undefined, { dataDir: join(root, 'data') })
-  t.after(async () => { await host.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await host.dispose(); await rm(root, { recursive: true, force: true }) })
   await host.run('erp_runtime_status')
   const controller = new AbortController()
   const interrupted = assert.rejects(host.ctx.erp.worker.health(controller.signal, 10_000), { code: 'CANCELLED' })
@@ -29,28 +29,28 @@ test('cancelling execution worker leaves independent durable storage usable', as
 })
 test('plugin can be disabled and reloaded with a fresh worker', async t => {
   const host = await mount(plugin)
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   const first = await host.run('erp_runtime_status')
   await host.fiber.dispose()
   const reloaded = await host.ctx.plugin(plugin, { browserMode: 'managed' })
-  t.after(() => reloaded.dispose())
+  t.onTestFinished(() => reloaded.dispose())
   const next = await host.run('erp_runtime_status')
   assert.equal(next.isError, false)
   assert.notEqual(next.value.pid, first.value.pid)
 })
 test('host approval grants once, rejects and leaves an audit trail', async t => {
   const host = await mount(plugin)
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   await host.ctx.plugin(Sessions)
   await host.ctx.plugin(Agents)
   await host.ctx.plugin(Loop, { agents: [] })
   const created = await host.ctx.agents.create({ sessionId: SessionId('approval-probe'), meta: { cwd: process.cwd() } })
-  t.after(() => created.dispose())
+  t.onTestFinished(() => created.dispose())
   await created.agent.whenIdle()
   created.agent.session.append('turn/start', { turn: 1 })
   let answer = 'allowed-once'
   const stop = host.ctx.on('approval/request', async () => answer)
-  t.after(stop)
+  t.onTestFinished(stop)
   const agent = created.agent
   assert.equal((await host.run('erp_approval_probe', {}, { agent })).isError, false)
   answer = 'rejected'
@@ -64,7 +64,7 @@ test('host approval grants once, rejects and leaves an audit trail', async t => 
 test('model failure is reported as failure rather than a successful empty reply', async t => {
   class Failing extends LlmAdapter { async *stream() { throw new Error('provider failure') } }
   const host = await mount(plugin, new Failing())
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   assert.equal((await host.run('erp_model_probe', { provider: 'erp-test', model: 'fixture' })).isError, true)
 })
 test('unload aborts and drains active host model calls', async t => {
@@ -79,7 +79,7 @@ test('unload aborts and drains active host model calls', async t => {
     }
   }
   const host = await mount(plugin, new Waiting())
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   const pending = host.run('erp_model_probe', { provider: 'erp-test', model: 'fixture' })
   await ready
   await host.fiber.dispose()

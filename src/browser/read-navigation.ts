@@ -27,7 +27,7 @@ export async function navigateRead(source: BrowserContext, view: ReadPolicyView,
   signal.addEventListener('abort', abort, { once: true })
   try {
     signal.throwIfAborted()
-    await context.routeWebSocket('**/*', socket => { reject('READ_WEBSOCKET_BLOCKED'); socket.close() })
+    await context.routeWebSocket('**/*', async socket => { reject('READ_WEBSOCKET_BLOCKED'); await socket.close() })
     await context.route('**/*', async intercepted => {
       try {
         if (signal.aborted || failure) { await intercepted.abort(); return }

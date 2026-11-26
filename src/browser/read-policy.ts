@@ -59,7 +59,11 @@ export function loadReadPolicy(path: string | undefined): ReadPolicyView {
     for (const route of policy.routes) {
       id(route.id); url(route.url)
       if (!route.label.trim() || route.label.length > 200 || !route.requests.length || route.requests.length > 200 || new Set(route.requests).size !== route.requests.length || route.requests.some(r => !requests.has(r))) throw new Error()
-      if (!route.requests.some(r => requests.get(r)!.method === 'GET' && requests.get(r)!.url === requestUrl(route.url))) throw new Error()
+      const target = requestUrl(route.url)
+      if (!route.requests.some(requestId => {
+        const request = requests.get(requestId)
+        return request?.method === 'GET' && request.url === target
+      })) throw new Error()
     }
     return { policy, digest: createHash('sha256').update(JSON.stringify(policy)).digest('hex') }
   } catch { throw new BrowserError('INVALID_READ_POLICY') }

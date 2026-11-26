@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -29,7 +29,7 @@ async function observe(client, id, snapshot) {
 
 test('controller BFS stops at depth 3 and publishes summaries before the next level', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-bfs-')); const client = new StorageClient({ directory: join(root, 'data') })
-  t.after(async () => { await client.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await client.dispose(); await rm(root, { recursive: true, force: true }) })
   const home = snap('https://example.test/app/', 'Home', [
     { kind: 'menuitem', name: 'Orders', group: 'navigation', href: 'https://example.test/app/orders' },
     { kind: 'menuitem', name: 'Stock', group: 'navigation', href: 'https://example.test/app/stock' },
@@ -74,7 +74,7 @@ test('controller BFS stops at depth 3 and publishes summaries before the next le
 
 test('a blocked entry still writes the level summary and does not invent a deeper frontier', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-bfs-block-')); const client = new StorageClient({ directory: join(root, 'data') })
-  t.after(async () => { await client.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await client.dispose(); await rm(root, { recursive: true, force: true }) })
   const runtime = new LearningRuntime(client)
   let view = await runtime.begin(scope, 'blocked', signal())
   view = await runtime.block(scope, 'blocked', view.version, 'Entry page was not reachable', signal())
@@ -108,7 +108,7 @@ test('native snapshots become importable evidence and effects stay separate from
 test('the installed tool catalog has no model-supplied frontier and the prompt carries the depth limit', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-bfs-catalog-'))
   const host = await mount(plugin, undefined, { dataDir: join(root, 'data') })
-  t.after(async () => { await host.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await host.dispose(); await rm(root, { recursive: true, force: true }) })
   const names = host.ctx.tools.schemas().map(tool => tool.name)
   for (const retired of ['erp_learning_start', 'erp_learning_extend', 'erp_learning_finish_unit']) assert.equal(names.includes(retired), false)
   for (const name of ['erp_learning_begin', 'erp_learning_accept', 'erp_index_read']) assert.equal(names.includes(name), true)

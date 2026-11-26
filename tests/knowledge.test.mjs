@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, mkdir, readdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -20,7 +20,7 @@ const claim = (extra = {}) => ({ scope, id: 'claim-1', target: { id: 'menu-1', v
   verdict: 'supported', evidence, ...extra })
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'erp-knowledge-')); const clients = []
-  t.after(async () => { for (const client of clients) await client.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { for (const client of clients) await client.dispose(); await rm(root, { recursive: true, force: true }) })
   const open = (directory = join(root, 'data')) => { const c = new StorageClient({ directory }); clients.push(c); return c }
   const client = open()
   await client.call('observe', { id: 'observation-1', scope, title: 'Fixture ERP', text: '采购 Purchasing 待审核 Pending',
@@ -134,7 +134,7 @@ test('alias search, pagination and derived index rebuilding preserve knowledge a
   assert.equal((await client.call('knowledgeSearch', { scope, query: 'Purchasing', after: '', limit: 10, kind: 'menu' })).items.length, 1)
 })
 test('v2 upgrade preserves observations and checkpoints; failed v3 migration restores v2 atomically', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'erp-upgrade-')); t.after(() => rm(root, { recursive: true, force: true }))
+  const root = await mkdtemp(join(tmpdir(), 'erp-upgrade-')); t.onTestFinished(() => rm(root, { recursive: true, force: true }))
   for (const failure of [false, true]) {
     const directory = join(root, String(failure)); await mkdir(directory)
     const db = new DatabaseSync(join(directory, 'store.sqlite')); db.exec(migrations[0]); db.exec(migrations[1]); db.exec('PRAGMA user_version=2')
@@ -174,7 +174,7 @@ function agent() {
 test('native tools accumulate AI knowledge without asking; user attribution needs exact host approval and rejects stale confirmation', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-knowledge-tools-'))
   const host = await mount(plugin, undefined, { dataDir: join(root, 'data') })
-  t.after(async () => { await host.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await host.dispose(); await rm(root, { recursive: true, force: true }) })
   const input = { scope, records: [node('menu-1', 'menu', { stage: 'interpreted', evidence: [] })] }
   const requests = []; let answer = 'allowed-once'; let concurrentEdit = false
   host.ctx.on('approval/request', async request => {

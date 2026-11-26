@@ -1,4 +1,5 @@
 import { DatabaseSync, backup as sqliteBackup } from 'node:sqlite'
+import type { SQLOutputValue } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import {
@@ -11,6 +12,12 @@ import { privateDirectory } from './paths.js'
 import { checkedId } from './primitives.js'
 import { knowledgeMigration } from '../knowledge/migration.js'
 import { KnowledgeStore } from '../knowledge/store.js'
+
+function sqliteScalar(db: DatabaseSync, sql: string, column: string): SQLOutputValue {
+  const value = db.prepare(sql).get()?.[column]
+  if (value === undefined) throw new StorageError('SQLITE_VALUE_MISSING')
+  return value
+}
 
 export const SCHEMA_VERSION = 4
 const HASH = /^[a-f0-9]{64}$/
@@ -72,7 +79,7 @@ export class StoreDatabase {
       this.db = new DatabaseSync(path, { timeout: 250, enableForeignKeyConstraints: true })
       // SQLite's retained connection lock avoids PID files and stale-lock recovery races.
       this.db.exec('PRAGMA locking_mode=EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT;')
-      const version = Number(this.db.prepare('PRAGMA user_version').get()!.user_version)
+      const version = Number(sqliteScalar(this.db, 'PRAGMA user_version', 'user_version'))
       if (version > SCHEMA_VERSION) throw new StorageError('DATABASE_VERSION_TOO_NEW')
       if (version === 0 && this.db.prepare("SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").all().length) {
         throw new StorageError('UNRECOGNIZED_DATABASE')
@@ -144,11 +151,12 @@ export class StoreDatabase {
     const scope = scopeKey(input.scope)
     if (!Number.isFinite(Date.parse(input.observedAt)) || input.text.length > 1_000_000 || input.title.length > 2000 || input.context.length > 8000) throw new StorageError('INVALID_OBSERVATION')
     const url = normalizeUrl(input.url)
-    const hash = input.evidence ? this.writeEvidence(input.evidence) : undefined
+    const evidence = input.evidence && { ...input.evidence, hash: this.writeEvidence(input.evidence) }
+    const hash = evidence?.hash
     const value: Output<'observe'> = {
       id: input.id, scope: canonicalScope(input.scope), url, title: input.title, text: input.text,
       locale: input.locale, context: input.context, observedAt: input.observedAt, version: 1,
-      ...(hash ? { evidenceHash: hash, evidenceMime: input.evidence!.mime } : {}),
+      ...(evidence ? { evidenceHash: evidence.hash, evidenceMime: evidence.mime } : {}),
     }
     const payload = JSON.stringify(value)
     const fingerprint = sha(payload)
@@ -158,7 +166,7 @@ export class StoreDatabase {
       return JSON.parse(String(previous.payload)) as Output<'observe'>
     }
     return this.transaction(() => {
-      if (hash) this.db.prepare('INSERT OR IGNORE INTO evidence(hash,bytes) VALUES(?,?)').run(hash, Buffer.from(input.evidence!.base64, 'base64').byteLength)
+      if (evidence) this.db.prepare('INSERT OR IGNORE INTO evidence(hash,bytes) VALUES(?,?)').run(evidence.hash, Buffer.from(evidence.base64, 'base64').byteLength)
       this.db.prepare('INSERT INTO observations(id,scope,payload,fingerprint,evidence_hash) VALUES(?,?,?,?,?)').run(input.id, scope, payload, fingerprint, hash ?? null)
       this.db.prepare('INSERT INTO observations_fts(id,title,text) VALUES(?,?,?)').run(input.id, input.title, input.text)
       return value
@@ -230,8 +238,11 @@ export class StoreDatabase {
     }))
     const empty = { items: [], hasMore: false, nextAfter: '' }
     if (!rows.length) return { initialized: false, readPath: 'summaries-and-leaves', guidance, summariesTruncated: false, summaries, leaves: empty }
-    const nodeId = input.nodeId ?? String(this.db.prepare('SELECT id FROM index_nodes WHERE scope=? ORDER BY rowid DESC LIMIT 1').get(scope)!.id)
-    if (!this.db.prepare('SELECT 1 AS ok FROM index_nodes WHERE scope=? AND id=?').get(scope, nodeId)) throw new StorageError('INDEX_NODE_NOT_FOUND')
+    const node = input.nodeId === undefined
+      ? this.db.prepare('SELECT id FROM index_nodes WHERE scope=? ORDER BY rowid DESC LIMIT 1').get(scope)
+      : this.db.prepare('SELECT id FROM index_nodes WHERE scope=? AND id=?').get(scope, input.nodeId)
+    if (!node) throw new StorageError('INDEX_NODE_NOT_FOUND')
+    const nodeId = String(node.id)
     const leafRows = this.db.prepare('SELECT record_id FROM index_leaves WHERE scope=? AND node_id=? AND record_id>? ORDER BY record_id LIMIT ?')
       .all(scope, nodeId, input.after, input.limit + 1)
     const selected = leafRows.slice(0, input.limit)
@@ -242,8 +253,9 @@ export class StoreDatabase {
       return { id: record.id, kind: record.kind, name: record.name, stage: record.stage, version: record.version,
         description: record.description.length > 240 ? `${record.description.slice(0, 239)}…` : record.description }
     })
+    const last = selected.at(-1)
     return { initialized: true, readPath: 'summaries-and-leaves', guidance, summariesTruncated: rows.length > 30, summaries,
-      leaves: { items, hasMore: leafRows.length > input.limit, nextAfter: selected.length ? String(selected.at(-1)!.record_id) : '' } }
+      leaves: { items, hasMore: leafRows.length > input.limit, nextAfter: last ? String(last.record_id) : '' } }
   }
   private search(input: Input<'search'>): Output<'search'> {
     if (!input.query.trim() || input.query.length > 500 || input.limit < 1 || input.limit > 100) throw new StorageError('INVALID_SEARCH')
@@ -281,7 +293,7 @@ export class StoreDatabase {
         // Snapshot becomes a standalone main file before hashing/copying.
         snapshot.exec('PRAGMA journal_mode=DELETE')
         if (!this.databaseOk(snapshot)) throw new StorageError('BACKUP_DATABASE_INVALID')
-        schemaVersion = Number(snapshot.prepare('PRAGMA user_version').get()!.user_version)
+        schemaVersion = Number(sqliteScalar(snapshot, 'PRAGMA user_version', 'user_version'))
         hashes = snapshot.prepare('SELECT hash FROM evidence').all().map(r => String(r.hash))
       } finally { snapshot.close() }
       privateDirectory(join(stage, 'evidence'))
@@ -317,7 +329,7 @@ export class StoreDatabase {
       durableWrite(join(destination, 'store.sqlite'), plainFile(join(source, 'store.sqlite')))
       const restored = new DatabaseSync(join(destination, 'store.sqlite'), { readOnly: true })
       try {
-        if (!this.databaseOk(restored) || Number(restored.prepare('PRAGMA user_version').get()!.user_version) !== manifest.schemaVersion) throw new StorageError('BACKUP_INVALID')
+        if (!this.databaseOk(restored) || Number(sqliteScalar(restored, 'PRAGMA user_version', 'user_version')) !== manifest.schemaVersion) throw new StorageError('BACKUP_INVALID')
         const refs = restored.prepare('SELECT hash FROM evidence').all().map(r => String(r.hash)).sort()
         if (JSON.stringify(refs) !== JSON.stringify([...manifest.evidence].sort())) throw new StorageError('BACKUP_INVALID')
       } finally { restored.close() }
@@ -329,10 +341,10 @@ export class StoreDatabase {
     validate(method, 'input', input)
     let output: unknown
     switch (method) {
-      case 'status': output = { schemaVersion: SCHEMA_VERSION, sqliteVersion: String(this.db.prepare('SELECT sqlite_version() AS v').get()!.v),
-        journalMode: String(this.db.prepare('PRAGMA journal_mode').get()!.journal_mode), lockingMode: String(this.db.prepare('PRAGMA locking_mode').get()!.locking_mode),
-        observations: Number(this.db.prepare('SELECT count(*) AS n FROM observations').get()!.n), tasks: Number(this.db.prepare('SELECT count(*) AS n FROM tasks').get()!.n),
-        evidenceFiles: Number(this.db.prepare('SELECT count(*) AS n FROM evidence').get()!.n) }; break
+      case 'status': output = { schemaVersion: SCHEMA_VERSION, sqliteVersion: String(sqliteScalar(this.db, 'SELECT sqlite_version() AS v', 'v')),
+        journalMode: String(sqliteScalar(this.db, 'PRAGMA journal_mode', 'journal_mode')), lockingMode: String(sqliteScalar(this.db, 'PRAGMA locking_mode', 'locking_mode')),
+        observations: Number(sqliteScalar(this.db, 'SELECT count(*) AS n FROM observations', 'n')), tasks: Number(sqliteScalar(this.db, 'SELECT count(*) AS n FROM tasks', 'n')),
+        evidenceFiles: Number(sqliteScalar(this.db, 'SELECT count(*) AS n FROM evidence', 'n')) }; break
       case 'knowledgeCommit': output = this.knowledge.commit(input as Input<'knowledgeCommit'>); break
       case 'knowledgeImport': output = this.knowledge.import(input as Input<'knowledgeImport'>); break
       case 'knowledgeGet': output = this.knowledge.get(input as Input<'knowledgeGet'>); break

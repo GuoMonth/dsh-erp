@@ -36,8 +36,10 @@ export class BrowserSession {
   status(): BrowserStatus {
     if (this.state === 'observing' && Date.now() >= this.grantUntil) this.pause('observation-grant-expired')
     const pages = this.context?.pages() ?? []
+    const [page] = pages
+    const url = pages.length === 1 && page ? page.url() : ''
     return { state: this.state, revision: this.revision, sessionId: this.sessionId, reason: this.reason,
-      pages: pages.length, pageUrl: pages.length === 1 && this.base && inSite(pages[0]!.url(), this.base) ? cleanUrl(pages[0]!.url()) : '' }
+      pages: pages.length, pageUrl: url && this.base && inSite(url, this.base) ? cleanUrl(url) : '' }
   }
   pause(reason = 'user-takeover'): BrowserStatus {
     this.readGrant = undefined; this.readController?.abort()
@@ -99,17 +101,19 @@ export class BrowserSession {
       throw new BrowserError(signal.aborted ? 'CANCELLED' : 'BROWSER_LAUNCH_FAILED_CHECK_DISPLAY_AND_RESOURCES')
     }
   }
-  private page(): Page {
-    const pages = this.context?.pages() ?? []
+  private activePage(): { page: Page; base: URL } {
     if (!this.context) throw new BrowserError('BROWSER_CLOSED')
-    if (pages.length !== 1) { this.pause('select-one-page'); throw new BrowserError('BROWSER_REQUIRES_ONE_PAGE') }
-    if (!this.base || !inSite(pages[0]!.url(), this.base)) { this.pause('outside-site'); throw new BrowserError('BROWSER_OUTSIDE_SITE') }
-    return pages[0]!
+    const pages = this.context.pages()
+    const [page] = pages
+    if (pages.length !== 1 || !page) { this.pause('select-one-page'); throw new BrowserError('BROWSER_REQUIRES_ONE_PAGE') }
+    const base = this.base
+    if (!base || !inSite(page.url(), base)) { this.pause('outside-site'); throw new BrowserError('BROWSER_OUTSIDE_SITE') }
+    return { page, base }
   }
   async resume(sessionId: string, revision: number, signal: AbortSignal): Promise<BrowserStatus> {
     signal.throwIfAborted()
     if (sessionId !== this.sessionId || revision !== this.revision) throw new BrowserError('BROWSER_STALE_CONFIRMATION')
-    const page = this.page()
+    const { page } = this.activePage()
     await this.checkLogin(page)
     signal.throwIfAborted()
     if (revision !== this.revision) throw new BrowserError('BROWSER_STALE_CONFIRMATION')
@@ -132,7 +136,7 @@ export class BrowserSession {
     signal.throwIfAborted()
     if (this.status().state !== 'observing') throw new BrowserError('BROWSER_MANUAL_CONTROL')
     const revision = this.revision
-    const page = this.page()
+    const { page } = this.activePage()
     const url = page.url()
     await this.checkLogin(page)
     const entries: Capture['entries'] = []
@@ -159,16 +163,19 @@ export class BrowserSession {
     if (!inSite(target, base)) throw new BrowserError('ERP_ENTRY_OUTSIDE_BASE_URL')
     await this.open(input, signal)
     try {
-      await this.context!.pages()[0]!.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      const page = this.context?.pages()[0]
+      if (!page) throw new BrowserError('BROWSER_CLOSED')
+      await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 })
       signal.throwIfAborted()
       return this.pause('manual-login-required')
     } catch { await this.close(); throw new BrowserError('ERP_ENTRY_PAGE_FAILED') }
   }
   async snapshot(signal: AbortSignal): Promise<Snapshot> {
     if (this.status().state !== 'observing') throw new BrowserError('BROWSER_MANUAL_CONTROL')
-    const revision = this.revision, page = this.page()
+    const revision = this.revision
+    const { page, base } = this.activePage()
     await this.checkLogin(page)
-    const value = await this.targets.capture(page, this.base!, this.sessionId, revision, signal)
+    const value = await this.targets.capture(page, base, this.sessionId, revision, signal)
     if (revision !== this.revision || this.status().state !== 'observing') {
       await this.targets.clear(); throw new BrowserError('BROWSER_SNAPSHOT_INTERRUPTED')
     }
@@ -176,10 +183,11 @@ export class BrowserSession {
   }
   async action(input: BrowserAction, signal: AbortSignal): Promise<Snapshot> {
     if (input.sessionId !== this.sessionId || input.revision !== this.revision || this.status().state !== 'observing') throw new BrowserError('BROWSER_STALE_TARGET')
-    const page = this.page(); await this.checkLogin(page)
+    const { page, base } = this.activePage()
+    await this.checkLogin(page)
     if (input.revision !== this.revision) throw new BrowserError('BROWSER_STALE_TARGET')
     try {
-      await this.targets.act(page, this.base!, input, signal)
+      await this.targets.act(page, base, input, signal)
       await page.waitForLoadState('domcontentloaded', { timeout: 8000 })
       signal.throwIfAborted()
       // This individual action's approval includes reading its result and a renewed bounded observation window.
@@ -209,13 +217,14 @@ export class BrowserSession {
       || input.policyDigest !== view.digest || grant.policyDigest !== view.digest || grant.remaining <= 0
       || Date.now() >= Date.parse(grant.expiresAt)) throw new BrowserError('READ_GRANT_INVALID')
     if (!view.policy.routes.some(route => route.id === input.routeId)) throw new BrowserError('READ_ROUTE_NOT_ALLOWED')
-    const page = this.page(); await this.checkLogin(page)
+    const { page } = this.activePage()
+    await this.checkLogin(page)
     if (input.revision !== this.revision || this.readGrant !== grant || Date.now() >= Date.parse(grant.expiresAt)) throw new BrowserError('READ_GRANT_INVALID')
     const controller = new AbortController(); this.readController = controller
     const combined = AbortSignal.any([signal, controller.signal, AbortSignal.timeout(Math.max(1, Math.min(12_000, Date.parse(grant.expiresAt) - Date.now())))])
     grant.remaining-- // A failed or cancelled attempt consumes its slot; never retry automatically.
     try {
-      const capture = await navigateRead(this.context!, view, input.routeId, input, combined, () => this.pause('human-input'))
+      const capture = await navigateRead(page.context(), view, input.routeId, input, combined, () => this.pause('human-input'))
       combined.throwIfAborted()
       if (input.revision !== this.revision || this.readGrant !== grant || this.status().state !== 'observing') throw new BrowserError('READ_GRANT_INVALID')
       return capture

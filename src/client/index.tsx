@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { IConversation, InputState, SessionInput } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -343,7 +344,7 @@ function conversationOf(ctx: ClientCtx): IConversation | undefined {
   return readService(ctx, 'conversation') as IConversation | undefined
 }
 
-function readComposer(ctx: ClientCtx, sessionId: string): SessionInput | undefined {
+function readComposer(ctx: ClientCtx, sessionId: SessionId): SessionInput | undefined {
   const binding = sessionsOf(ctx)?.binding(sessionId)
   const input = conversationOf(ctx)?.input
   if (!binding || !input) return undefined
@@ -351,7 +352,7 @@ function readComposer(ctx: ClientCtx, sessionId: string): SessionInput | undefin
 }
 
 /** The session view can publish its binding just after it is shown. */
-async function composerInput(ctx: ClientCtx, sessionId: string): Promise<SessionInput | undefined> {
+async function composerInput(ctx: ClientCtx, sessionId: SessionId): Promise<SessionInput | undefined> {
   for (let attempt = 0; attempt < COMPOSER_TRIES; attempt += 1) {
     const input = readComposer(ctx, sessionId)
     if (input) return input
@@ -361,7 +362,7 @@ async function composerInput(ctx: ClientCtx, sessionId: string): Promise<Session
 }
 
 /** Put the line on the retained session. `keep` does not replace a draft the user already wrote. */
-function placeDraft(ctx: ClientCtx, sessionId: string, line: string): 'applied' | 'preserved' | 'blocked' | 'missing' {
+function placeDraft(ctx: ClientCtx, sessionId: SessionId, line: string): 'applied' | 'preserved' | 'blocked' | 'missing' {
   const binding = sessionsOf(ctx)?.binding(sessionId)
   const input = conversationOf(ctx)?.input
   if (!binding || !input) return 'missing'
@@ -376,7 +377,7 @@ function placeDraft(ctx: ClientCtx, sessionId: string, line: string): 'applied' 
  * session, with the sign-in hint. A phase of `sending` means the host accepted an ordinary message.
  * A draft the user already wrote is left alone.
  */
-async function submitLine(ctx: ClientCtx, sessionId: string, line: string): Promise<void> {
+async function submitLine(ctx: ClientCtx, sessionId: SessionId, line: string): Promise<void> {
   const want = line.trim()
   const input = await composerInput(ctx, sessionId)
   placeDraft(ctx, sessionId, line)
@@ -406,7 +407,7 @@ async function submitLine(ctx: ClientCtx, sessionId: string, line: string): Prom
 }
 
 /** The menu consumes the token before this runs. Put the visible spelling back; do not submit again. */
-function runSlash(ctx: ClientCtx, sessionId: string, hostLine: '/explore' | '/explore-update'): void {
+function runSlash(ctx: ClientCtx, sessionId: SessionId, hostLine: '/explore' | '/explore-update'): void {
   const shown = hostLine === '/explore-update' ? '/更新探索' : '/探索'
   setTimeout(() => {
     placeDraft(ctx, sessionId, shown)
@@ -441,7 +442,7 @@ function registerSlash(ctx: ClientCtx, t: (key: string) => string): void {
   const commandUi = readService(ctx, 'commandUi') as CommandUiContract | undefined
   if (!commandUi) return
   const action = (hostLine: '/explore' | '/explore-update') => (session: { sessionId?: string }) => {
-    if (session.sessionId) runSlash(ctx, session.sessionId, hostLine)
+    if (session.sessionId) runSlash(ctx, SessionId(session.sessionId), hostLine)
   }
   ctx.effect(() => {
     const stop = [
@@ -503,7 +504,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
   }
   useEffect(() => {
     let alive = true
-    guideOf(ctx, { op: 'list' }).then(value => { if (alive) { applyGuide(value); setReady(true) } }, cause => { if (alive) { setError(message(t, cause)); setReady(true) } })
+    guideOf(ctx, { op: 'list' }).then(value => { if (alive) { applyGuide(value); setReady(true) } }, (cause: unknown) => { if (alive) { setError(message(t, cause)); setReady(true) } })
     return () => { alive = false }
   }, [ctx, t])
   async function submit(event: { preventDefault(): void }) {

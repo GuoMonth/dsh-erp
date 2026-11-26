@@ -135,16 +135,19 @@ export class SnapshotTargets {
     if (!data || data.disabled || hash(data.signature) !== target.signature) throw new BrowserError('BROWSER_TARGET_CHANGED: take a fresh snapshot')
     const noopLink = /^javascript:\s*(?:void\s*\(\s*0\s*\)\s*;?|;)\s*$/i.test(data.href)
     if (data.href && !noopLink && !inSite(data.href, base)) throw new BrowserError('BROWSER_TARGET_OUTSIDE_APPLICATION')
-    if (['fill', 'select'].includes(input.operation) !== (input.value !== undefined)) throw new BrowserError('BROWSER_ACTION_VALUE_REQUIRED_OR_UNEXPECTED')
+    const { operation, value } = input
+    if ((operation === 'fill' || operation === 'select') !== (value !== undefined)) {
+      throw new BrowserError('BROWSER_ACTION_VALUE_REQUIRED_OR_UNEXPECTED')
+    }
     // Consume before dispatch: a timeout, rejection or cancellation must never replay the action.
     this.current = undefined
     const abort = () => { void page.context().close().catch(() => {}) }
     signal.addEventListener('abort', abort, { once: true })
     try {
       signal.throwIfAborted()
-      if (input.operation === 'click') await target.handle.click({ timeout: 8000 })
-      else if (input.operation === 'fill') await target.handle.fill(input.value!, { timeout: 8000 })
-      else if (input.operation === 'select') await target.handle.selectOption({ label: input.value! }, { timeout: 8000 })
+      if (operation === 'fill' && value !== undefined) await target.handle.fill(value, { timeout: 8000 })
+      else if (operation === 'select' && value !== undefined) await target.handle.selectOption({ label: value }, { timeout: 8000 })
+      else if (operation === 'click') await target.handle.click({ timeout: 8000 })
       else await target.handle.scrollIntoViewIfNeeded({ timeout: 8000 })
       signal.throwIfAborted()
     } finally { signal.removeEventListener('abort', abort); await this.clear() }

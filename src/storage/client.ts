@@ -78,11 +78,13 @@ export class StorageClient {
       await this.start()
       signal?.throwIfAborted()
       if (this.failure) throw this.failure
+      const thread = this.thread
+      if (!thread) throw new StorageError('STORAGE_DISCONNECTED')
       // Once dispatched, settle the actual durable outcome. Never kill/retry a commit on caller cancellation.
       return await new Promise<unknown>((resolve, reject) => {
         const id = String(++this.sequence)
         this.pending = { id, method, resolve, reject }
-        try { this.thread!.postMessage({ v: 1, id, method, input: snapshot }) }
+        try { thread.postMessage({ v: 1, id, method, input: snapshot }) }
         catch { this.pending = undefined; reject(new StorageError('STORAGE_DISCONNECTED')) }
       })
     }).finally(() => { this.admitted-- })

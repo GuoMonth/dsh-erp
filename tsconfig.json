@@ -1,10 +1,7 @@
 {
-  "compilerOptions": {
-    "target": "ES2024", "module": "NodeNext", "moduleResolution": "NodeNext",
-    "strict": true, "noUncheckedIndexedAccess": true, "exactOptionalPropertyTypes": true,
-    "declaration": true, "outDir": "dist", "rootDir": "src", "skipLibCheck": true,
-    "verbatimModuleSyntax": true, "types": ["node"]
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/client/**"]
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.host.json" },
+    { "path": "./tsconfig.client.json" }
+  ]
 }

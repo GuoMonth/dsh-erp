@@ -91,9 +91,13 @@ export class ExperienceSharing {
     }
     if (!selected.length) throw new StorageError('EXPERIENCE_EMPTY')
     const ids = new Map(selected.map((item, index) => [item.record.id, `item-${String(index + 1).padStart(4, '0')}`]))
-    const ref = (r: { id: string }) => ({ id: ids.get(r.id)!, version: 1 })
+    const ref = (record: { id: string }) => {
+      const id = ids.get(record.id)
+      if (!id) throw new StorageError('EXPERIENCE_REFERENCE_NOT_FOUND')
+      return { id, version: 1 }
+    }
     const records: KnowledgeWrite[] = selected.map(({ record: r }) => ({
-      id: ids.get(r.id)!, kind: r.kind, name: r.name, aliases: r.aliases, description: r.description,
+      id: ref(r).id, kind: r.kind, name: r.name, aliases: r.aliases, description: r.description,
       expectedVersion: 0, stage: 'interpreted', flags: ['needs-review'], lifecycle: 'active',
       evidence: [], dependencies: r.dependencies.map(ref),
       ...(r.context?.pageType ? { context: { pageType: r.context.pageType } } : {}),
@@ -147,8 +151,8 @@ export class ExperienceSharing {
           name: provider,
           list: async options => {
             const root = join(this.storage.directory, 'skills')
-            const entries = await readdir(root, { withFileTypes: true }).catch(error => {
-              if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+            const entries = await readdir(root, { withFileTypes: true }).catch((error: unknown) => {
+              if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return []
               throw error
             })
             options.signal?.throwIfAborted()

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Align all DSH packages with 0.2.2-rc.5.
+- Run the existing suites with Vitest and check host and client TypeScript separately, with type-aware Oxlint in local verification.
+
 ## 0.1.6 — 2026-11-09
 
 - A site workspace is titled with its display name. Adding or opening a site enters that folder's conversation, so the composer is not left on "Choose a workspace". The right browser starts near 70% of the chat and browser together, and a later drag is kept.

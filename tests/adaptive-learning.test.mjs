@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { site } from './fixtures/erp-site.mjs'
 import { mkdtempSync, rmSync } from 'node:fs'

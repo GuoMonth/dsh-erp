@@ -13,29 +13,28 @@ npm run verify
 npm pack
 ```
 
-`verify` 执行类型检查、测试和安装产物冒烟。测试覆盖桌面客户端包、ERP 助手入口、返回后续开和书签校验、索引呈现，以及切换两个站点时各自的索引。冒烟在仓库外安装 TGZ，以确定性模型检查真实 DSH、Chromium、IPC、审批和本地知识，不调用在线模型或 ERP。构建清理 `dist`，发布包排除测试夹具和用户私有数据。
+`verify` 执行文档检查、类型感知 Oxlint、宿主与客户端各自的 TypeScript 检查、Vitest 和安装产物冒烟。用 `npm test -- tests/<name>.test.mjs` 运行指定测试。TypeScript 和测试约定见[仓库规范](https://github.com/GuoMonth/dsh-erp/blob/main/AGENTS.md)。测试覆盖桌面客户端包、ERP 助手入口、返回后续开和书签校验、索引呈现，以及切换两个站点时各自的索引。冒烟在仓库外安装 TGZ，以确定性模型检查真实 DSH、Chromium、IPC、审批和本地知识，不调用在线模型或 ERP。构建清理 `dist`，发布包排除测试夹具和用户私有数据。
 
 浏览器变更补充相关的有界面测试：
 
 ```sh
-npm run build
-ERP_TEST_HEADFUL=1 xvfb-run -a node --test tests/browser.test.mjs tests/read-navigation.test.mjs tests/scm-learning.test.mjs
+ERP_TEST_HEADFUL=1 xvfb-run -a npm test -- tests/browser.test.mjs tests/read-navigation.test.mjs tests/scm-learning.test.mjs
 ```
 
 SCM 夹具是冻结的回归基准，不是生产集成。原生桌面变更可运行下列可选测试，只控制隔离的夹具窗口：
 
 ```sh
-ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' node --test tests/computer-desktop.integration.mjs
+ERP_CUA_DESKTOP_E2E=1 xvfb-run -a -s '-screen 0 1920x1080x24' npm test -- tests/computer-desktop.integration.mjs
 ```
 
 只改文档时运行 `npm run docs:check`。真实模型视觉、用户 macOS 和当前真实 ERP 业务验收不在 `npm run verify` 内。
 
 ## 本地安装包
 
-使用唯一 TGZ 路径并核对安装字节，pnpm 可能缓存复用的路径。在隔离的 DSH profile 中安装：
+先用 `npm pack` 打包当前源码。使用唯一 TGZ 路径并核对安装字节，pnpm 可能缓存复用的路径。在隔离的 DSH profile 中安装：
 
 ```sh
-npm exec --yes --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.5.tgz
+npm exec --yes --package=@deepseek-ai/dsh@0.2.2-rc.5 --package=pnpm@11.28.5 -- dsh plugin --profile web add /absolute/path/guosheng_047-dsh-erp-0.1.6.tgz
 ```
 
 `erp_runtime_status` 与 `erp_storage_status` 检查本地进程和存储。`erp_model_probe` 调用已有模型路由，不批准后续业务操作。完成本地验证后，通过手动 [Release Action](npm-publishing.md) 发布。

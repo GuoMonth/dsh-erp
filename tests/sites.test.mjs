@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,7 +16,7 @@ import { mount } from './harness.mjs'
 
 function directory(t) {
   const dir = mkdtempSync(join(tmpdir(), 'erp-sites-'))
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  t.onTestFinished(() => rmSync(dir, { recursive: true, force: true }))
   return dir
 }
 const agent = id => ({ session: { id, header: { id } } })
@@ -29,7 +29,7 @@ test('two sites keep separate sessions, scopes and indexes', async t => {
     { url: 'https://a.example/app/', account: 'one', name: 'Alpha' },
     { url: 'https://b.example/app/', account: 'two', name: 'Beta' },
   ] })
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   const listed = host.ctx.erp.catalog.listPublic()
   assert.equal(listed.length, 2)
   assert.equal(listed.some(site => 'password' in site), false)
@@ -52,7 +52,7 @@ test('two sites keep separate sessions, scopes and indexes', async t => {
 test('desktop add rejects passwords and a new site does not see another index', async t => {
   const root = directory(t)
   const host = await mount(plugin, undefined, { dataDir: root, system: { url: 'https://a.example/app/', account: 'one' } })
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   const rejected = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/app/', account: 'two', password: 'secret' })
   assert.equal(rejected.ok, false)
   assert.equal(rejected.error.code, 'ERP_PASSWORD_REJECTED')
@@ -83,7 +83,7 @@ test('desktop add rejects passwords and a new site does not see another index', 
 test('continue restores the last opened site and does not jump to a different one', async t => {
   const root = directory(t)
   const host = await mount(plugin, undefined, { dataDir: root })
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   const first = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://a.example/app/', name: 'Alpha', account: 'one' })
   const second = erpRequest(host.ctx.erp.catalog, { op: 'add', url: 'https://b.example/app/', name: 'Beta', account: 'two' })
   assert.equal(second.ok, true)
@@ -94,7 +94,7 @@ test('continue restores the last opened site and does not jump to a different on
   assert.equal(opened.value.lastOpenedId, alpha.id)
   assert.equal(resumeTarget(opened.value.sites, opened.value.lastOpenedId).id, alpha.id)
   const again = new SiteCatalog(root)
-  t.after(() => again.dispose())
+  t.onTestFinished(() => again.dispose())
   assert.equal(again.lastOpened(), alpha.id)
   const removed = erpRequest(host.ctx.erp.catalog, { op: 'remove', id: alpha.id })
   assert.equal(removed.value.lastOpenedId, alpha.id)
@@ -119,7 +119,7 @@ test('continue restores the last opened site and does not jump to a different on
 test('the wizard rejects a bad entry and an edited account stays off other sessions', async t => {
   const root = directory(t)
   const host = await mount(plugin, undefined, { dataDir: root, system: { url: 'https://a.example/app/', account: 'one', name: 'Alpha' } })
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   const listed = erpRequest(host.ctx.erp.catalog, { op: 'list' })
   const alpha = listed.value.sites[0]
   host.ctx.erp.catalog.bind('sess-a', alpha.id)
@@ -157,7 +157,7 @@ test('the desktop channel drops its route when the plugin unloads', async t => {
   const ctx = new Context()
   const catalog = new SiteCatalog(root)
   let disposed = false
-  t.after(async () => { await ctx.fiber.dispose(); await catalog.dispose() })
+  t.onTestFinished(async () => { await ctx.fiber.dispose(); await catalog.dispose() })
   await ctx.plugin(inner => {
     inner.provide('connection', { fetch: { register() { return async () => { disposed = true } } } })
   })

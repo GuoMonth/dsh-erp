@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { setTimeout as delay } from 'node:timers/promises'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
@@ -23,7 +23,7 @@ test('IPC rejects unexpected shapes, protocol versions and operation names', () 
 })
 test('worker is reusable, bounded and disposed without orphaning', async t => {
   const client = new WorkerClient()
-  t.after(() => client.dispose())
+  t.onTestFinished(() => client.dispose())
   const first = await client.health(signal())
   assert.notEqual(first.pid, process.pid)
   const pending = client.health(signal(), 100)
@@ -35,7 +35,7 @@ test('worker is reusable, bounded and disposed without orphaning', async t => {
 })
 test('cancellation settles after cooperative work stops and leaves channel reusable', async t => {
   const client = new WorkerClient()
-  t.after(() => client.dispose())
+  t.onTestFinished(() => client.dispose())
   await client.health(signal())
   const controller = new AbortController()
   const pending = client.health(controller.signal, 10_000)
@@ -47,14 +47,14 @@ test('cancellation settles after cooperative work stops and leaves channel reusa
 })
 test('timeout cancels work instead of silently retrying it', async t => {
   const client = new WorkerClient({ timeoutMs: 50 })
-  t.after(() => client.dispose())
+  t.onTestFinished(() => client.dispose())
   await client.health(signal())
   await assert.rejects(client.health(signal(), 10_000), { code: 'WORKER_TIMEOUT' })
   await client.health(signal())
 })
 test('crash fails the pending call; the next explicit call starts a new process', async t => {
   const client = new WorkerClient()
-  t.after(() => client.dispose())
+  t.onTestFinished(() => client.dispose())
   const first = await client.health(signal())
   const rejected = assert.rejects(client.health(signal(), 10_000), { code: 'WORKER_EXITED' })
   await delay(30)
@@ -85,7 +85,7 @@ test('startup cancellation cleans the process before rejecting', async () => {
 })
 test('non-cooperative worker is killed before cancellation completes; env keys are excluded', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'erp-worker-test-'))
-  t.after(() => rm(dir, { recursive: true, force: true }))
+  t.onTestFinished(() => rm(dir, { recursive: true, force: true }))
   const file = join(dir, 'stubborn.mjs')
   await writeFile(file, `
     if (process.env.ERP_TEST_SECRET || process.env.NODE_OPTIONS || process.execArgv.length) process.exit(9)
@@ -97,7 +97,7 @@ test('non-cooperative worker is killed before cancellation completes; env keys a
   const originalOptions = process.env.NODE_OPTIONS
   process.env.NODE_OPTIONS = '--import=data:text/javascript,process.exit(19)'
   const client = new WorkerClient({ workerUrl: pathToFileURL(file) })
-  t.after(async () => {
+  t.onTestFinished(async () => {
     delete process.env.ERP_TEST_SECRET
     if (originalOptions === undefined) delete process.env.NODE_OPTIONS
     else process.env.NODE_OPTIONS = originalOptions
@@ -123,7 +123,7 @@ test('worker exits when its owning host is killed', async t => {
     const result = await client.health(new AbortController().signal);
     process.stdout.write(String(result.pid));`
   const owner = spawn(process.execPath, ['--input-type=module', '-e', source], { stdio: ['ignore', 'pipe', 'inherit'] })
-  t.after(() => owner.kill('SIGKILL'))
+  t.onTestFinished(() => owner.kill('SIGKILL'))
   const [chunk] = await once(owner.stdout, 'data')
   const pid = Number(chunk.toString())
   assert.ok(pid > 0)
