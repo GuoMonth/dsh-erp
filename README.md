@@ -8,7 +8,7 @@ A tools-only install leaves the assistant off the navigation. The next question 
 
 The plugin still learns only what the browser showed. Later questions read a short level summary and one page of evidence. An ERP write waits for a fresh approval. It ships with no knowledge of your company.
 
-This checkout targets **DSH 0.2.2-rc.5**. The published **ERP 0.1.6** uses **DSH 0.2.2-rc.1**. This package requires Node **>=24.18.0 <25**. Desktop checks cover Linux x64. Windows and macOS acceptance is still pending. `npm run verify` does not include a live model or a real ERP.
+This checkout targets **DSH 0.2.2-rc.5** and requires **Node.js 24.22.3 or later in the 24.x series, or 26.13.1 or later**. The published **ERP 0.1.6** uses **DSH 0.2.2-rc.1**. Desktop checks cover Linux x64. Windows and macOS acceptance is still pending. `npm run verify` does not include a live model or a real ERP.
 
 ## When there is no workspace for the ERP
 
