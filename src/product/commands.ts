@@ -1,6 +1,9 @@
 import { resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import { startExplore } from '../learning/explore.js'
+import type { CommandInvocation } from '@deepseek-ai/dsh-commands'
+import type { CommandResult } from '@deepseek-ai/dsh-commands/types'
+import type { TakeBrowserObservation } from '../native-learning.js'
+import { loggedInUiVisible, startExplore } from '../learning/explore.js'
 import { LearningRuntime } from '../learning/runtime.js'
 import { sessionHint } from '../sites/router.js'
 import type { SessionHint, Site, SiteCatalog } from '../sites/catalog.js'
@@ -8,16 +11,17 @@ import type { SessionHint, Site, SiteCatalog } from '../sites/catalog.js'
 export const EXPLORE_COMMAND = 'explore'
 export const UPDATE_COMMAND = 'explore-update'
 
-interface CommandResult { kind: 'success' | 'error'; text?: string }
-interface CommandInvocation { agent: { session?: unknown }; signal: AbortSignal }
-
 const PAUSED = [
-  '还看不到已登录界面，探索已暂停。请先在右侧浏览器登录，然后再发送。未完成的范围不会标成完成。',
-  'The logged-in page is not visible yet, so exploration is paused. Sign in on the right, then send this again. Unfinished scope stays unfinished.',
+  '探索已暂停。登录 ERP 后，在当前会话取得新的原生浏览器快照，再运行 /探索。未完成的范围不会标成完成。',
+  'Exploration is paused. Sign in to ERP, take a fresh native browser snapshot in this conversation, then run /explore again. Unfinished scope stays unfinished.',
 ].join('\n')
 const STARTED = [
   '探索已开始。覆盖率只算这一轮。',
   'Exploration has started. Coverage counts this round only.',
+].join('\n')
+const COMPLETE = [
+  '这一轮探索已完成。覆盖率只算这一轮。',
+  'This exploration round is complete. Coverage counts this round only.',
 ].join('\n')
 const REPLACED = [
   '这一轮会覆盖该站点上一次探索。已有索引还在这个工作区里。',
@@ -46,32 +50,40 @@ export function workspaceSite(catalog: SiteCatalog, hint: SessionHint | undefine
 }
 
 /** Run the depth-3 explore for the conversation's workspace, or refuse when none is selected. */
-export async function runExploreCommand(catalog: SiteCatalog, invocation: CommandInvocation, replace: boolean): Promise<CommandResult> {
+export async function runExploreCommand(
+  catalog: SiteCatalog,
+  invocation: Pick<CommandInvocation, 'agent' | 'signal'>,
+  replace: boolean,
+  takeObservation?: TakeBrowserObservation,
+): Promise<CommandResult> {
+  invocation.signal.throwIfAborted()
   const hint = sessionHint({ agent: invocation.agent })
   const site = workspaceSite(catalog, hint)
   if (!site) return { kind: 'error', text: NEEDS_WORKSPACE }
-  const outcome = await startExplore(new LearningRuntime(catalog.client(site.id)), site.profile.scope, invocation.signal, undefined, replace)
+  const client = catalog.client(site.id)
+  const snapshot = takeObservation?.(invocation.agent, site.profile)
+  const observation = snapshot && loggedInUiVisible(snapshot.text)
+    ? await client.call('observe', snapshot, invocation.signal)
+    : undefined
+  const outcome = await startExplore(new LearningRuntime(client), site.profile.scope, invocation.signal, observation, replace)
   if (outcome.pausedUntilLogin) return { kind: 'success', text: replace ? `${REPLACED}\n${PAUSED}` : PAUSED }
-  return { kind: 'success', text: replace ? REPLACED : STARTED }
+  const text = outcome.complete ? COMPLETE : STARTED
+  return { kind: 'success', text: replace ? `${REPLACED}\n${text}` : text }
 }
 
 /** Host slash commands. Names stay ASCII; the desktop contributes the Chinese spellings. */
-export function registerErpCommands(ctx: Context, catalog: SiteCatalog): void {
+export function registerErpCommands(ctx: Context, catalog: SiteCatalog, takeObservation?: TakeBrowserObservation): void {
   ctx.inject(['commands'], scope => {
-    const commands = (scope as Context & { commands: { register(definition: {
-      name: string
-      description: string
-      handler(invocation: CommandInvocation): Promise<CommandResult>
-    }): () => void } }).commands
+    const { commands } = scope
     const stopExplore = commands.register({
       name: EXPLORE_COMMAND,
-      description: 'Explore this ERP site: menu and structure to depth 3. Pauses when the logged-in page is not visible.',
-      handler: invocation => runExploreCommand(catalog, invocation, false),
+      description: 'Explore this ERP site: menu and structure to depth 3. Pauses until the conversation has a fresh browser snapshot of the signed-in site.',
+      handler: invocation => runExploreCommand(catalog, invocation, false, takeObservation),
     })
     const stopUpdate = commands.register({
       name: UPDATE_COMMAND,
       description: 'Explore this ERP site again. This round covers the previous explore for this site.',
-      handler: invocation => runExploreCommand(catalog, invocation, true),
+      handler: invocation => runExploreCommand(catalog, invocation, true, takeObservation),
     })
     scope.effect(() => () => { stopExplore(); stopUpdate() })
   })

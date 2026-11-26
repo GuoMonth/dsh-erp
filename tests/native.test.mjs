@@ -16,6 +16,7 @@ import * as NativeExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import Llm, { ToolCallId } from '@deepseek-ai/dsh-llm'
 import Sessions, { SessionId } from '@deepseek-ai/dsh-session'
 import Agents from '@deepseek-ai/dsh-agent'
+import Commands from '@deepseek-ai/dsh-commands'
 import Loop from '@deepseek-ai/dsh-agent-loop'
 import Projections from '@deepseek-ai/dsh-session-projection'
 import Approval from '@deepseek-ai/dsh-user-approval'
@@ -43,7 +44,7 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   const modules = new Map([
     ['prompt', SystemPrompt], ['tools', Tools], ['executor', NativeExecutor], ['llm', Llm], ['sessions', Sessions],
     ['agents', Agents], ['loop', Loop], ['projections', Projections], ['approval', Approval],
-    ['fs', Fs], ['workingDirectory', WorkingDirectory], ['erp', NativeErp],
+    ['fs', Fs], ['workingDirectory', WorkingDirectory], ['commands', Commands], ['erp', NativeErp],
   ])
   const profile = join(root, 'browser-profile')
   browserContext = await chromium.launchPersistentContext(profile, { executablePath: chromium.executablePath(), headless: true, args: ['--no-sandbox', '--remote-debugging-port=0'] })
@@ -62,8 +63,16 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   const status = await executeCall(ctx.tools, { name: 'erp_native_status', callId: ToolCallId('native-status'), signal: new AbortController().signal })
   assert.equal(status.isError, false, JSON.stringify(status)); assert.equal(status.value.browserProvider, 'playwright-mcp')
   assert.equal(ctx.tools.schemas().some(tool => tool.name === 'erp_browser_action'), false)
-  const first = await ctx.agents.create({ sessionId: SessionId('native-first'), meta: { cwd: root } })
-  await first.agent.whenIdle(); first.agent.session.append('turn/start', { turn: 1 })
+  const site = ctx.erp.catalog.sole()
+  const local = ctx.erp.catalog.client(site.id)
+  const scope = site.profile.scope
+  const execute = (owner, line) => ctx.commands.execute(owner.agent, line, [], AbortSignal.timeout(15_000))
+  const first = await ctx.agents.create({ sessionId: SessionId('native-first'), meta: { cwd: site.workspaceDir } })
+  await first.agent.whenIdle()
+  const paused = await execute(first, '/explore')
+  assert.match(paused.result.text, /Exploration is paused/)
+  assert.equal((await local.call('task', { scope, id: 'explore' })).state, 'paused')
+  first.agent.session.append('turn/start', { turn: 1 })
   let answer = 'rejected', sequence = 0, decisions = 0
   ctx.on('approval/request', async () => { decisions++; return answer })
   const run = (name, arguments_ = {}, owner = first) => executeCall(ctx.tools, { agent: owner.agent,
@@ -74,7 +83,17 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   const navigation = await run('mcp__playwright-mcp__browser_navigate', { url }); assert.equal(navigation.isError, false, JSON.stringify(navigation))
   const snapshot = await run('mcp__playwright-mcp__browser_snapshot'); assert.equal(snapshot.isError, false, JSON.stringify(snapshot))
   const saved = await run('erp_native_observation_save'); assert.equal(saved.isError, false, JSON.stringify(saved)); assert.match(saved.value.text, /Purchasing/)
-  const scope = (await run('erp_system_status')).value.scope
+  assert.deepEqual((await run('erp_system_status')).value.scope, scope)
+  first.agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  const started = await execute(first, '/explore')
+  assert.match(started.result.text, /Exploration has started|This exploration round is complete/)
+  const index = await local.call('indexRead', { scope, after: '', limit: 20 })
+  assert.equal(index.initialized, true, 'the same Agent snapshot advances the saved round')
+  assert.ok(index.summaries.some(summary => summary.level === 1))
+  const lifecycle = Array.from({ length: first.agent.session.seq }, (_, seq) => first.agent.session.eventAt(seq))
+    .filter(event => event.type === 'command/run' || event.type === 'command/done')
+  assert.deepEqual(lifecycle.map(event => event.type), ['command/run', 'command/done', 'command/run', 'command/done'])
+  first.agent.session.append('turn/start', { turn: 2 })
   const learned = await run('erp_knowledge_record', { scope, records: [{ id: 'native-menu', kind: 'menu', name: 'Purchasing', aliases: [], description: 'Observed menu label.',
     expectedVersion: 0, stage: 'observed', flags: [], lifecycle: 'active', evidence: [{ observationId: saved.value.id, quote: 'Purchasing' }], dependencies: [] }] })
   assert.equal(learned.isError, false, JSON.stringify(learned))
@@ -84,13 +103,16 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   assert.equal((await run('erp_native_observation_save')).isError, true, 'an action invalidates prior evidence')
   assert.equal((await run('mcp__playwright-mcp__browser_snapshot')).isError, false)
   assert.match((await run('erp_native_observation_save')).value.text, /Outcome checked/)
-  const second = await ctx.agents.create({ sessionId: SessionId('native-second'), meta: { cwd: root } })
-  await second.agent.whenIdle(); second.agent.session.append('turn/start', { turn: 1 })
+  const second = await ctx.agents.create({ sessionId: SessionId('native-second'), meta: { cwd: site.workspaceDir } })
+  await second.agent.whenIdle()
+  const secondRound = await execute(second, '/explore-update')
+  assert.match(secondRound.result.text, /Exploration is paused/, 'another Agent cannot consume the browser snapshot')
+  second.agent.session.append('turn/start', { turn: 1 })
   assert.equal((await run('erp_native_observation_save', {}, second)).isError, true, 'another Agent cannot inherit captured evidence')
   assert.equal((await run('mcp__playwright-mcp__browser_snapshot', {}, second)).isError, true, 'attach reservation is exclusive')
   await second.dispose()
   assert.ok(decisions >= 5)
-  first.agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } }); await first.dispose()
+  first.agent.session.append('turn/end', { turn: 2, reason: { kind: 'completed' } }); await first.dispose()
   assert.equal(attached.isConnected(), true, 'host-owned attached browser stays open')
   assert.ok((await attached.contexts()[0].pages()[0].content()).includes('Outcome checked'))
 })

@@ -143,7 +143,6 @@ function applyEngine(ctx: Context, config: Config): void {
     if (!site) throw new Error('ERP_UNKNOWN_SITE')
     return site
   }
-  registerErpCommands(ctx, runtime.catalog)
   registerErpChannel(ctx, runtime.catalog, {
     exportPack: async id => {
       const site = siteById(id)
@@ -161,8 +160,11 @@ function applyEngine(ctx: Context, config: Config): void {
   ctx.on('tools/execute', (exec, next) => bindToolExecution(exec, () => next()))
   const openui = () => openUiHost(ctx)
   const render = (title: string, lines: string[]) => (_args: unknown, value: unknown) => markdown(title, lines, value, openui())
-  if (config.browserMode === 'native') registerNativeLearning(ctx, storage, () => runtime.catalog.statusSite(sessionHint())?.profile)
-  else registerBrowserTools(ctx, runtime.browser)
+  const takeObservation = config.browserMode === 'native'
+    ? registerNativeLearning(ctx, storage, () => runtime.catalog.statusSite(sessionHint())?.profile)
+    : undefined
+  if (config.browserMode !== 'native') registerBrowserTools(ctx, runtime.browser)
+  registerErpCommands(ctx, runtime.catalog, takeObservation)
   registerKnowledgeTools(ctx, storage, () => runtime.catalog.statusSite(sessionHint()))
   registerLearningTools(ctx, storage)
   ctx.tools.register(defineTool({ name: 'erp_system_status',

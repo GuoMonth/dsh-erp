@@ -1,3 +1,4 @@
+import type { Context } from '@deepseek-ai/cordis'
 import type { ISessions, SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { IWorkspaces, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -21,18 +22,19 @@ export interface OpenSite {
 /** `ILayout` publishes selection. The controller still holds the column actions. */
 export type LayoutColumns = ILayout & { readonly panels?: { setRightbar(px: number): void } }
 
+export type ErpSidebar = Pick<ISidebarRight, 'openTab' | 'mounted' | 'focus'>
+  & Partial<Pick<Context['sidebarRight'], 'tabsIn' | 'tabDomain'>>
+
 export interface OpenDeps {
   sessions: Pick<ISessions, 'binding'>
   uiWorkspace: Pick<UiWorkspace, 'openSession' | 'openWorkspace'>
   layout: LayoutColumns
-  sidebar: Pick<ISidebarRight, 'openTab' | 'mounted'>
+  sidebar: ErpSidebar
   workspaces?: IWorkspaces
   conversation?: Pick<IConversation, 'input'>
   bind(siteId: string, sessionId: string): Promise<void>
   /** Called when a first-run draft is prepared, before the composer is shown. */
   hint?(sessionId: string): void
-  /** Submit a slash line in the open conversation. */
-  submitLine?(sessionId: SessionId, line: string): Promise<void> | void
 }
 
 export interface ListedErpSite {
@@ -52,8 +54,6 @@ export interface OpenOptions {
   fresh?: boolean
   /** Composer draft. Not sent. */
   prefill?: string
-  /** Slash line to run after the conversation is on screen. */
-  submit?: string
 }
 
 /** About 70% of the chat column plus the browser, leaving the left sidebar out. */
@@ -93,19 +93,6 @@ export function widenErpBrowser(layout: OpenDeps['layout']): void {
   setRightbar(Math.round(Math.max(0, viewport - sidebar) * BROWSER_SHARE))
 }
 
-interface BrowserTab {
-  id: string
-  kind: string
-}
-
-interface BrowserTabs {
-  tabsIn?(sessionId: string): readonly BrowserTab[]
-  tabDomain?: {
-    occurrence(sessionId: string, tab: { id: string }): { navigation: { getSnapshot(): { params?: { url?: string } } } }
-  }
-  focus?(tabId: string): void
-}
-
 /** Compare site entries without the query string. A trailing slash does not make a second page. */
 function entryKey(url: string): string {
   try {
@@ -115,38 +102,55 @@ function entryKey(url: string): string {
   } catch { return url }
 }
 
+function assertShown(sidebar: ErpSidebar, sessionId: SessionId): void {
+  if (sidebar.mounted.getSnapshot() !== sessionId) throw new Error('ERP_NAVIGATION_SUPERSEDED')
+}
+
 /**
  * Browser pages are `multiple: true`, so `openTab('browser')` always mints a new tab.
  * The controller can still list the session's tabs and focus one whose opener URL is this entry.
  */
-export function revealSiteTab(sidebar: OpenDeps['sidebar'], sessionId: string | undefined, entryUrl: string): void {
-  const reader = sidebar as OpenDeps['sidebar'] & BrowserTabs
+function revealSiteTab(sidebar: ErpSidebar, sessionId: SessionId, entryUrl: string): void {
+  assertShown(sidebar, sessionId)
   const want = entryKey(entryUrl)
-  if (sessionId && reader.tabsIn && reader.tabDomain && reader.focus) {
-    for (const tab of reader.tabsIn(sessionId)) {
+  if (sidebar.tabsIn && sidebar.tabDomain) {
+    for (const tab of sidebar.tabsIn(sessionId)) {
       if (tab.kind !== 'browser') continue
-      let current: string | undefined
-      try { current = reader.tabDomain.occurrence(sessionId, tab).navigation.getSnapshot().params?.url }
-      catch { continue }
-      if (current && entryKey(current) === want) {
-        reader.focus(tab.id)
+      let current: unknown
+      try {
+        const params = sidebar.tabDomain.occurrence(sessionId, tab).navigation.getSnapshot().params
+        if (params && 'url' in params) current = params.url
+      } catch { continue }
+      if (typeof current === 'string' && entryKey(current) === want) {
+        assertShown(sidebar, sessionId)
+        sidebar.focus(tab.id)
         return
       }
     }
   }
+  assertShown(sidebar, sessionId)
   sidebar.openTab('browser', { params: { url: entryUrl } })
 }
 
-function waitUntilShown(sidebar: OpenDeps['sidebar'], sessionId: string): Promise<void> {
-  const mounted = sidebar.mounted
-  if (!mounted) return Promise.resolve()
-  if (mounted.getSnapshot() === sessionId) return Promise.resolve()
+function waitUntilShown(sidebar: ErpSidebar, sessionId: SessionId): Promise<boolean> {
+  const { mounted } = sidebar
+  if (mounted.getSnapshot() === sessionId) return Promise.resolve(true)
   return new Promise(resolve => {
+    const timeout = setTimeout(() => finish(false), 800)
     let stop = () => {}
-    const timer = setTimeout(() => { stop(); resolve() }, 800)
+    let settled = false
     stop = mounted.subscribe(() => {
-      if (mounted.getSnapshot() === sessionId) { clearTimeout(timer); stop(); resolve() }
+      const shown = mounted.getSnapshot()
+      if (shown !== undefined) finish(shown === sessionId)
     })
+    if (settled) stop()
+    function finish(shown: boolean): void {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      stop()
+      resolve(shown)
+    }
   })
 }
 
@@ -166,7 +170,6 @@ async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView 
   if (member) {
     deps.uiWorkspace.openSession(member)
     if (options?.prefill) prefillDraft(deps, member, options.prefill)
-    if (options?.submit) placeDraft(deps, member, options.submit)
     return member
   }
   if (!view) throw new Error('ERP_SESSION_ID')
@@ -174,9 +177,8 @@ async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView 
   await deps.uiWorkspace.openWorkspace(view.workspaceId, id => {
     opened = id
     if (options?.prefill) prefillDraft(deps, id, options.prefill)
-    if (options?.submit) placeDraft(deps, id, options.submit)
   })
-  if (!opened) throw new Error('ERP_SESSION_ID')
+  if (!opened) throw new Error('ERP_NAVIGATION_SUPERSEDED')
   if (opened !== site.sessionId) await deps.bind(site.id, opened)
   return opened
 }
@@ -211,8 +213,8 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
   let again = false
   let alive = true
   const flush = () => {
-    const current = deps.sidebar.mounted?.getSnapshot()
-    if (typeof current !== 'string') return
+    const current = deps.sidebar.mounted.getSnapshot()
+    if (!current) return
     const url = pending.get(current)
     if (!url) return
     pending.delete(current)
@@ -261,7 +263,7 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
     } finally { scanning = false }
   }
   const stopList = list.subscribe(() => { void scan() })
-  const stopMounted = deps.sidebar.mounted?.subscribe(flush) ?? (() => {})
+  const stopMounted = deps.sidebar.mounted.subscribe(flush)
   void scan()
   return () => {
     alive = false
@@ -277,13 +279,12 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
  * Continue reopens the bound member. A new chat reuses that folder's blank session.
  */
 export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: OpenOptions): Promise<SessionId> {
-  if (!deps.sidebar?.openTab) throw new Error('ERP_BROWSER_UNAVAILABLE')
+  const navigation = deps.layout.beginNavigation()
   const view = await ensureWorkspace(deps.workspaces, site.workspaceDir, site.name)
+  if (navigation.aborted) throw new Error('ERP_NAVIGATION_SUPERSEDED')
   widenErpBrowser(deps.layout)
   const sessionId = await focusSession(deps, site, view, options)
-  deps.layout.selectPanel(null)
-  await waitUntilShown(deps.sidebar, sessionId)
-  if (options?.submit) await deps.submitLine?.(sessionId, options.submit)
+  if (!(await waitUntilShown(deps.sidebar, sessionId))) throw new Error('ERP_NAVIGATION_SUPERSEDED')
   let opened = false
   let last: unknown
   for (let attempt = 0; attempt < 40 && !opened; attempt += 1) {
@@ -293,12 +294,14 @@ export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: Open
     } catch (error) {
       last = error
       const message = error instanceof Error ? error.message : String(error)
+      if (message === 'ERP_NAVIGATION_SUPERSEDED') throw error
       if (!message.includes('no session surface is mounted')) break
       await new Promise(resolve => { setTimeout(resolve, 100) })
     }
   }
   if (!opened) {
     const detail = last instanceof Error ? last.message : ''
+    assertShown(deps.sidebar, sessionId)
     deps.layout.selectPanel(brandString<MainPanelId>(PRODUCT_PANEL))
     throw new Error(detail.startsWith('ERP_') ? detail : 'ERP_BROWSER_UNAVAILABLE')
   }
