@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-commands/remote'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { IConversation, InputState, SessionInput } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { CommandContribution, CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { ISidebarRight } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
@@ -12,7 +14,7 @@ import { normalizeBookmark } from '../product/bookmark.ts'
 import { entryIssue } from '../product/wizard.ts'
 import { SiteFavicon } from './favicon.tsx'
 import { ensureWorkspace, openErpSite, watchWorkspaceSessions } from './open.ts'
-import type { LayoutColumns, OpenSite } from './open.ts'
+import type { ErpSidebar, LayoutColumns, OpenSite } from './open.ts'
 
 export { ensureWorkspace, openErpSite, watchWorkspaceSessions } from './open.ts'
 export { PRODUCT_ENTRY, PRODUCT_PANEL }
@@ -40,7 +42,7 @@ const zh: Record<string, string> = {
   explorePaused: '还看不到已登录界面，探索已暂停。登录后在对话里继续这一轮。未完成的范围不会标成完成。',
   explorePartial: '探索已开始，这一轮还没有走完。已有结果可以读，未完成的范围保持未完成。',
   exploreRound: '这一轮已经走完。覆盖率只算这一轮。',
-  exploreHint: '先在右侧浏览器登录，再发送 /探索。还没登录时，探索会停下来等你。',
+  exploreHint: '先登录 ERP，在当前会话获取原生浏览器快照，再运行 /探索。',
   exploreCommand: '探索',
   exploreCommandHint: '读取菜单和结构，深度停在 3。还没登录会暂停。',
   updateCommand: '更新探索',
@@ -74,6 +76,8 @@ const zh: Record<string, string> = {
   unknownSite: '列表里没有这个站点。',
   session: '这段对话还不能绑到这个站点。',
   failed: '操作没有完成。请再试一次。',
+  commandFailed: '无法确认探索命令的结果，请查看当前会话的命令记录。',
+  commandUnavailable: '当前会话无法运行探索命令。',
   duplicate: '这个网址已经在列表里，已打开那个站点。',
 }
 const en: Record<string, string> = {
@@ -98,7 +102,7 @@ const en: Record<string, string> = {
   explorePaused: 'The logged-in page is not visible yet, so exploration is paused. Continue this round in the conversation after you sign in. Unfinished scope is not marked complete.',
   explorePartial: 'Exploration has started, and this round is not finished. Results so far stay readable. Unfinished scope stays unfinished.',
   exploreRound: 'This round is finished. Coverage counts this round only.',
-  exploreHint: 'Sign in on the right first, then send /探索. If you are not signed in yet, exploration waits.',
+  exploreHint: 'Sign in to ERP, take a native browser snapshot in this conversation, then run /探索.',
   exploreCommand: 'Explore',
   exploreCommandHint: 'Read the menu and structure, stopping at depth 3. It pauses until you are signed in.',
   updateCommand: 'Update explore',
@@ -132,10 +136,12 @@ const en: Record<string, string> = {
   unknownSite: 'That site is not in this list.',
   session: 'This conversation cannot be bound to this site.',
   failed: 'That action did not finish. Try again.',
+  commandFailed: 'The exploration result could not be confirmed. Check this conversation’s command history.',
+  commandUnavailable: 'This conversation cannot run the exploration command.',
   duplicate: 'This URL is already listed. Opened that site.',
 }
 
-interface ClientCtx {
+interface ClientCtx extends Pick<Context, 'remote'> {
   effect(fn: () => (() => void) | void): void
   get(name: string): unknown
   locale: {
@@ -153,7 +159,7 @@ interface ExploreStatus { state: string; pausedUntilLogin: boolean; complete: bo
 interface GuideValue { sites: ListedSite[]; lastOpenedId?: string; explore?: ExploreStatus; pack?: { fileName: string; bytes: string }; imported?: { warnings: string[] } }
 interface RpcResult { ok: boolean; value?: GuideValue; error?: { message?: string } }
 
-export const inject = ['slots', 'locale']
+export const inject = ['slots', 'locale', 'remote', 'remote.commands']
 
 const STYLE = `
 .erp-assistant{box-sizing:border-box;height:100%;overflow:auto;padding:28px 32px;color:var(--dsw-alias-label-primary,inherit);font:inherit}
@@ -223,12 +229,14 @@ function message(t: (key: string) => string, error: unknown): string {
   const code = text.split(':')[0] ?? ''
   if (code === 'ERP_CHANNEL_UNAVAILABLE') return t('channel')
   if (code === 'ERP_BROWSER_UNAVAILABLE') return t('browser')
+  if (code === 'ERP_EXPLORE_COMMAND_FAILED') return t('commandFailed')
+  if (code === 'ERP_EXPLORE_COMMAND_UNAVAILABLE') return t('commandUnavailable')
   if (code === 'ERP_PASSWORD_REJECTED' || code === 'credentials') return t('password')
   if (code.startsWith('SHARE_PACK_')) return t('packInvalid')
   if (code === 'INVALID_ENTRY_URL' || code === 'INVALID_SITE_URL' || code === 'ERP_URL_REQUIRED' || code === 'url' || code === 'query' || code === 'empty') return t('urlInvalid')
   if (code === 'ERP_BASE_URL_REQUIRED' || code === 'ERP_BASE_URL_MUST_END_IN_SLASH' || code === 'ERP_ENTRY_OUTSIDE_BASE_URL' || code === 'slash') return t('baseRequired')
   if (code === 'ERP_UNKNOWN_SITE' || code === 'ERP_SITE_REJECTED') return t('unknownSite')
-  if (code === 'ERP_SESSION_ID' || code === 'ERP_SESSION_BOUND') return t('session')
+  if (code === 'ERP_SESSION_ID' || code === 'ERP_SESSION_BOUND' || code === 'ERP_NAVIGATION_SUPERSEDED') return t('session')
   return t('failed')
 }
 
@@ -328,91 +336,14 @@ function readService(ctx: ClientCtx, name: string): unknown {
   return (ctx.get as (service: string, strict?: boolean) => unknown).call(ctx, name, false)
 }
 
-const COMPOSER_TRIES = 8
-const COMPOSER_WAIT_MS = 40
-const BUSY_PHASE = new Set<InputState['phase']>(['adjudicating', 'submitting', 'sending'])
-
-function wait(ms: number): Promise<void> {
-  return new Promise(resolve => { setTimeout(resolve, ms) })
-}
-
-function sessionsOf(ctx: ClientCtx): ISessions | undefined {
-  return readService(ctx, 'sessions') as ISessions | undefined
-}
-
-function conversationOf(ctx: ClientCtx): IConversation | undefined {
-  return readService(ctx, 'conversation') as IConversation | undefined
-}
-
-function readComposer(ctx: ClientCtx, sessionId: SessionId): SessionInput | undefined {
-  const binding = sessionsOf(ctx)?.binding(sessionId)
-  const input = conversationOf(ctx)?.input
-  if (!binding || !input) return undefined
-  return input.for(binding.ctx)
-}
-
-/** The session view can publish its binding just after it is shown. */
-async function composerInput(ctx: ClientCtx, sessionId: SessionId): Promise<SessionInput | undefined> {
-  for (let attempt = 0; attempt < COMPOSER_TRIES; attempt += 1) {
-    const input = readComposer(ctx, sessionId)
-    if (input) return input
-    if (attempt < COMPOSER_TRIES - 1) await wait(COMPOSER_WAIT_MS)
+async function executeExplore(ctx: ClientCtx, sessionId: SessionId, line: '/explore' | '/explore-update'): Promise<void> {
+  if (hintedSession === sessionId) {
+    hintedSession = ''
+    for (const listener of hintListeners) listener()
   }
-  return undefined
-}
-
-/** Put the line on the retained session. `keep` does not replace a draft the user already wrote. */
-function placeDraft(ctx: ClientCtx, sessionId: SessionId, line: string): 'applied' | 'preserved' | 'blocked' | 'missing' {
-  const binding = sessionsOf(ctx)?.binding(sessionId)
-  const input = conversationOf(ctx)?.input
-  if (!binding || !input) return 'missing'
-  try { return input.requestDraftInitialization(binding, { prompt: line, whenDraftExists: 'keep' }) }
-  catch { return 'missing' }
-}
-
-/**
- * One-click explore.
- * `/探索` is a client command: submitting it consumes the token and does not enter `sending`,
- * so an empty composer afterwards is not a sent message. The draft is put back on the visible
- * session, with the sign-in hint. A phase of `sending` means the host accepted an ordinary message.
- * A draft the user already wrote is left alone.
- */
-async function submitLine(ctx: ClientCtx, sessionId: SessionId, line: string): Promise<void> {
-  const want = line.trim()
-  const input = await composerInput(ctx, sessionId)
-  placeDraft(ctx, sessionId, line)
-  const live = input ?? await composerInput(ctx, sessionId)
-  if (!live) { markExploreHint(sessionId); return }
-  const before = live.state.getSnapshot()
-  if (BUSY_PHASE.has(before.phase)) return
-  const text = before.draft.trim()
-  if ((text !== '' && text !== want) || (text === '' && before.attachmentIds.length > 0)) {
-    markExploreHint(sessionId)
-    return
-  }
-  if (text === '') live.setDraft(line)
-  live.submit()
-  let sawSending = false
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const snap = live.state.getSnapshot()
-    if (snap.phase === 'sending') sawSending = true
-    if (!BUSY_PHASE.has(snap.phase)) break
-    await wait(COMPOSER_WAIT_MS)
-  }
-  const after = live.state.getSnapshot()
-  if (sawSending && after.phase === 'sending') return
-  if (sawSending && after.draft.trim() === '') return
-  if (after.draft.trim() !== want) placeDraft(ctx, sessionId, line)
-  markExploreHint(sessionId)
-}
-
-/** The menu consumes the token before this runs. Put the visible spelling back; do not submit again. */
-function runSlash(ctx: ClientCtx, sessionId: SessionId, hostLine: '/explore' | '/explore-update'): void {
-  const shown = hostLine === '/explore-update' ? '/更新探索' : '/探索'
-  setTimeout(() => {
-    placeDraft(ctx, sessionId, shown)
-    markExploreHint(sessionId)
-  }, 0)
+  const response = await ctx.remote.commands.execute(sessionId, line, [])
+  if (!response.ok) throw new Error('ERP_EXPLORE_COMMAND_FAILED', { cause: response.error })
+  if (!response.value) throw new Error('ERP_EXPLORE_COMMAND_UNAVAILABLE')
 }
 
 function ExploreHint({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
@@ -442,7 +373,9 @@ function registerSlash(ctx: ClientCtx, t: (key: string) => string): void {
   const commandUi = readService(ctx, 'commandUi') as CommandUiContract | undefined
   if (!commandUi) return
   const action = (hostLine: '/explore' | '/explore-update') => (session: { sessionId?: string }) => {
-    if (session.sessionId) runSlash(ctx, SessionId(session.sessionId), hostLine)
+    if (!session.sessionId) return
+    const sessionId = SessionId(session.sessionId)
+    void executeExplore(ctx, sessionId, hostLine).catch((cause: unknown) => { markSessionNote(sessionId, message(t, cause)) })
   }
   ctx.effect(() => {
     const stop = [
@@ -546,14 +479,14 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     } catch (cause) { setError(message(t, cause)) }
     finally { setBusy(false) }
   }
-  async function open(site: ListedSite, fresh = false, follow?: { prefill?: string; submit?: string }): Promise<string | undefined> {
+  async function open(site: ListedSite, fresh = false, follow?: { prefill?: string; explore?: true }): Promise<SessionId | undefined> {
     setBusy(true)
     setError('')
     try {
       const layout = readService(ctx, 'layout') as LayoutColumns | undefined
       const sessions = readService(ctx, 'sessions') as ISessions | undefined
       const uiWorkspace = readService(ctx, 'uiWorkspace') as UiWorkspace | undefined
-      const sidebar = readService(ctx, 'sidebarRight') as ISidebarRight | undefined
+      const sidebar = readService(ctx, 'sidebarRight') as ErpSidebar | undefined
       const conversation = readService(ctx, 'conversation') as IConversation | undefined
       const hostWorkspaces = workspaces()
       if (!layout || !sessions || !uiWorkspace || !sidebar) throw new Error('ERP_BROWSER_UNAVAILABLE')
@@ -561,9 +494,12 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
         layout, sessions, uiWorkspace, sidebar, ...(conversation ? { conversation } : {}), ...(hostWorkspaces ? { workspaces: hostWorkspaces } : {}),
         bind: async (siteId, sessionId) => { await guideOf(ctx, { op: 'bind', siteId, sessionId }) },
         hint: markExploreHint,
-        submitLine: (sessionId, line) => submitLine(ctx, sessionId, line),
-      }, site, { ...(fresh ? { fresh: true } : {}), ...(follow?.prefill ? { prefill: follow.prefill } : {}), ...(follow?.submit ? { submit: follow.submit } : {}) })
+      }, site, { ...(fresh ? { fresh: true } : {}), ...(follow?.prefill ? { prefill: follow.prefill } : {}) })
       applyGuide(await guideOf(ctx, { op: 'opened', id: site.id }))
+      if (follow?.explore && sidebar.mounted.getSnapshot() === sessionId) {
+        try { await executeExplore(ctx, sessionId, '/explore') }
+        catch (cause) { markSessionNote(sessionId, message(t, cause)) }
+      }
       return sessionId
     } catch (cause) {
       parkedGuideError = message(t, cause)
@@ -588,7 +524,7 @@ function Guide({ ctx, t }: { ctx: ClientCtx; t: (key: string) => string }) {
     queueMicrotask(() => addRef.current?.scrollIntoView({ block: 'nearest' }))
   }
   async function explore(site: ListedSite) {
-    await open(site, false, { submit: '/探索' })
+    await open(site, false, { explore: true })
   }
   async function share(site: ListedSite) {
     setBusy(true)

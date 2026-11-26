@@ -3,6 +3,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
+const beginNavigation = () => new AbortController().signal
+const mountedSession = id => ({ getSnapshot: () => id, subscribe() { return () => {} } })
+
 test('the client bundle registers ERP 助手 and opens the official sidebar browser', async () => {
   const code = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
   assert.doesNotMatch(code, /账户标签|Account label|应用根地址|Application root/)
@@ -22,7 +25,7 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   })
   assert.deepEqual([...seen], ['react', 'react/jsx-runtime'])
   assert.equal(typeof exports.apply, 'function')
-  assert.equal(exports.inject.join(','), 'slots,locale')
+  assert.equal(exports.inject.join(','), 'slots,locale,remote,remote.commands')
   const dict = {}
   let lang = 'zh'
   const regs = []
@@ -116,8 +119,8 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
       openSession() { throw new Error('a new site uses openWorkspace') },
       async openWorkspace(id, before) { calls.push(['open', id]); before('sess-1') },
     },
-    layout: { selectPanel(id) { calls.push(['panel', id]) } },
-    sidebar: { openTab(kind, options) { calls.push(['tab', kind, options]) } },
+    layout: { beginNavigation, selectPanel(id) { calls.push(['panel', id]) } },
+    sidebar: { mounted: mountedSession('sess-1'), openTab(kind, options) { calls.push(['tab', kind, options]) } },
     workspaces: {
       async create(input) { return { workspaceId: 'ws-1', path: input.path, title: '', sessionIds: [] } },
     },
@@ -127,7 +130,6 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
   assert.equal(JSON.stringify(calls), JSON.stringify([
     ['open', 'ws-1'],
     ['bind', 'site_a', 'sess-1'],
-    ['panel', null],
     ['tab', 'browser', { params: { url: 'https://erp.example/app/' } }],
   ]))
   calls.length = 0
@@ -137,14 +139,14 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
       openSession(id) { calls.push(['session', id]) },
       async openWorkspace() { throw new Error('a member session stays open') },
     },
-    layout: { selectPanel(id) { calls.push(['panel', id]) } },
-    sidebar: { openTab(kind, options) { calls.push(['tab', kind, options]) } },
+    layout: { beginNavigation, selectPanel(id) { calls.push(['panel', id]) } },
+    sidebar: { mounted: mountedSession('sess-2'), openTab(kind, options) { calls.push(['tab', kind, options]) } },
     workspaces: {
       async create() { return { workspaceId: 'ws-b', path: '/tmp/erp-b', title: '', sessionIds: ['sess-2'] } },
     },
     async bind() { throw new Error('should not rebind') },
   }, { id: 'site_b', entryUrl: 'https://other.example/app/', workspaceDir: '/tmp/erp-b', sessionId: 'sess-2' })
-  assert.equal(JSON.stringify(calls.map(call => call[0] === 'tab' ? call[2].params.url : call[1])), JSON.stringify(['sess-2', null, 'https://other.example/app/']))
+  assert.equal(JSON.stringify(calls.map(call => call[0] === 'tab' ? call[2].params.url : call[1])), JSON.stringify(['sess-2', 'https://other.example/app/']))
   calls.length = 0
   const fresh = []
   await exports.openErpSite({
@@ -153,8 +155,8 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
       openSession() { throw new Error('a new chat uses openWorkspace') },
       async openWorkspace(_id, before) { calls.push(['open']); before('sess-3') },
     },
-    layout: { selectPanel(id) { calls.push(['panel', id]) } },
-    sidebar: { openTab(kind, options) { calls.push(['tab', kind, options]) } },
+    layout: { beginNavigation, selectPanel(id) { calls.push(['panel', id]) } },
+    sidebar: { mounted: mountedSession('sess-3'), openTab(kind, options) { calls.push(['tab', kind, options]) } },
     workspaces: {
       async create(input) { fresh.push(input.path); return { workspaceId: 'ws-a', path: input.path, title: 'Alpha', sessionIds: ['sess-1'] } },
     },
@@ -175,10 +177,11 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
       async openWorkspace(id, before) { titled.push(['open', id]); before('sess-new') },
     },
     layout: {
+      beginNavigation,
       selectPanel(id) { titled.push(['panel', id]) },
       panels: { setRightbar(px) { widths.push(px) } },
     },
-    sidebar: { openTab(kind, options) { titled.push(['tab', kind, options.params.url]) } },
+    sidebar: { mounted: mountedSession('sess-new'), openTab(kind, options) { titled.push(['tab', kind, options.params.url]) } },
     workspaces: {
       async create(input) { return { workspaceId: 'ws-1', path: input.path, title: 'site_abc', sessionIds: [] } },
       async rename(id, title) { titled.push(['rename', id, title]); return { workspaceId: id, path: '/tmp/erp-a', title, sessionIds: [] } },
@@ -192,7 +195,6 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
     ['rename', 'ws-1', 'Alpha'],
     ['open', 'ws-1'],
     ['bind', 'site_a', 'sess-new'],
-    ['panel', null],
     ['tab', 'browser', 'https://erp.example/app/'],
   ])
   assert.deepEqual(drafted, [['hint', 'sess-new'], ['sess-new', '/探索', 'keep']])
@@ -203,15 +205,15 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
       openSession(id) { titled.push(['session', id]) },
       async openWorkspace() { throw new Error('member session stays open') },
     },
-    layout: { selectPanel(id) { titled.push(['panel', id]) }, panels: { setRightbar(px) { widths.push(px) } } },
-    sidebar: { openTab(_kind, options) { titled.push(['tab', options.params.url]) } },
+    layout: { beginNavigation, selectPanel(id) { titled.push(['panel', id]) }, panels: { setRightbar(px) { widths.push(px) } } },
+    sidebar: { mounted: mountedSession('sess-1'), openTab(_kind, options) { titled.push(['tab', options.params.url]) } },
     workspaces: {
       async create() { return { workspaceId: 'ws-1', path: '/tmp/erp-a', title: 'Alpha', sessionIds: ['sess-1'] } },
       async rename() { throw new Error('title already matches') },
     },
     async bind() { throw new Error('already bound') },
   }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', sessionId: 'sess-1' })
-  assert.deepEqual(titled.slice(-3), [['session', 'sess-1'], ['panel', null], ['tab', 'https://erp.example/app/']])
+  assert.deepEqual(titled.slice(-2), [['session', 'sess-1'], ['tab', 'https://erp.example/app/']])
   assert.equal(widths.length, 1)
   const focused = []
   await exports.openErpSite({
@@ -220,7 +222,7 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
       openSession(id) { focused.push(['session', id]) },
       async openWorkspace() { throw new Error('member session stays open') },
     },
-    layout: { selectPanel() {}, panels: { setRightbar() {} } },
+    layout: { beginNavigation, selectPanel() {}, panels: { setRightbar() {} } },
     sidebar: {
       openTab() { focused.push(['tab']) },
       mounted: { getSnapshot: () => 'sess-1', subscribe() { return () => {} } },
@@ -232,6 +234,47 @@ test('the client bundle registers ERP 助手 and opens the official sidebar brow
     async bind() { throw new Error('already bound') },
   }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', name: 'Alpha', sessionId: 'sess-1' })
   assert.deepEqual(focused, [['session', 'sess-1'], ['focus', 'tab-1']])
+  let shownAfterSwitch = 'initial'
+  let switched
+  let subscribed
+  const waitingForSession = new Promise(resolve => { subscribed = resolve })
+  const navigation = exports.openErpSite({
+    sessions: { binding() { return undefined } },
+    uiWorkspace: { openSession() { focused.push(['session', 'sess-1']) } },
+    layout: { beginNavigation, selectPanel(id) { focused.push(['panel', id]) } },
+    sidebar: {
+      mounted: {
+        getSnapshot: () => shownAfterSwitch,
+        subscribe(listener) {
+          switched = listener
+          subscribed()
+          return () => { switched = undefined }
+        },
+      },
+      openTab() { focused.push(['wrong-tab']) },
+      focus() { focused.push(['wrong-focus']) },
+    },
+    workspaces: { async create() { return { workspaceId: 'ws-1', sessionIds: ['sess-1'] } } },
+  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', sessionId: 'sess-1' })
+  await waitingForSession
+  shownAfterSwitch = 'another-session'
+  switched()
+  await assert.rejects(navigation, /ERP_NAVIGATION_SUPERSEDED/)
+  assert.equal(switched, undefined)
+  assert.deepEqual(focused, [['session', 'sess-1'], ['focus', 'tab-1'], ['session', 'sess-1']])
+  const timedOut = exports.openErpSite({
+    sessions: { binding() { return undefined } },
+    uiWorkspace: { openSession() {} },
+    layout: { beginNavigation, selectPanel(id) { focused.push(['panel', id]) } },
+    sidebar: {
+      mounted: mountedSession('stale-session'),
+      openTab() { focused.push(['wrong-tab']) },
+      focus() { focused.push(['wrong-focus']) },
+    },
+    workspaces: { async create() { return { workspaceId: 'ws-1', sessionIds: ['sess-1'] } } },
+  }, { id: 'site_a', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/erp-a', sessionId: 'sess-1' })
+  await assert.rejects(timedOut, /ERP_NAVIGATION_SUPERSEDED/)
+  assert.deepEqual(focused.slice(-1), [['session', 'sess-1']])
   const openedTabs = []
   let snapshot = { phase: 'pending', ids: [], byId: {} }
   let shown
@@ -432,389 +475,80 @@ test('the guide panel is cards and the share pack control is not the browser fil
   assert.equal(calls.length, 2)
 })
 
-test('start exploring submits /探索 when remote.commands is not injected', async () => {
+test('explore actions invoke the exact DSH session command and leave the composer alone', async () => {
   const code = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
   let registered
-  const context = {
-    window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } },
-    console,
-    setTimeout,
-    clearTimeout,
-  }
-  vm.createContext(context)
-  vm.runInContext(code, context)
-  let preset = null
+  const vmContext = { window: { __ModuleLoader__: { load(entry) { registered = entry } } }, console, setTimeout, clearTimeout, URL }
+  vm.runInNewContext(code, vmContext)
+  const site = { id: 'site_a', name: 'Suite Local', entryUrl: 'https://erp.example/app/', workspaceDir: '/tmp/a', sessionId: 'sess-1' }
+  const guideState = [[site], site.id, '', '', '', '', '', false, false, false, '', '', false, true]
   let cursor = 0
   const react = {
     useEffect() {},
     useRef(value) { return { current: value } },
-    useState(initial) {
-      if (!preset) return [typeof initial === 'function' ? initial() : initial, () => {}]
-      const value = cursor < preset.length ? preset[cursor] : (typeof initial === 'function' ? initial() : initial)
-      cursor += 1
-      return [value, () => {}]
-    },
+    useState(initial) { return [cursor < guideState.length ? guideState[cursor++] : initial, () => {}] },
   }
-  function element(type, props) {
-    return { type, props: props ?? {} }
-  }
-  const exports = registered.factory(spec => {
+  const element = (type, props) => ({ type, props: props ?? {} })
+  const bundle = registered.factory(spec => {
     if (spec === 'react') return react
     if (spec === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: Symbol.for('react.fragment') }
     throw new Error(`unexpected require ${spec}`)
   })
   const dict = {}
+  const slash = new Map()
+  const calls = []
   let guide
-  let hint
-  const slash = []
-  const site = { id: 'site_a', name: 'sg-pf', entryUrl: 'https://pftest.example/manage/', workspaceDir: '/tmp/a', sessionId: 'sess-1' }
-  const guideState = (sites, ready) => [sites, sites[0]?.id ?? '', '', '', '', '', '', false, false, false, '', '', false, ready]
-  const drafts = []
-  const submitted = []
-  const executed = []
-  const rejected = []
-  const inits = []
-  let draftText = ''
-  let phase = 'plain'
-  let acceptSubmit = true
-  let bindingReady = false
-  let remoteMode = 'throw'
-  const onRejection = reason => { rejected.push(reason) }
-  process.on('unhandledRejection', onRejection)
-  const INJECT = 'cannot get property "remote.commands" without inject'
+  let mounted = 'sess-1'
+  let result = { ok: true, value: { result: { kind: 'success' } } }
   const ctx = {
+    remote: { commands: { async execute(id, line, attachments) {
+      calls.push([id, line, [...attachments]])
+      return result
+    } } },
     effect(fn) { fn() },
     inject(_names, plugin) { plugin(ctx) },
     get(name) {
-      if (name === 'connection') return { rpc: { async call() { return { ok: true, value: { sites: [site], lastOpenedId: site.id } } } } }
-      if (name === 'layout') return { selectPanel() {}, panels: { setRightbar() {} } }
-      if (name === 'uiWorkspace') return { openSession() {} }
-      if (name === 'sidebarRight') return { openTab() {}, mounted: { getSnapshot: () => 'sess-1', subscribe() { return () => {} } } }
-      if (name === 'workspaces') return { async create() { return { workspaceId: 'ws-1', path: site.workspaceDir, title: site.name, sessionIds: ['sess-1'] } } }
-      if (name === 'sessions') return {
-        binding(id) { return bindingReady ? { ctx: { id } } : undefined },
-        scope(id) { return bindingReady ? { id } : undefined },
-      }
-      if (name === 'conversation') return {
-        input: {
-          for() {
-            return {
-              setDraft(text) { draftText = text; drafts.push(text) },
-              submit() {
-                submitted.push(draftText)
-                if (acceptSubmit) { phase = 'sending'; draftText = '' }
-              },
-              state: { getSnapshot: () => ({ draft: draftText, phase, attachmentIds: [] }) },
-            }
-          },
-          requestDraftInitialization(binding, options) {
-            inits.push([binding.ctx.id, options.prompt, options.whenDraftExists])
-            if (options.whenDraftExists === 'keep' && draftText.trim() !== '') return 'preserved'
-            draftText = options.prompt ?? ''
-            return 'applied'
-          },
-        },
-      }
-      if (name === 'commandUi') return { register(contribution) { slash.push(contribution); return () => {} } }
-      if (name === 'remote.commands' || name === 'remote') {
-        if (remoteMode === 'throw') throw new Error(INJECT)
-        if (remoteMode === 'missing') return undefined
-        if (remoteMode === 'getter' && name === 'remote') {
-          return { get commands() { throw new Error(INJECT) } }
-        }
-        if (remoteMode === 'present' && name === 'remote.commands') {
-          return { async execute(sessionId, line, attachments) { executed.push([sessionId, line, attachments]) } }
-        }
-        return undefined
-      }
+      if (name === 'connection') return { rpc: { async call() {
+        return { ok: true, value: { sites: [site], lastOpenedId: site.id } }
+      } } }
+      if (name === 'commandUi') return { register(command) { slash.set(command.name, command.ui); return () => {} } }
+      if (name === 'layout') return { beginNavigation, selectPanel() {} }
+      if (name === 'uiWorkspace') return { openSession() { mounted = 'sess-1' } }
+      if (name === 'sidebarRight') return { openTab() {}, mounted: { getSnapshot: () => mounted, subscribe() { return () => {} } } }
+      if (name === 'workspaces') return { async create() { return { workspaceId: 'ws-1', title: site.name, sessionIds: ['sess-1'] } } }
+      if (name === 'sessions') return { binding() { throw new Error('should not touch the composer') } }
       return undefined
     },
     locale: {
-      register(_ns, dicts) { Object.assign(dict, dicts); return () => {} },
+      register(_ns, langs) { Object.assign(dict, langs); return () => {} },
       bind() { return key => dict.zh[key] },
     },
     slots: {
       inject(_name, register) { register() },
-      register(options, component) {
-        if (options.name === 'main') guide = component
-        if (options.id === 'erp-explore-hint') hint = component
-        return () => {}
-      },
+      register(options, component) { if (options.name === 'main') guide = component; return () => {} },
     },
   }
-  function collect(node) {
-    const nodes = []
-    const walk = current => {
-      if (current == null || typeof current !== 'object') return
-      if (Array.isArray(current)) { for (const item of current) walk(item); return }
-      if (typeof current.type === 'function') { walk(current.type(current.props ?? {})); return }
-      nodes.push(current)
-      walk(current.props.children)
-    }
-    walk(node)
-    return nodes
+  function exploreButton(node) {
+    if (Array.isArray(node)) return node.map(exploreButton).find(Boolean)
+    if (node == null || typeof node !== 'object') return undefined
+    if (typeof node.type === 'function') return exploreButton(node.type(node.props))
+    if (node.type === 'button' && node.props.children === '一键探索') return node
+    return exploreButton(node.props.children)
   }
-  try {
-    exports.apply(ctx)
-    assert.deepEqual(slash.map(item => item.name), ['探索', '更新探索'])
-    preset = guideState([site], true)
-    cursor = 0
-    const explore = collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索')
-    assert.equal(typeof explore.props.onClick, 'function')
-    bindingReady = false
-    explore.props.onClick()
-    await new Promise(resolve => { setTimeout(resolve, 50) })
-    assert.deepEqual(drafts, [])
-    bindingReady = true
-    await new Promise(resolve => { setTimeout(resolve, 80) })
-    assert.deepEqual(submitted, ['/探索'])
-    assert.equal(draftText, '')
-    assert.equal(phase, 'sending')
-    assert.deepEqual(executed, [])
-    assert.deepEqual(rejected, [])
-
-    drafts.length = 0
-    submitted.length = 0
-    remoteMode = 'getter'
-    const exploreAction = slash.find(item => item.name === '探索')
-    exploreAction.ui.run({ sessionId: 'sess-1' })
-    await new Promise(resolve => { setTimeout(resolve, 20) })
-    assert.equal(draftText, '/探索')
-    assert.deepEqual(submitted, [])
-    assert.deepEqual(rejected, [])
-    const updateAction = slash.find(item => item.name === '更新探索')
-    drafts.length = 0
-    submitted.length = 0
-    draftText = ''
-    updateAction.ui.run({ sessionId: 'sess-1' })
-    await new Promise(resolve => { setTimeout(resolve, 20) })
-    assert.equal(draftText, '/更新探索')
-    assert.deepEqual(submitted, [])
-
-    drafts.length = 0
-    submitted.length = 0
-    executed.length = 0
-    bindingReady = false
-    remoteMode = 'present'
-    cursor = 0
-    collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索').props.onClick()
-    await new Promise(resolve => { setTimeout(resolve, 500) })
-    assert.deepEqual(drafts, [])
-    assert.deepEqual(executed, [])
-    assert.deepEqual(rejected, [])
-
-    executed.length = 0
-    preset = null
-    cursor = 0
-    assert.equal(collect(element(hint, {})).some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint), true)
-    remoteMode = 'throw'
-    cursor = 0
-    preset = guideState([site], true)
-    collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索').props.onClick()
-    await new Promise(resolve => { setTimeout(resolve, 500) })
-    assert.deepEqual(executed, [])
-    assert.deepEqual(drafts, [])
-    assert.deepEqual(rejected, [])
-    preset = null
-    cursor = 0
-    const hintNodes = collect(element(hint, {}))
-    assert.equal(hintNodes.some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint), true)
-  } finally {
-    process.off('unhandledRejection', onRejection)
-  }
-})
-
-test('a composer submit that does not take the draft leaves /探索 and the sign-in hint', async () => {
-  const code = readFileSync(new URL('../dist/client.js', import.meta.url), 'utf8')
-  let registered
-  const context = {
-    window: { innerWidth: 1400, __ModuleLoader__: { load(entry) { registered = entry } } },
-    console,
-    setTimeout,
-    clearTimeout,
-  }
-  vm.createContext(context)
-  vm.runInContext(code, context)
-  let preset = null
-  let cursor = 0
-  const react = {
-    useEffect() {},
-    useRef(value) { return { current: value } },
-    useState(initial) {
-      if (!preset) return [typeof initial === 'function' ? initial() : initial, () => {}]
-      const value = cursor < preset.length ? preset[cursor] : (typeof initial === 'function' ? initial() : initial)
-      cursor += 1
-      return [value, () => {}]
-    },
-  }
-  function element(type, props) {
-    return { type, props: props ?? {} }
-  }
-  const exports = registered.factory(spec => {
-    if (spec === 'react') return react
-    if (spec === 'react/jsx-runtime') return { jsx: element, jsxs: element, Fragment: Symbol.for('react.fragment') }
-    throw new Error(`unexpected require ${spec}`)
-  })
-  const dict = {}
-  let guide
-  let hint
-  const slash = []
-  const site = { id: 'site_a', name: 'Suite Local', entryUrl: 'https://pftest.example/manage/', workspaceDir: '/tmp/a', sessionId: 'sess-1' }
-  const guideState = (sites, ready) => [sites, sites[0]?.id ?? '', '', '', '', '', '', false, false, false, '', '', false, ready]
-  const drafts = []
-  const submitted = []
-  const inits = []
-  const rejected = []
-  let draftText = ''
-  let phase = 'plain'
-  let attachmentIds = []
-  let consume = false
-  const onRejection = reason => { rejected.push(reason) }
-  process.on('unhandledRejection', onRejection)
-  const INJECT = 'cannot get property "remote.commands" without inject'
-  const ctx = {
-    effect(fn) { fn() },
-    inject(_names, plugin) { plugin(ctx) },
-    get(name) {
-      if (name === 'connection') return { rpc: { async call() { return { ok: true, value: { sites: [site], lastOpenedId: site.id } } } } }
-      if (name === 'layout') return { selectPanel() {}, panels: { setRightbar() {} } }
-      if (name === 'uiWorkspace') return { openSession() {} }
-      if (name === 'sidebarRight') return { openTab() {}, mounted: { getSnapshot: () => 'sess-1', subscribe() { return () => {} } } }
-      if (name === 'workspaces') return { async create() { return { workspaceId: 'ws-1', path: site.workspaceDir, title: site.name, sessionIds: ['sess-1'] } } }
-      if (name === 'sessions') return { binding(id) { return { ctx: { id } } } }
-      if (name === 'conversation') return {
-        input: {
-          for() {
-            return {
-              setDraft(text) { draftText = text; drafts.push(text) },
-              submit() {
-                submitted.push(draftText)
-                if (consume) { draftText = ''; phase = 'plain' }
-              },
-              state: { getSnapshot: () => ({ draft: draftText, phase, attachmentIds }) },
-            }
-          },
-          requestDraftInitialization(binding, options) {
-            inits.push([binding.ctx.id, options.prompt, options.whenDraftExists])
-            if (options.whenDraftExists === 'keep' && (draftText.trim() !== '' || attachmentIds.length > 0)) return 'preserved'
-            draftText = options.prompt ?? ''
-            drafts.push(draftText)
-            return 'applied'
-          },
-        },
-      }
-      if (name === 'commandUi') return { register(contribution) { slash.push(contribution); return () => {} } }
-      if (name === 'remote.commands' || name === 'remote') throw new Error(INJECT)
-      return undefined
-    },
-    locale: {
-      register(_ns, dicts) { Object.assign(dict, dicts); return () => {} },
-      bind() { return key => dict.zh[key] },
-    },
-    slots: {
-      inject(_name, register) { register() },
-      register(options, component) {
-        if (options.name === 'main') guide = component
-        if (options.id === 'erp-explore-hint') hint = component
-        return () => {}
-      },
-    },
-  }
-  function collect(node) {
-    const nodes = []
-    const walk = current => {
-      if (current == null || typeof current !== 'object') return
-      if (Array.isArray(current)) { for (const item of current) walk(item); return }
-      if (typeof current.type === 'function') { walk(current.type(current.props ?? {})); return }
-      nodes.push(current)
-      walk(current.props.children)
-    }
-    walk(node)
-    return nodes
-  }
-  const hintText = () => {
-    preset = null
-    cursor = 0
-    return collect(element(hint, {})).some(node => node.type === 'p' && node.props.children === dict.zh.exploreHint)
-  }
-  const pressExplore = () => {
-    preset = guideState([site], true)
-    cursor = 0
-    const button = collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索')
-    button.props.onClick()
-  }
-  try {
-    exports.apply(ctx)
-    assert.equal(hintText(), false)
-    preset = guideState([site], true)
-    cursor = 0
-    const explore = collect(element(guide, {})).find(node => node.type === 'button' && node.props.children === '一键探索')
-    explore.props.onClick()
-    await new Promise(resolve => { setTimeout(resolve, 80) })
-    assert.deepEqual(submitted, ['/探索'])
-    assert.equal(draftText, '/探索')
-    assert.deepEqual(inits, [['sess-1', '/探索', 'keep'], ['sess-1', '/探索', 'keep']])
-    assert.equal(hintText(), true)
-    assert.deepEqual(rejected, [])
-
-    drafts.length = 0
-    submitted.length = 0
-    inits.length = 0
-    draftText = '已有草稿'
-    pressExplore()
-    await new Promise(resolve => { setTimeout(resolve, 40) })
-    assert.deepEqual(submitted, [])
-    assert.equal(draftText, '已有草稿')
-    assert.deepEqual(drafts, [])
-    assert.equal(hintText(), true)
-
-    draftText = ''
-    attachmentIds = ['file-1']
-    submitted.length = 0
-    pressExplore()
-    await new Promise(resolve => { setTimeout(resolve, 40) })
-    assert.deepEqual(submitted, [])
-    assert.deepEqual(attachmentIds, ['file-1'])
-    attachmentIds = []
-
-    phase = 'sending'
-    draftText = '/探索'
-    submitted.length = 0
-    pressExplore()
-    await new Promise(resolve => { setTimeout(resolve, 40) })
-    assert.deepEqual(submitted, [])
-    assert.equal(draftText, '/探索')
-    phase = 'plain'
-    draftText = ''
-
-    consume = true
-    draftText = ''
-    phase = 'plain'
-    drafts.length = 0
-    submitted.length = 0
-    inits.length = 0
-    pressExplore()
-    await new Promise(resolve => { setTimeout(resolve, 200) })
-    assert.deepEqual(submitted, ['/探索'])
-    assert.equal(phase, 'plain')
-    assert.equal(draftText, '/探索')
-    assert.equal(hintText(), true)
-    assert.deepEqual(rejected, [])
-
-    const exploreAction = slash.find(item => item.name === '探索')
-    consume = false
-    draftText = ''
-    drafts.length = 0
-    submitted.length = 0
-    inits.length = 0
-    exploreAction.ui.run({ sessionId: 'sess-1' })
-    await new Promise(resolve => { setTimeout(resolve, 40) })
-    assert.deepEqual(submitted, [])
-    assert.equal(draftText, '/探索')
-    assert.deepEqual(inits, [['sess-1', '/探索', 'keep']])
-    assert.equal(hintText(), true)
-    assert.deepEqual(rejected, [])
-  } finally {
-    process.off('unhandledRejection', onRejection)
-  }
+  bundle.apply(ctx)
+  exploreButton(element(guide, {})).props.onClick()
+  await new Promise(resolve => { setImmediate(resolve) })
+  slash.get('探索').run({ sessionId: 'sess-2' })
+  slash.get('更新探索').run({ sessionId: 'sess-3' })
+  await new Promise(resolve => { setImmediate(resolve) })
+  assert.deepEqual(calls, [
+    ['sess-1', '/explore', []],
+    ['sess-2', '/explore', []],
+    ['sess-3', '/explore-update', []],
+  ])
+  result = { ok: false, error: { code: 'DISCONNECTED' } }
+  slash.get('探索').run({ sessionId: 'sess-2' })
+  await new Promise(resolve => { setImmediate(resolve) })
+  assert.deepEqual(calls.at(-1), ['sess-2', '/explore', []])
+  assert.equal(calls.length, 4, 'an uncertain result is never submitted again')
 })

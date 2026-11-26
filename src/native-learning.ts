@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { StorageClient } from './storage/client.js'
+import type { Observation } from './storage/contract.js'
 import { storedObservationSchema } from './storage/contract.js'
 import type { SystemProfile } from './system.js'
 import { inSite } from './browser/contract.js'
@@ -14,9 +16,30 @@ const isNative = (name: string) => name.startsWith('mcp__playwright-mcp__')
   || name.startsWith('mcp__chrome-devtools-mcp__') || name.startsWith('cua_driver_native__')
 const snapshots = new Set(['mcp__playwright-mcp__browser_snapshot', 'mcp__chrome-devtools-mcp__take_snapshot', 'cua_driver_native__get_window_state'])
 
+type Capture = { id: string; tool: string; text: string; at: number }
+export type TakeBrowserObservation = (agent: Agent, system: SystemProfile) => Observation | undefined
+
+function captureObservation(capture: Capture, system: SystemProfile): Observation | undefined {
+  const desktop = capture.tool.startsWith('cua_driver_native__')
+  let url = desktop ? system.entryUrl : capture.text.match(/(?:^|\n)\s*-?\s*Page URL:\s*(\S+)/)?.[1]
+  if (capture.tool === 'mcp__chrome-devtools-mcp__take_snapshot') {
+    url ??= capture.text.match(/\bRootWebArea\b[^\n]*\burl="([^"]+)"/)?.[1]
+  }
+  if (!url || !inSite(url, new URL(system.baseUrl))) return undefined
+  const observedAt = new Date(capture.at).toISOString()
+  const snapshot = nativeSnapshot(capture.text, url, observedAt)
+  return { id: capture.id, scope: system.scope, url, title: snapshot.title, text: JSON.stringify(snapshot),
+    locale: 'und', context: JSON.stringify({ source: 'browser-learning-v1', via: 'native', tool: capture.tool }), observedAt }
+}
+
 /** The host owns operations, attachments and Session state; ERP retains only cited learning evidence. */
-export function registerNativeLearning(ctx: Context, storage: StorageClient, siteOf: () => SystemProfile | undefined): void {
-  const latest = new WeakMap<object, { tool: string; text: string; at: number }>()
+export function registerNativeLearning(ctx: Context, storage: StorageClient, siteOf: () => SystemProfile | undefined): TakeBrowserObservation {
+  const latest = new WeakMap<object, Capture>()
+  const usedForExplore = new WeakSet<Capture>()
+  const freshCapture = (owner: object): Capture | undefined => {
+    const capture = latest.get(owner)
+    return capture && Date.now() - capture.at <= 120_000 ? capture : undefined
+  }
   const programmatic = {}
   ctx.on('tools/pre-execute', async (exec, next) => {
     if (isNative(exec.name)) {
@@ -33,7 +56,7 @@ export function registerNativeLearning(ctx: Context, storage: StorageClient, sit
   ctx.on('tools/result', (exec, result) => {
     if (!snapshots.has(exec.name) || result.isError) return
     const text = result.content.filter(block => block.type === 'text').map(block => block.text).join('\n')
-    if (text && text.length <= 256_000) latest.set(exec.agent ?? programmatic, { tool: exec.name, text, at: Date.now() })
+    if (text && text.length <= 256_000) latest.set(exec.agent ?? programmatic, { id: randomUUID(), tool: exec.name, text, at: Date.now() })
   })
   ctx.tools.register(defineTool({ name: 'erp_native_status', description: 'Inspect the active DSH native providers and ERP knowledge scope, without opening a browser or operating the desktop.', parameters: {},
     output: { schema: { type: 'json' }, render: (_args, value) => markdown('Native providers', ['Providers own their tools. Saved observations grant no operation authority.'], value, openUiHost(ctx)) },
@@ -51,20 +74,19 @@ export function registerNativeLearning(ctx: Context, storage: StorageClient, sit
     execute: async (_args, exec) => {
       const system = siteOf()
       if (!system) throw new Error('ERP_SYSTEM_NOT_CONFIGURED')
-      const capture = latest.get(exec.agent ?? programmatic)
-      if (!capture || Date.now() - capture.at > 120_000) throw new Error('ERP_NATIVE_FRESH_SNAPSHOT_REQUIRED')
-      const desktop = capture.tool.startsWith('cua_driver_native__')
-      let url = desktop ? system.entryUrl : capture.text.match(/(?:^|\n)\s*-?\s*Page URL:\s*(\S+)/)?.[1]
-      if (capture.tool === 'mcp__chrome-devtools-mcp__take_snapshot') {
-        url ??= capture.text.match(/\bRootWebArea\b[^\n]*\burl="([^"]+)"/)?.[1]
-      }
-      if (!url || !inSite(url, new URL(system.baseUrl))) throw new Error('ERP_NATIVE_SNAPSHOT_OUTSIDE_SYSTEM')
-      const observedAt = new Date(capture.at).toISOString()
-      const snapshot = nativeSnapshot(capture.text, url, observedAt)
-      return storage.call('observe', { id: randomUUID(), scope: system.scope, url,
-        title: snapshot.title, text: JSON.stringify(snapshot), locale: 'und',
-        context: JSON.stringify({ source: 'browser-learning-v1', via: 'native', tool: capture.tool }),
-        observedAt }, exec.signal)
+      const capture = freshCapture(exec.agent ?? programmatic)
+      if (!capture) throw new Error('ERP_NATIVE_FRESH_SNAPSHOT_REQUIRED')
+      const observation = captureObservation(capture, system)
+      if (!observation) throw new Error('ERP_NATIVE_SNAPSHOT_OUTSIDE_SYSTEM')
+      return storage.call('observe', observation, exec.signal)
     },
   }))
+  return (agent, system) => {
+    const capture = freshCapture(agent)
+    // Desktop evidence needs a separate window-to-site confirmation in the tool.
+    if (!capture || usedForExplore.has(capture) || capture.tool.startsWith('cua_driver_native__')) return undefined
+    const observation = captureObservation(capture, system)
+    if (observation) usedForExplore.add(capture)
+    return observation
+  }
 }

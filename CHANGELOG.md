@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dispatch Start exploring and the Chinese slash aliases through the DSH host command. A fresh browser snapshot from the same Agent can advance a paused round.
+- Limit ERP sidebar navigation to the on-screen target session and stop an open that was superseded or timed out.
 - Require Node.js 24.22.3 or later in the 24.x series, or 26.13.1 or later.
 - Align all DSH packages with 0.2.2-rc.5.
 - Run the existing suites with Vitest and check host and client TypeScript separately, with type-aware Oxlint in local verification.

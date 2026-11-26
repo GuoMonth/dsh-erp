@@ -1,6 +1,6 @@
 // Real DSH 0.2.2-rc.5 web UI, no model configured.
-// Catches the one-click explore that used to leave an empty composer: the client command consumes /探索 without entering sending.
-import { test } from 'vitest'
+// Host command execution is independent of model selection.
+import { expect, test } from 'vitest'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -120,25 +120,15 @@ async function composerText(page) {
   })
 }
 
-async function clearComposer(page) {
-  for (let i = 0; i < 4; i += 1) {
-    await page.evaluate(() => {
-      const nodes = [...document.querySelectorAll('[contenteditable="true"]')]
-        .filter(el => el.getBoundingClientRect().width > 40)
-        .sort((a, b) => a.getBoundingClientRect().x - b.getBoundingClientRect().x)
-      const el = nodes[0]
-      if (!el) return
-      el.focus()
-      const selection = window.getSelection()
-      const range = document.createRange()
-      range.selectNodeContents(el)
-      selection?.removeAllRanges()
-      selection?.addRange(range)
-    })
-    await page.keyboard.press('Backspace')
-    await page.waitForTimeout(200)
-    if ((await composerText(page)) === '') return
-  }
+function nextExploreResult(page) {
+  return page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname.endsWith('/commands/execute'), { timeout: 15_000 })
+}
+
+async function assertPaused(response) {
+  assert.equal(response.ok(), true, `command response: ${response.status()}`)
+  const body = await response.json()
+  assert.match(JSON.stringify(body), /Exploration is paused/)
 }
 
 async function hostTabs(page, host) {
@@ -167,7 +157,7 @@ async function waitTabs(page, host, count, timeout = 12_000) {
   return last
 }
 
-test('DSH web UI keeps /探索 when explore is not sent, reuses the site tab, and does not duplicate an entry URL', { timeout: 240_000 }, async t => {
+test('DSH web UI executes both explore entries, preserves the draft, and reuses the site tab', { timeout: 240_000 }, async t => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-erp-web-'))
   const fixture = await site()
   const children = []
@@ -218,22 +208,18 @@ test('DSH web UI keeps /探索 when explore is not sent, reuses the site tab, an
     const before = await waitTabs(page, '127.0.0.1', 1)
     if (before.length !== 1) await fail(`expected one site tab after the first open, saw ${JSON.stringify(before)}`)
 
-    await page.keyboard.press('Escape')
-    await clearComposer(page)
-    if ((await composerText(page)) !== '') await fail(`composer was not empty before Start exploring: ${JSON.stringify(await composerText(page))}`)
+    const firstResult = nextExploreResult(page)
+    await page.locator('[contenteditable="true"]').filter({ hasText: '/探索' }).first().press('Enter')
+    await assertPaused(await firstResult)
+
+    const draft = 'Keep this ERP draft'
+    await page.locator('[contenteditable="true"]').first().fill(draft)
+    await expect.poll(() => composerText(page)).toBe(draft)
     await openGuide(page)
+    const buttonResult = nextExploreResult(page)
     await page.locator('section.erp-assistant').getByRole('button', { name: /^(Start exploring|一键探索)$/ }).click()
-    try {
-      await page.waitForFunction(() => {
-        const editors = [...document.querySelectorAll('[contenteditable="true"]')]
-        return editors.some(el => (el.innerText || '').includes('/探索'))
-      }, null, { timeout: 12_000 })
-    } catch { await fail('Start exploring left the composer without /探索') }
-    const hint = page.locator('.erp-explore-hint').filter({ hasText: /Sign in on the right first|先在右侧浏览器登录/ })
-    try { await hint.waitFor({ timeout: 8_000 }) }
-    catch { await fail('Start exploring did not show the sign-in hint') }
-    const draft = await composerText(page)
-    assert.match(draft, /\/探索/)
+    await assertPaused(await buttonResult)
+    await expect.poll(() => composerText(page)).toBe(draft)
     await shot(page, 'web-explore.png')
     const afterExplore = await waitTabs(page, '127.0.0.1', 1)
     if (afterExplore.length !== 1) await fail(`Start exploring opened another tab: ${JSON.stringify(afterExplore)}`)
