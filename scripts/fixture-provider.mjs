@@ -33,10 +33,10 @@ class Fixture extends LlmAdapter {
       return starts.length ? JSON.parse(text.slice(Math.min(...starts))) : {}
     }
     if (this.native) {
-      const observation = results.length > 4 ? parsed(4) : {}
-      const exported = results.length > 6 ? parsed(6) : {}
+      const observation = results.length > 5 ? parsed(5) : {}
+      const exported = results.length > 7 ? parsed(7) : {}
       const specs = [
-        ['erp_runtime_status', {}], ['erp_native_status', {}],
+        ['erp_runtime_status', {}], ['erp_system_status', {}], ['erp_native_status', {}],
         ['mcp__playwright-mcp__browser_navigate', { url: this.url }],
         ['mcp__playwright-mcp__browser_snapshot', {}], ['erp_native_observation_save', {}],
         ['erp_knowledge_record', { scope, records: [{ ...record, id: 'native-cli-menu', stage: 'observed',
@@ -45,9 +45,11 @@ class Fixture extends LlmAdapter {
         ['erp_knowledge_search', { scope, query: 'Synthetic menu', after: '', limit: 50 }],
       ]
       if (results.length >= specs.length) {
-        assert.equal(parsed(1).browserProvider, 'playwright-mcp')
-        assert.equal(parsed(7).state, 'needs-review')
-        assert.ok(parsed(8).items.some(item => item.record.id.startsWith('shared-')))
+        assert.equal(parsed(2).browserProvider, 'playwright-mcp')
+        assert.equal(parsed(2).browserSnapshotTool, 'mcp__playwright-mcp__browser_snapshot')
+        assert.deepEqual(parsed(2).scope, scope)
+        assert.equal(parsed(8).state, 'needs-review')
+        assert.ok(parsed(9).items.some(item => item.record.id.startsWith('shared-')))
         assert.ok(messages.some(message => JSON.stringify(message.content).includes('erp-experience-')), 'shared experience must enter the native model-visible Skill catalog')
         yield* textChunks(`ERP_NATIVE_SMOKE_OK worker=${parsed(0).pid}`); return
       }

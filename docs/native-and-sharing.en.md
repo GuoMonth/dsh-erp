@@ -6,16 +6,16 @@
 
 Standard installation inserts the package `@guosheng_047/dsh-erp`. The desktop client attaches to that row. The host entry is the same one exported from `./native`: it reuses DSH tools, Sessions, approvals, attachments and Skills. An existing Browser Use provider is reused; otherwise official Playwright MCP is loaded.
 
-1. Call `erp_system_status` and `erp_native_status`, open the configured entry and sign in manually.
-2. Take a native snapshot, then immediately call `erp_native_observation_save`. Only the same Agent's latest successful snapshot is accepted; another operation invalidates it.
+1. Open the site conversation from Adapt ERP. In a single-site profile, call `erp_system_status` to associate the current conversation. Use `erp_native_status` to see its scope and snapshot tools, then open the configured entry and sign in manually.
+2. Take a snapshot with `browserSnapshotTool`, then call `erp_native_observation_save` immediately. Evidence belongs to the same Agent, site scope, and active provider. A subsequent native operation invalidates the capture.
 3. A saved snapshot is normalized into importable `browser-learning-v1` evidence. Use `erp_learning_begin` so the controller owns the frontier, and `erp_knowledge_record` for a local revision that cites the observation ID and an exact quote.
 4. After an operation, take a fresh snapshot and check the outcome. Saved observations are historical evidence; their element references cannot be reused.
 
-Playwright tools keep their upstream names and arguments; the current click tool uses `target`. Browser providers own sessions and element references. Ending an attached session releases the connection and retains the external browser.
+ERP supports snapshots from official Playwright MCP and Chrome DevTools MCP. Stagehand and other providers without an ERP adapter can still run under DSH policy. Their `browserSnapshotTool` is `null`, and exploration reports that the active provider lacks an ERP snapshot tool. Playwright keeps its upstream tool names and arguments. Its click tool uses `target`. Ending an attached Playwright session releases the connection and retains the external browser.
 
-Native browser and desktop calls request individual DSH approval. Opening a page and an ERP business write both need that approval; a local knowledge revision does not change the ERP. ERP's URL checks limit evidence admission; native tools retain host-level access. Screenshots and tool results follow DSH attachment handling and may contain private information.
+ERP adds per-call approval for Playwright MCP, Chrome DevTools MCP, Stagehand, and native Cua Driver tools in a site-associated conversation. Other conversations use the host's approval policy. A host denial or cancellation stands. Navigation and ERP writes require confirmation. A local knowledge revision affects the index on this machine. ERP checks browser URLs when admitting evidence. Screenshots and tool results follow DSH attachment handling and may contain private information.
 
-`computerUse: true` loads the official native Cua Driver, requiring its optional package and OS permissions. It reuses an existing provider when available. A permissions check can use `cua_driver_native__check_permissions` with `prompt: false`; saving window evidence also requires confirmation that it belongs to the configured ERP.
+`computerUse: true` loads the official native Cua Driver, requiring its optional package and OS permissions. Check `desktopSnapshotTool` for the window snapshot tool. A permissions check can use `cua_driver_native__check_permissions` with `prompt: false`. Saving window evidence requires a separate confirmation for the exact captured window. A replacement capture needs its own confirmation.
 
 ## Share pack
 

@@ -11,7 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import Tools from '@deepseek-ai/dsh-tools'
+import Tools, { defineTool } from '@deepseek-ai/dsh-tools'
 import * as NativeExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import Llm, { ToolCallId } from '@deepseek-ai/dsh-llm'
 import Sessions, { SessionId } from '@deepseek-ai/dsh-session'
@@ -22,10 +22,14 @@ import Projections from '@deepseek-ai/dsh-session-projection'
 import Approval from '@deepseek-ai/dsh-user-approval'
 import Fs from '@deepseek-ai/dsh-fs-local'
 import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
+import BrowserUse from '@deepseek-ai/dsh-browser-use'
+import { BrowserUseProviderName } from '@deepseek-ai/dsh-browser-use/brand'
 import ComputerUse from '@deepseek-ai/dsh-computer-use'
+import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'
 import * as NativeComputer from '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'
 import * as NativeErp from '../dist/native.js'
-import { executeCall } from './harness.mjs'
+import * as Erp from '../dist/index.js'
+import { executeCall, mount } from './harness.mjs'
 
 test('official Browser Use attaches to real Chromium, respects approval, saves evidence and cleans Session ownership', { timeout: 60000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-native-'))
@@ -62,21 +66,39 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
   for (const entry of ctx.loader.entries()) if (entry.fiber) await entry.fiber.await()
   const status = await executeCall(ctx.tools, { name: 'erp_native_status', callId: ToolCallId('native-status'), signal: new AbortController().signal })
   assert.equal(status.isError, false, JSON.stringify(status)); assert.equal(status.value.browserProvider, 'playwright-mcp')
+  assert.equal(status.value.browserSnapshotTool, 'mcp__playwright-mcp__browser_snapshot')
+  assert.equal(status.value.scope, null)
   assert.equal(ctx.tools.schemas().some(tool => tool.name === 'erp_browser_action'), false)
   const site = ctx.erp.catalog.sole()
   const local = ctx.erp.catalog.client(site.id)
   const scope = site.profile.scope
   const execute = (owner, line) => ctx.commands.execute(owner.agent, line, [], AbortSignal.timeout(15_000))
+  let answer = 'rejected', sequence = 0, decisions = 0
+  ctx.on('approval/request', async () => { decisions++; return answer })
+  const runFor = (owner, name, arguments_ = {}) => executeCall(ctx.tools, { agent: owner.agent,
+    callId: ToolCallId(`native-test-${++sequence}`), name, args: arguments_, signal: new AbortController().signal })
+  const unrelated = await ctx.agents.create({ sessionId: SessionId('native-unrelated'), meta: { cwd: root } })
+  await unrelated.agent.whenIdle()
+  unrelated.agent.session.append('turn/start', { turn: 1 })
+  const unrelatedNavigation = await runFor(unrelated, 'mcp__playwright-mcp__browser_navigate', { url })
+  assert.equal(unrelatedNavigation.isError, false, JSON.stringify(unrelatedNavigation))
+  const unrelatedSnapshot = await runFor(unrelated, 'mcp__playwright-mcp__browser_snapshot')
+  assert.equal(unrelatedSnapshot.isError, false, JSON.stringify(unrelatedSnapshot))
+  assert.equal(decisions, 0, 'an unrelated conversation must not receive ERP approval')
+  assert.equal((await runFor(unrelated, 'erp_native_status')).value.scope, null)
+  assert.match((await runFor(unrelated, 'erp_native_observation_save')).error.message, /ERP_NATIVE_SITE_UNBOUND/)
+  assert.deepEqual((await runFor(unrelated, 'erp_system_status')).value.scope, scope, 'single-site CLI can activate its configured site')
+  assert.match((await runFor(unrelated, 'erp_native_observation_save')).error.message, /ERP_NATIVE_FRESH_SNAPSHOT_REQUIRED/)
+  unrelated.agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  await unrelated.dispose()
+  await attached.contexts()[0].pages()[0].goto('about:blank')
   const first = await ctx.agents.create({ sessionId: SessionId('native-first'), meta: { cwd: site.workspaceDir } })
+  const run = (name, arguments_, owner = first) => runFor(owner, name, arguments_)
   await first.agent.whenIdle()
   const paused = await execute(first, '/explore')
   assert.match(paused.result.text, /Exploration is paused/)
   assert.equal((await local.call('task', { scope, id: 'explore' })).state, 'paused')
   first.agent.session.append('turn/start', { turn: 1 })
-  let answer = 'rejected', sequence = 0, decisions = 0
-  ctx.on('approval/request', async () => { decisions++; return answer })
-  const run = (name, arguments_ = {}, owner = first) => executeCall(ctx.tools, { agent: owner.agent,
-    callId: ToolCallId(`native-test-${++sequence}`), name, args: arguments_, signal: new AbortController().signal })
   assert.equal((await run('mcp__playwright-mcp__browser_navigate', { url })).isError, true)
   assert.equal((await attached.contexts()[0].pages()[0]?.url()) ?? 'about:blank', 'about:blank')
   answer = 'allowed-once'
@@ -129,4 +151,95 @@ test('installed native Cua Driver exposes its catalog, reads permission status w
   assert.ok(result.content.some(block => block.type === 'text')); assert.ok(!result.content.some(block => block.type === 'image'))
   await provider.dispose()
   assert.equal(ctx.computerUse.providerName, undefined); assert.deepEqual(ctx.tools.schemas(), [])
+})
+
+test('ERP composes host decisions and reports the snapshot support of the active native providers', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'erp-native-policy-'))
+  let hostDecision
+  let windowNumber = 0
+  const fixture = {
+    ...Erp,
+    async apply(ctx, config) {
+      await ctx.plugin(BrowserUse)
+      await ctx.plugin(ComputerUse)
+      await ctx.plugin(Commands)
+      await ctx.plugin({
+        inject: ['browserUse', 'computerUse', 'tools'],
+        apply(scope) {
+          scope.effect(() => scope.browserUse.register(BrowserUseProviderName('stagehand-native')))
+          scope.effect(() => scope.computerUse.register(ComputerUseProviderName('cua-driver-native')))
+          for (const [name, read] of [
+            ['stagehand_observe', () => 'Stagehand fixture result'],
+            ['cua_driver_native__get_window_state', () => `- button "Window ${++windowNumber}"`],
+          ]) {
+            scope.tools.register(defineTool({
+              name,
+              description: 'Native provider policy fixture',
+              parameters: {},
+              output: { schema: { type: 'string' }, render: (_args, text) => [{ type: 'text', text }] },
+              execute: read,
+            }))
+          }
+        },
+      })
+      ctx.on('tools/pre-execute', async (exec, next) =>
+        exec.name === 'stagehand_observe' && hostDecision ? hostDecision : next())
+      await Erp.apply(ctx, config)
+    },
+  }
+  let host
+  let disposeAgent
+  t.onTestFinished(async () => { await disposeAgent?.(); await host?.dispose(); await rm(root, { recursive: true, force: true }) })
+  host = await mount(fixture, undefined, { browserMode: 'native', dataDir: root, system: { url: 'https://erp.example/app/' } })
+  await host.ctx.plugin(Sessions)
+  await host.ctx.plugin(Agents)
+  await host.ctx.plugin(Loop, { agents: [] })
+  const site = host.ctx.erp.catalog.sole()
+  const { agent, dispose } = await host.ctx.agents.create({ sessionId: SessionId('native-policy'), meta: { cwd: site.workspaceDir } })
+  disposeAgent = dispose
+  await agent.whenIdle()
+  const explore = await host.ctx.commands.execute(agent, '/explore', [], AbortSignal.timeout(5000))
+  assert.match(explore.result.text, /stagehand-native has no ERP snapshot tool/)
+  agent.session.append('turn/start', { turn: 1 })
+
+  const requests = []
+  let replaceWindow = false
+  const run = name => host.run(name, {}, { agent, signal: AbortSignal.timeout(5000) })
+  host.ctx.on('approval/request', async request => {
+    requests.push(request)
+    if (request.toolName === 'erp_native_observation_save' && replaceWindow) {
+      assert.equal((await run('cua_driver_native__get_window_state')).isError, false)
+    }
+    return 'allowed-once'
+  })
+  const status = await run('erp_native_status')
+  assert.equal(status.value.browserProvider, 'stagehand-native')
+  assert.equal(status.value.browserSnapshotTool, null)
+  assert.equal(status.value.desktopSnapshotTool, 'cua_driver_native__get_window_state')
+  assert.deepEqual(status.value.scope, site.profile.scope)
+
+  hostDecision = { kind: 'deny', reason: 'Host fixture denied this call' }
+  assert.match((await run('stagehand_observe')).error.message, /Host fixture denied this call/)
+  hostDecision = { kind: 'cancel' }
+  assert.equal((await run('stagehand_observe')).isError, true)
+  assert.equal(requests.length, 0)
+
+  hostDecision = { kind: 'ask', reason: 'Host approval', displayReason: { en: 'English approval', zh: '宿主审批' } }
+  assert.equal((await run('stagehand_observe')).isError, false)
+  assert.match(requests[0].reason, /Host approval.*Allow stagehand_observe/s)
+  assert.match(requests[0].displayReason.zh, /宿主审批.*Allow stagehand_observe/s)
+  assert.match((await run('erp_native_observation_save')).error.message, /ERP_NATIVE_BROWSER_PROVIDER_UNSUPPORTED: stagehand-native/)
+
+  assert.equal((await run('cua_driver_native__get_window_state')).isError, false)
+  const saved = await run('erp_native_observation_save')
+  assert.equal(saved.isError, false, JSON.stringify(saved))
+  assert.match(saved.value.text, /Window 1/)
+  assert.match(requests.at(-1).reason, /belongs to the configured ERP site/)
+
+  replaceWindow = true
+  const changed = await run('erp_native_observation_save')
+  assert.match(changed.error.message, /ERP_NATIVE_WINDOW_APPROVAL_REQUIRED/)
+  const observations = await host.ctx.erp.catalog.client(site.id).call('search', { scope: site.profile.scope, query: 'Window 2', limit: 10 })
+  assert.deepEqual(observations, [])
+  agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 })
