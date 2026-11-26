@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -12,7 +12,7 @@ import { mount } from './harness.mjs'
 
 function directory(t) {
   const dir = mkdtempSync(join(tmpdir(), 'erp-system-'))
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  t.onTestFinished(() => rmSync(dir, { recursive: true, force: true }))
   return dir
 }
 const signal = () => new AbortController().signal
@@ -61,7 +61,7 @@ test('configured native tools reuse stored knowledge without login and reject ot
   const root = directory(t)
   const config = { dataDir: root, system: { url: 'https://example.test/app/#/login', account: 'reader' } }
   let host = await mount(plugin, undefined, config)
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   const status = (await host.run('erp_system_status')).value
   const scope = status.scope
   const record = { id: 'menu', kind: 'menu', name: 'Inventory', aliases: [], description: 'Saved hypothesis',
@@ -84,7 +84,7 @@ test('configured native tools reuse stored knowledge without login and reject ot
 test('missing configuration gives actionable status, disables connection and never auto-imports legacy data', async t => {
   const root = directory(t)
   const host = await mount(plugin, undefined, { dataDir: root })
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   assert.equal((await host.run('erp_system_status')).value.state, 'unconfigured')
   assert.equal((await host.run('erp_connect')).isError, true)
   assert.equal((await host.run('erp_browser_open')).isError, true)
@@ -95,7 +95,7 @@ test('missing configuration gives actionable status, disables connection and nev
   const profile = resolveSystem({ url: 'https://example.test/' }, root)
   assert.equal(profile.legacyDataPresent, true)
   const configured = await mount(plugin, undefined, { dataDir: root, system: { url: 'https://example.test/' } })
-  t.after(() => configured.dispose())
+  t.onTestFinished(() => configured.dispose())
   assert.equal((await configured.run('erp_knowledge_get', { scope: profile.scope, id: record.id })).value, null)
   assert.equal((await host.run('erp_knowledge_get', { scope, id: record.id })).value.record.name, record.name)
   assert.equal((await host.run('erp_storage_backup')).isError, false)
@@ -110,7 +110,7 @@ test('configured path/hash opens unchanged; manual login is required and no busi
     res.end('<html><body><input type="password"><h1>Sign in</h1></body></html>')
   })
   await new Promise(r => server.listen(0, '127.0.0.1', r))
-  t.after(() => new Promise(r => server.close(r)))
+  t.onTestFinished(() => new Promise(r => server.close(r)))
   const base = `http://127.0.0.1:${server.address().port}/`
   const system = resolveSystem({ url: `${base}app/#/sign-in` }, root)
   const host = await mount(plugin, undefined, { dataDir: root, system: { url: system.entryUrl },
@@ -124,7 +124,7 @@ test('configured path/hash opens unchanged; manual login is required and no busi
     assert.ok(!requests.some(p => p.startsWith('/api/')))
   } finally { await host.dispose() }
   const browser = new BrowserSession({ directory: system.directory, headless: process.env.ERP_TEST_HEADFUL !== '1', sandbox: false, prepare: async () => {} })
-  t.after(() => browser.close())
+  t.onTestFinished(() => browser.close())
   let status = await browser.connect(systemBrowserInput(system), signal())
   const page = browser.context.pages()[0]
   assert.equal(page.url(), system.entryUrl)

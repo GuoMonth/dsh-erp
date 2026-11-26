@@ -34,8 +34,8 @@ try {
   const consumer = join(scratch, 'consumer'); mkdirSync(consumer)
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }))
   run(npm, ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(scratch, packed.filename),
-    '@deepseek-ai/dsh-system-prompt@0.2.2-rc.1', '@deepseek-ai/dsh-user-approval@0.2.2-rc.1',
-    '@deepseek-ai/dsh-session-projection@0.2.2-rc.1', '@deepseek-ai/dsh-tool-executor-native@0.2.2-rc.1'], { cwd: consumer })
+    '@deepseek-ai/dsh-system-prompt@0.2.2-rc.5', '@deepseek-ai/dsh-user-approval@0.2.2-rc.5',
+    '@deepseek-ai/dsh-session-projection@0.2.2-rc.5', '@deepseek-ai/dsh-tool-executor-native@0.2.2-rc.5'], { cwd: consumer })
   cpSync(join(root, 'tests/harness.mjs'), join(consumer, 'harness.mjs'))
   writeFileSync(join(consumer, 'run.mjs'), "import * as plugin from '@guosheng_047/dsh-erp'; import {exercise} from './harness.mjs'; console.log(JSON.stringify(await exercise(plugin)));\n")
   console.log('Installed tarball:', run(process.execPath, [join(consumer, 'run.mjs')], { cwd: consumer }).trim())
@@ -75,7 +75,7 @@ try {
   assert.throws(() => process.kill(Number(nativeMatch[1]), 0), { code: 'ESRCH' })
   assert.ok(nativeBrowser.browser().isConnected(), 'native Session cleanup must preserve host-owned browser')
   console.log('Packed native entry: official Browser Use, fresh evidence, experience export/import, native Skill discovery and Session cleanup passed.')
-  console.log(`Real dsh 0.2.2-rc.1 CLI: plugin install, agent loop, IPC, model service, approval, SQLite, knowledge record/query, blank and connected Chromium sessions, generic UI learning and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider, browser sandbox disabled only for container fixture).`)
+  console.log(`Real dsh 0.2.2-rc.5 CLI: plugin install, agent loop, IPC, model service, approval, SQLite, knowledge record/query, blank and connected Chromium sessions, generic UI learning and exit cleanup passed (${process.platform}/${process.arch}, Node ${process.versions.node}; deterministic test provider, browser sandbox disabled only for container fixture).`)
 } finally {
   await nativeBrowser?.close()
   if (siteProcess && siteProcess.exitCode === null) { siteProcess.kill('SIGTERM'); await once(siteProcess, 'exit') }

@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, rm, readFile, writeFile, readdir, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -17,7 +17,7 @@ async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'erp-storage-'))
   const directory = join(root, 'data')
   const clients = []
-  t.after(async () => { for (const c of clients) await c.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { for (const c of clients) await c.dispose(); await rm(root, { recursive: true, force: true }) })
   const open = (dir = directory) => { const client = new StorageClient({ directory: dir }); clients.push(client); return client }
   return { root, directory, open }
 }

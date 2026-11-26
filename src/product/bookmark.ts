@@ -44,10 +44,10 @@ export function normalizeBookmark(raw: string): Bookmark {
   const hash = stableHash(url.hash)
   const parts = url.pathname.split('/').filter(Boolean)
   let cut = parts.length
-  for (let index = 0; index < parts.length; index++) {
-    const word = parts[index]!.toLowerCase()
+  for (const [index, part] of parts.entries()) {
+    const word = part.toLowerCase()
     const next = parts[index + 1]
-    if (CALLBACK.has(word) || isId(parts[index]!)) { cut = index; break }
+    if (CALLBACK.has(word) || isId(part)) { cut = index; break }
     if (RECORD.has(word) && (index > 0 || (next !== undefined && isId(next)))) { cut = index; break }
   }
   const kept = parts.slice(0, cut)

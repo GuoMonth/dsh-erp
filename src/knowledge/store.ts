@@ -95,7 +95,8 @@ export class KnowledgeStore {
     const dependencies = new Map<string, Ref>()
     for (const ref of [...input.dependencies, ...(input.from ? [input.from] : []), ...(input.to ? [input.to] : [])]) {
       checkedId(ref.id); version(ref.version)
-      if (ref.id === input.id || (dependencies.has(ref.id) && dependencies.get(ref.id)!.version !== ref.version)) fail('KNOWLEDGE_DEPENDENCY_CONFLICT')
+      const previousRef = dependencies.get(ref.id)
+      if (ref.id === input.id || (previousRef && previousRef.version !== ref.version)) fail('KNOWLEDGE_DEPENDENCY_CONFLICT')
       dependencies.set(ref.id, ref)
     }
     if (input.kind === 'relation') {
@@ -118,13 +119,13 @@ export class KnowledgeStore {
     if (!/^[a-f0-9]{64}$/.test(input.bundleId)
       || createHash('sha256').update(JSON.stringify(input.records)).digest('hex') !== input.bundleId) fail('EXPERIENCE_INTEGRITY_MISMATCH')
     const ids = new Map(input.records.map(r => [r.id, `shared-${input.bundleId.slice(0, 16)}-${r.id}`]))
-    const remap = (ref: Ref): Ref => {
+    const remap = (ref: { id: string }): Ref => {
       const id = ids.get(ref.id)
       if (!id) fail('EXPERIENCE_REFERENCE_NOT_FOUND')
       return { id, version: 1 }
     }
     const records: KnowledgeWrite[] = input.records.map(r => ({
-      ...r, id: ids.get(r.id)!, expectedVersion: 0, stage: 'interpreted', lifecycle: 'active',
+      ...r, id: remap(r).id, expectedVersion: 0, stage: 'interpreted', lifecycle: 'active',
       flags: ['needs-review'], evidence: [], dependencies: r.dependencies.map(remap),
       context: { ...(r.context?.pageType ? { pageType: r.context.pageType } : {}),
         detail: `Imported shared experience ${input.bundleId}; reobserve this ERP. No transferred evidence, verification or operation authority.` },
@@ -161,7 +162,11 @@ export class KnowledgeStore {
           return target
         }
         record.dependencies.forEach(resolve)
-        if (record.kind === 'relation' && !relationAllowed(record.predicate!, resolve(record.from!).kind, resolve(record.to!).kind)) fail('KNOWLEDGE_RELATION_KIND_MISMATCH')
+        if (record.kind === 'relation') {
+          const { predicate, from, to } = record
+          if (!predicate || !from || !to) fail('KNOWLEDGE_RELATION_ENDPOINT_REQUIRED')
+          if (!relationAllowed(predicate, resolve(from).kind, resolve(to).kind)) fail('KNOWLEDGE_RELATION_KIND_MISMATCH')
+        }
       }
       for (const record of records) {
         const search = [record.name, ...record.aliases, record.description].join('\n')
@@ -193,8 +198,13 @@ export class KnowledgeStore {
   }
   private page(scope: string, rows: { id: unknown }[], size: number) {
     const selected = rows.slice(0, size)
-    return { items: selected.map(row => this.view(scope, this.record(scope, String(row.id))!)),
-      hasMore: rows.length > size, nextAfter: selected.length ? String(selected.at(-1)!.id) : '' }
+    const items = selected.map(row => {
+      const record = this.record(scope, String(row.id))
+      if (!record) fail('KNOWLEDGE_RECORD_MISSING')
+      return this.view(scope, record)
+    })
+    const last = selected.at(-1)
+    return { items, hasMore: rows.length > size, nextAfter: last ? String(last.id) : '' }
   }
   search(input: KnowledgeInput<'knowledgeSearch'>) {
     limit(input.limit); if (input.query !== '') text(input.query, 500)

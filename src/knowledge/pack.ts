@@ -78,9 +78,13 @@ export async function exportSharePack(storage: StorageClient, scope: Scope, site
   signal.throwIfAborted()
   const records = await selected(storage, scope, signal)
   const ids = new Map(records.map((item, index) => [item.record.id, `item-${String(index + 1).padStart(4, '0')}`]))
-  const ref = (id: string) => ({ id: ids.get(id)!, version: 1 as const })
+  const ref = (recordId: string) => {
+    const id = ids.get(recordId)
+    if (!id) fail('SHARE_PACK_FORMAT')
+    return { id, version: 1 as const }
+  }
   const lines = records.map(({ record }) => JSON.stringify({
-    format: RECORD_FORMAT, schemaVersion: SCHEMA, kind: record.kind, version: 1, id: ids.get(record.id),
+    format: RECORD_FORMAT, schemaVersion: SCHEMA, kind: record.kind, version: 1, id: ref(record.id).id,
     name: record.name, aliases: record.aliases, description: record.description,
     dependencies: record.dependencies.map(item => ref(item.id)),
     ...(record.context?.pageType ? { pageType: record.context.pageType } : {}),
@@ -196,8 +200,7 @@ export async function importSharePack(storage: StorageClient, scope: Scope, byte
   const parsed: ParsedRecord[] = []
   const seen = new Set<string>()
   const lines = jsonl.toString('utf8').replace(/^\uFEFF/, '').split(/\r?\n/)
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index]!
+  for (const [index, line] of lines.entries()) {
     if (!line.trim()) continue
     const record = parseLine(line, index + 1, warnings)
     if (!record) continue

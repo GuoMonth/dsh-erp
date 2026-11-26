@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { mkdtemp, readFile, writeFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -18,7 +18,7 @@ async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'erp-sharing-'))
   const first = new StorageClient({ directory: join(root, 'sender'), scope: sender })
   const second = new StorageClient({ directory: join(root, 'receiver'), scope: receiver })
-  t.after(async () => { await Promise.all([first.dispose(), second.dispose()]); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await Promise.all([first.dispose(), second.dispose()]); await rm(root, { recursive: true, force: true }) })
   return { root, first, second, export: new ExperienceSharing(first), import: new ExperienceSharing(second) }
 }
 test('a shared native Skill rebinds knowledge and relations without exporting private state or trust', async t => {
@@ -39,7 +39,7 @@ test('a shared native Skill rebinds knowledge and relations without exporting pr
   assert.equal((await stat(exported.importFile)).mode & 0o777, 0o600)
   assert.equal(exported.records, 4)
   // Any DSH with the ordinary filesystem provider can discover this exported directory.
-  const ctx = new Context(); t.after(() => ctx.fiber.dispose())
+  const ctx = new Context(); t.onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(Skills)
   await ctx.plugin(FileSkills, { includeDefaultRoots: false, customSkillDirs: [join(f.first.directory, 'exports')], watch: false })
   const available = await ctx.skills.list()
@@ -57,12 +57,12 @@ test('a shared native Skill rebinds knowledge and relations without exporting pr
   }
   const menu = all.items.find(v => v.record.kind === 'menu').record
   assert.equal((await f.second.call('knowledgeNeighbors', { scope: receiver, id: menu.id, direction: 'out', after: '', limit: 50 })).items[0].record.predicate, 'supports')
-  const local = new Context(); t.after(() => local.fiber.dispose())
+  const local = new Context(); t.onTestFinished(() => local.fiber.dispose())
   await local.plugin(Skills); f.import.registerSkills(local)
   assert.equal((await local.skills.list()).length, 1)
   assert.ok((await local.skills.get((await local.skills.list())[0].name)).content.includes('needs-review'))
   await f.second.dispose()
-  const restarted = new StorageClient({ directory: f.second.directory, scope: receiver }); t.after(() => restarted.dispose())
+  const restarted = new StorageClient({ directory: f.second.directory, scope: receiver }); t.onTestFinished(() => restarted.dispose())
   assert.equal((await restarted.call('knowledgeSearch', { scope: receiver, query: 'Purchasing', after: '', limit: 50 })).items.length, 4)
 })
 test('identical reimports preserve local revisions, confirmations and unrelated knowledge', async t => {

@@ -1,7 +1,9 @@
 import type { ISessions, SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { IWorkspaces, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { ILayout } from '@deepseek-ai/dsh-client-ui-layout/client'
+import { brandString } from '@deepseek-ai/dsh-brand'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { ILayout, MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-browser/client'
 import type { ISidebarRight } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
@@ -30,7 +32,7 @@ export interface OpenDeps {
   /** Called when a first-run draft is prepared, before the composer is shown. */
   hint?(sessionId: string): void
   /** Submit a slash line in the open conversation. */
-  submitLine?(sessionId: string, line: string): Promise<void> | void
+  submitLine?(sessionId: SessionId, line: string): Promise<void> | void
 }
 
 export interface ListedErpSite {
@@ -148,27 +150,27 @@ function waitUntilShown(sidebar: OpenDeps['sidebar'], sessionId: string): Promis
   })
 }
 
-function placeDraft(deps: OpenDeps, sessionId: string, text: string): void {
+function placeDraft(deps: OpenDeps, sessionId: SessionId, text: string): void {
   const binding = deps.sessions.binding(sessionId)
   if (!binding) return
   deps.conversation?.input.requestDraftInitialization(binding, { prompt: text, whenDraftExists: 'keep' })
 }
 
-function prefillDraft(deps: OpenDeps, sessionId: string, text: string): void {
+function prefillDraft(deps: OpenDeps, sessionId: SessionId, text: string): void {
   deps.hint?.(sessionId)
   placeDraft(deps, sessionId, text)
 }
 
-async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView | undefined, options: OpenOptions | undefined): Promise<string> {
-  const member = Boolean(!options?.fresh && site.sessionId && view?.sessionIds.includes(site.sessionId))
-  if (member && site.sessionId) {
-    deps.uiWorkspace.openSession(site.sessionId)
-    if (options?.prefill) prefillDraft(deps, site.sessionId, options.prefill)
-    if (options?.submit) placeDraft(deps, site.sessionId, options.submit)
-    return site.sessionId
+async function focusSession(deps: OpenDeps, site: OpenSite, view: WorkspaceView | undefined, options: OpenOptions | undefined): Promise<SessionId> {
+  const member = options?.fresh ? undefined : view?.sessionIds.find(id => id === site.sessionId)
+  if (member) {
+    deps.uiWorkspace.openSession(member)
+    if (options?.prefill) prefillDraft(deps, member, options.prefill)
+    if (options?.submit) placeDraft(deps, member, options.submit)
+    return member
   }
   if (!view) throw new Error('ERP_SESSION_ID')
-  let opened = ''
+  let opened: SessionId | undefined
   await deps.uiWorkspace.openWorkspace(view.workspaceId, id => {
     opened = id
     if (options?.prefill) prefillDraft(deps, id, options.prefill)
@@ -232,7 +234,7 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
           seeded = true
           continue
         }
-        const fresh: string[] = []
+        const fresh: SessionId[] = []
         for (const id of snap.ids) {
           if (seen.has(id)) continue
           seen.add(id)
@@ -274,7 +276,7 @@ export function watchWorkspaceSessions(deps: WatchDeps): () => void {
  * `openWorkspace` attaches the session, so the composer is not left on "Choose a workspace".
  * Continue reopens the bound member. A new chat reuses that folder's blank session.
  */
-export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: OpenOptions): Promise<string> {
+export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: OpenOptions): Promise<SessionId> {
   if (!deps.sidebar?.openTab) throw new Error('ERP_BROWSER_UNAVAILABLE')
   const view = await ensureWorkspace(deps.workspaces, site.workspaceDir, site.name)
   widenErpBrowser(deps.layout)
@@ -297,7 +299,7 @@ export async function openErpSite(deps: OpenDeps, site: OpenSite, options?: Open
   }
   if (!opened) {
     const detail = last instanceof Error ? last.message : ''
-    deps.layout.selectPanel(PRODUCT_PANEL)
+    deps.layout.selectPanel(brandString<MainPanelId>(PRODUCT_PANEL))
     throw new Error(detail.startsWith('ERP_') ? detail : 'ERP_BROWSER_UNAVAILABLE')
   }
   return sessionId

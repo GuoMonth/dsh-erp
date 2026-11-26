@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -28,12 +28,12 @@ test('bookmark normalization drops secrets and keeps a hash home', () => {
 
 test('an existing identity keeps its persistent ids when a deep link reloads', async t => {
   const root = mkdtempSync(join(tmpdir(), 'erp-bookmark-'))
-  t.after(() => rmSync(root, { recursive: true, force: true }))
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }))
   const first = new SiteCatalog(root, { system: { url: 'https://a.example/app/', account: 'one', tenant: 'acme', role: 'buyer', name: 'Alpha' } })
   const saved = first.list()[0]
   await first.dispose()
   const again = new SiteCatalog(root, { system: { url: 'https://a.example/app/orders/9?token=abc', account: 'one', tenant: 'acme', role: 'buyer' } })
-  t.after(() => again.dispose())
+  t.onTestFinished(() => again.dispose())
   assert.equal(again.list()[0].id, saved.id)
   assert.equal(again.list()[0].profile.id, saved.profile.id)
   assert.equal(again.list()[0].profile.scope.account, 'one')
@@ -44,7 +44,7 @@ test('an existing identity keeps its persistent ids when a deep link reloads', a
 test('desktop add stores the normalized bookmark and ignores identity fields', async t => {
   const root = mkdtempSync(join(tmpdir(), 'erp-bookmark-add-'))
   const catalog = new SiteCatalog(root)
-  t.after(() => { rmSync(root, { recursive: true, force: true }); return catalog.dispose() })
+  t.onTestFinished(() => { rmSync(root, { recursive: true, force: true }); return catalog.dispose() })
   const added = erpRequest(catalog, { op: 'add', url: 'https://user:pw@b.example/app/records/8?token=1', name: 'Beta', account: 'buyer', baseUrl: 'https://evil.example/' })
   assert.equal(added.ok, true)
   assert.equal(added.value.sites[0].entryUrl, 'https://b.example/app/')
@@ -64,7 +64,7 @@ const control = extra => ({ ref: '1', context: '', value: '', inputType: '', dis
 test('explore persists a paused round until a logged-in page is visible', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-explore-'))
   const client = new StorageClient({ directory: join(root, 'data') })
-  t.after(async () => { await client.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await client.dispose(); await rm(root, { recursive: true, force: true }) })
   const scope = { site: 'example.test', account: 'reader' }
   const runtime = new LearningRuntime(client)
   assert.equal(loggedInUiVisible(undefined), false)
@@ -98,7 +98,7 @@ test('explore persists a paused round until a logged-in page is visible', async 
 test('slash explore pauses without a login and refuses a conversation with no workspace', async t => {
   const root = await mkdtemp(join(tmpdir(), 'erp-slash-'))
   const catalog = new SiteCatalog(join(root, 'data'), { system: { url: 'https://erp.example/app/', name: 'Alpha' } })
-  t.after(async () => { await catalog.dispose(); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await catalog.dispose(); await rm(root, { recursive: true, force: true }) })
   const site = catalog.list()[0]
   const agent = { session: { id: 'sess-1', header: { id: 'sess-1', cwd: site.workspaceDir } } }
   const signal = AbortSignal.timeout(5_000)
@@ -119,7 +119,7 @@ test('a share pack round-trips schemaVersion 1 and refuses a newer pack', async 
   const root = await mkdtemp(join(tmpdir(), 'erp-pack-'))
   const first = new StorageClient({ directory: join(root, 'sender') })
   const second = new StorageClient({ directory: join(root, 'receiver') })
-  t.after(async () => { await Promise.all([first.dispose(), second.dispose()]); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await Promise.all([first.dispose(), second.dispose()]); await rm(root, { recursive: true, force: true }) })
   await first.call('observe', { id: 'private-observation', scope: sender, url: 'https://private.example/app/', title: 'Private', text: 'secret-business-value',
     locale: 'en', context: 'private', observedAt: '2026-11-04T00:00:00.000Z' })
   await first.call('knowledgeCommit', { scope: sender, origin: 'user', records: [

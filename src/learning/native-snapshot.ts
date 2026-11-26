@@ -8,19 +8,21 @@ export function nativeSnapshot(raw: string, url: string, observedAt: string): Sn
   const controls: Snapshot['controls'] = []
   for (const match of raw.matchAll(ROLE)) {
     if (controls.length >= 300) break
-    const role = match[1]!.toLowerCase()
-    const name = match[2]!.replace(/\s+/g, ' ').trim()
+    const [matched, roleLabel, accessibleName, ref] = match
+    if (!matched || !roleLabel || !accessibleName) continue
+    const role = roleLabel.toLowerCase()
+    const name = accessibleName.replace(/\s+/g, ' ').trim()
     if (!name) continue
     const menu = role === 'link' || role === 'menuitem' || role === 'treeitem'
     const field = role === 'textbox' || role === 'combobox'
-    const start = (match.index ?? 0) + match[0].length
+    const start = (match.index ?? 0) + matched.length
     const href = raw.slice(start, start + 400).match(/\/url:\s*(\S+)/)?.[1] ?? ''
     let resolved = href
     if (href && !/^[a-z][a-z0-9+.-]*:/i.test(href)) {
       try { resolved = new URL(href, url).href } catch { resolved = '' }
     }
     controls.push({
-      ref: (match[3] ?? `n${controls.length + 1}`).slice(0, 80),
+      ref: (ref ?? `n${controls.length + 1}`).slice(0, 80),
       frameUrl: url, kind: field ? 'field' : role, name,
       group: menu ? 'navigation' : role === 'tab' ? 'tablist' : '',
       context: '', href: resolved.startsWith('javascript:') ? '' : resolved,

@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
@@ -49,7 +49,7 @@ async function fixture(t) {
   server.listen(0, '127.0.0.1'); await once(server, 'listening')
   const siteUrl = `http://127.0.0.1:${server.address().port}/erp/`
   const session = new BrowserSession({ directory: root, headless: process.env.ERP_TEST_HEADFUL !== '1', sandbox: false })
-  t.after(async () => { await session.close(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { await session.close(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }) })
   const open = () => session.open({ siteUrl, scope }, signal())
   const navigate = async (url = siteUrl) => { await session.context.pages()[0].goto(url); await delay(30) }
   const resume = () => { const s = session.status(); return session.resume(s.sessionId, s.revision, signal()) }
@@ -119,7 +119,7 @@ test('worker IPC rejects action, script, selector, external request and malforme
 test('real browser IPC opens only a blank profile, rejects premature resume and closes on disposal', async t => {
   const f = await fixture(t)
   const client = new WorkerClient({ browserDirectory: f.root, browserResourcesDir, browserHeadless: true, browserSandbox: false })
-  t.after(() => client.dispose())
+  t.onTestFinished(() => client.dispose())
   const opened = await client.browser('browser.open', { siteUrl: f.siteUrl, scope }, signal())
   assert.equal(opened.state, 'manual'); assert.equal(opened.pageUrl, ''); assert.equal(f.effects(), 0)
   await assert.rejects(client.browser('browser.resume', { sessionId: opened.sessionId, revision: opened.revision }, signal()), { code: 'BROWSER_OUTSIDE_SITE' })
@@ -129,7 +129,7 @@ test('real browser IPC opens only a blank profile, rejects premature resume and 
 test('native tools require confirmation, save evidence to SQLite and reload it after browser shutdown', async t => {
   const f = await fixture(t)
   const storage = new StorageClient({ directory: join(f.root, 'data') })
-  t.after(() => storage.dispose())
+  t.onTestFinished(() => storage.dispose())
   // Test-only adapter drives manual navigation. Production uses the validated IPC worker.
   const worker = { async browser(method, input, s) {
     validateBrowser(method, 'input', input)
@@ -141,7 +141,7 @@ test('native tools require confirmation, save evidence to SQLite and reload it a
   } }
   const runtime = new BrowserRuntime(worker, storage, signal(), { siteUrl: f.siteUrl, scope })
   const host = await mount({ inject: ['tools'], apply(ctx) { registerBrowserTools(ctx, runtime) } })
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   assert.equal((await host.run('erp_browser_open')).isError, false)
   assert.equal(f.session.status().state, 'manual')
   let allowed = 'allowed-once'
@@ -169,7 +169,7 @@ test('native tools require confirmation, save evidence to SQLite and reload it a
 test('plugin tool surface offers browser status but no arbitrary operation', async t => {
   const f = await fixture(t)
   const host = await mount(plugin, undefined, { dataDir: f.root, browserHeadless: true, browserResourcesDir, browserSandbox: false })
-  t.after(() => host.dispose())
+  t.onTestFinished(() => host.dispose())
   assert.equal((await host.run('erp_browser_status')).value.state, 'closed')
   for (const name of ['erp_browser_click', 'erp_browser_evaluate', 'erp_browser_fetch']) assert.equal((await host.run(name)).isError, true)
 })
@@ -180,7 +180,7 @@ test('owning host death closes Chromium and releases the private profile', async
     await worker.browser('browser.open', ${JSON.stringify({ siteUrl: f.siteUrl, scope })}, new AbortController().signal);
     process.stdout.write(String(worker.pid));`
   const host = spawn(process.execPath, ['--input-type=module', '-e', source], { stdio: ['ignore', 'pipe', 'inherit'] })
-  t.after(() => host.kill('SIGKILL'))
+  t.onTestFinished(() => host.kill('SIGKILL'))
   const [chunk] = await once(host.stdout, 'data'); const workerPid = Number(chunk.toString()); assert.ok(workerPid > 0)
   const exited = once(host, 'exit'); host.kill('SIGKILL'); await exited
   let workerGone = false

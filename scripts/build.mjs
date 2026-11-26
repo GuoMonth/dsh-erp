@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('..', import.meta.url))
 // Deleted adapters must not survive a local incremental build and enter a later npm tarball.
 rmSync(new URL('../dist', import.meta.url), { recursive: true, force: true })
-execFileSync(process.execPath, [fileURLToPath(new URL('../node_modules/typescript/bin/tsc', import.meta.url)), '-p', 'tsconfig.json'], { cwd: root, stdio: 'inherit' })
+execFileSync(process.execPath, [fileURLToPath(new URL('../node_modules/typescript/bin/tsc', import.meta.url)), '-b', 'tsconfig.host.json', '--force'], { cwd: root, stdio: 'inherit' })
 
 // DSH resolves peer packages inside its own process. Workers need these pure helpers on disk.
 const bundled = await build({

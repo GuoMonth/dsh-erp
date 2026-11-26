@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
@@ -34,7 +34,7 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
     response.writeHead(200, { 'content-type': 'text/html' })
     response.end('<!doctype html><title>Native ERP fixture</title><h1>Purchasing</h1><button onclick="this.outerHTML=\'<p>Outcome checked</p>\'">Continue</button>')
   })
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await ctx.fiber.dispose(); await browserContext?.close(); server.closeAllConnections()
     await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true })
   })
@@ -96,7 +96,7 @@ test('official Browser Use attaches to real Chromium, respects approval, saves e
 })
 
 test('installed native Cua Driver exposes its catalog, reads permission status without prompting and unloads', { timeout: 30000 }, async t => {
-  const ctx = new Context(); t.after(() => ctx.fiber.dispose())
+  const ctx = new Context(); t.onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(ComputerUse); await ctx.plugin(SystemPrompt); await ctx.plugin(Tools); await ctx.plugin(NativeExecutor)
   const provider = await ctx.plugin(NativeComputer)
   assert.equal(ctx.computerUse.providerName, 'cua-driver-native')

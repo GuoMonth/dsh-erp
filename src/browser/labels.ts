@@ -20,7 +20,7 @@ export async function readLabels(frame: Frame): Promise<{ title: string; locale:
     const limitations: string[] = []
     if (nodes.length > 5000) limitations.push('scan-limit')
     for (let index = 0; index < Math.min(nodes.length, 5000); index++) {
-      const node = nodes[index]!
+      const node = nodes.item(index)
       if (!visible(node) || node.closest('form:has(input[type="password"]),[data-erp-private]')) continue
       const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
       const labels: string[] = []

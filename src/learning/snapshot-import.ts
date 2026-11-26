@@ -35,7 +35,8 @@ export async function importSnapshot(storage: StorageClient, scope: Scope, obser
     // The structural importer must not replace user corrections or a richer AI interpretation.
     if (previous?.record.origin === 'user' || previous?.record.stage === 'interpreted' || previous?.record.evidence.some(e => e.observationId === observationId)) return { id: input.id, version: previous.record.version }
     const [record] = await storage.call('knowledgeCommit', { scope, origin: 'ai', records: [{ ...input, expectedVersion: previous?.record.version ?? 0 }] }, signal)
-    return { id: input.id, version: record!.version }
+    if (!record) throw new Error('UI_KNOWLEDGE_COMMIT_EMPTY')
+    return { id: input.id, version: record.version }
   }
   const common = (quote: string) => ({ aliases: [], description: 'Observed UI structure; business meaning and behavior require interpretation and evidence.',
     stage: 'observed' as const, flags: ['needs-review' as const], lifecycle: 'active' as const,

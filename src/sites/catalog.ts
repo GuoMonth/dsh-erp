@@ -114,14 +114,15 @@ export class SiteCatalog {
   lastOpened(): string { return this.lastOpenedId }
 
   markOpened(id: string): PublicSite {
-    if (!this.sites.has(id)) throw new Error('ERP_UNKNOWN_SITE')
+    const site = this.sites.get(id)
+    if (!site) throw new Error('ERP_UNKNOWN_SITE')
     this.lastOpenedId = id
     this.save()
-    return this.toPublic(this.sites.get(id)!)
+    return this.toPublic(site)
   }
 
   homeDirectory(): string {
-    return this.sites.size === 1 ? this.list()[0]!.profile.directory : this.root
+    return this.sole()?.profile.directory ?? this.root
   }
 
   /** The site this conversation may read. A second site never falls through to the first. */
@@ -136,12 +137,13 @@ export class SiteCatalog {
       this.save()
       return undefined
     }
-    if (session.cwd) {
-      const match = this.list().find(site => owns(site.workspaceDir, session.cwd!))
+    const cwd = session.cwd
+    if (cwd) {
+      const match = this.list().find(site => owns(site.workspaceDir, cwd))
       if (match) { this.remember(session.id, match.id); return match }
     }
-    if (this.sites.size === 1) {
-      const only = this.list()[0]!
+    const only = this.sole()
+    if (only) {
       this.remember(session.id, only.id)
       return only
     }

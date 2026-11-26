@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
@@ -14,7 +14,7 @@ async function installerFixture(t, cancel) {
     res.writeHead(200, { 'content-type': 'application/zip', 'content-length': 4 }); res.end('bad!')
   })
   server.listen(0, '127.0.0.1'); await once(server, 'listening')
-  t.after(async () => { server.closeAllConnections(); await new Promise(r => server.close(r)); await rm(directory, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { server.closeAllConnections(); await new Promise(r => server.close(r)); await rm(directory, { recursive: true, force: true }) })
   const source = `import {prepareBrowser} from ${JSON.stringify(new URL('../dist/browser/resources.js', import.meta.url).href)};
     const controller = new AbortController();
     ${cancel ? 'setTimeout(() => controller.abort(), 200);' : ''}
@@ -26,7 +26,7 @@ async function installerFixture(t, cancel) {
     stdio: ['ignore', 'pipe', 'ignore'],
   })
   const timer = setTimeout(() => child.kill('SIGKILL'), 15_000)
-  t.after(() => clearTimeout(timer))
+  t.onTestFinished(() => clearTimeout(timer))
   let output = ''; child.stdout.on('data', chunk => { output += chunk.toString() })
   const [code] = await once(child, 'close'); assert.equal(code, 0)
   return output

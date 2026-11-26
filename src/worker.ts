@@ -6,7 +6,13 @@ import { BrowserSession } from './browser/session.js'
 import { BrowserError } from './browser/contract.js'
 
 assertRuntime()
-if (!process.send) throw new Error('ERP worker must be started by its host over IPC')
+const sendOverIpc = process.send?.bind(process)
+if (!sendOverIpc) throw new Error('ERP worker must be started by its host over IPC')
+
+const send = (message: Response): void => {
+  if (process.connected) sendOverIpc(message, error => { if (error) process.exit(1) })
+}
+
 let active: { id: string; controller: AbortController } | undefined
 const browser = process.env.ERP_BROWSER_DIRECTORY ? new BrowserSession({
   directory: process.env.ERP_BROWSER_DIRECTORY, headless: process.env.ERP_BROWSER_HEADLESS === 'true',
@@ -14,10 +20,6 @@ const browser = process.env.ERP_BROWSER_DIRECTORY ? new BrowserSession({
   ...(process.env.ERP_BROWSER_READ_POLICY ? { readPolicyFile: process.env.ERP_BROWSER_READ_POLICY } : {}),
   progress: (phase, percent) => send({ v: PROTOCOL, kind: 'progress', phase, percent }),
 }) : undefined
-
-function send(message: Response): void {
-  if (process.connected) process.send!(message, error => { if (error) process.exit(1) })
-}
 
 process.on('message', (raw: unknown) => {
   let request

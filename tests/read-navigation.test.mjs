@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
@@ -60,7 +60,7 @@ async function fixture(t) {
   await session.context.pages()[0].goto(base + 'home'); await delay(30)
   const grant = () => { const status = session.status(); return session.enableRead({ sessionId: status.sessionId, revision: status.revision, policyDigest: session.readPolicy().digest }, signal()) }
   const args = (value, routeId) => ({ sessionId: value.sessionId, revision: value.revision, policyDigest: value.policyDigest, routeId })
-  t.after(async () => { releaseSlow?.(); await session.close(); server.closeAllConnections(); await new Promise(r => server.close(r)); await rm(root, { recursive: true, force: true }) })
+  t.onTestFinished(async () => { releaseSlow?.(); await session.close(); server.closeAllConnections(); await new Promise(r => server.close(r)); await rm(root, { recursive: true, force: true }) })
   return { root, policyFile, policy, session, base, grant, args, calls, effects: () => effects }
 }
 
@@ -190,7 +190,7 @@ test('native confirmation binds scope and contract; successful read persists evi
   const storage = new StorageClient({ directory: join(f.root, 'data') })
   const runtime = new BrowserRuntime(worker, storage, signal(), { siteUrl: f.base, scope })
   const host = await mount({ inject: ['tools'], apply(ctx) { registerBrowserTools(ctx, runtime) } })
-  t.after(async () => { await host.dispose(); await storage.dispose() })
+  t.onTestFinished(async () => { await host.dispose(); await storage.dispose() })
   await host.run('erp_browser_open')
   const status = f.session.status(); const digest = f.session.readPolicy().digest
   const input = { sessionId: status.sessionId, revision: status.revision, policyDigest: digest }

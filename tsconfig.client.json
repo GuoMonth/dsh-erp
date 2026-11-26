@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2024", "DOM", "DOM.Iterable", "ESNext.Disposable"],
+    "types": ["react"],
+    "noEmit": true,
+    "tsBuildInfoFile": "node_modules/.cache/dsh-erp/client.tsbuildinfo"
+  },
+  "include": [
+    "src/client",
+    "src/product/bookmark.ts",
+    "src/product/favicon.ts",
+    "src/product/names.ts",
+    "src/product/resume.ts",
+    "src/product/wizard.ts"
+  ]
+}
