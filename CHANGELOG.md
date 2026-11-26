@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Scope ERP’s native tool approvals and evidence to site-associated conversations. Preserve host denials and cancellations, report supported snapshot tools, and bind window evidence approval to the exact capture.
 - Dispatch Start exploring and the Chinese slash aliases through the DSH host command. A fresh browser snapshot from the same Agent can advance a paused round.
 - Limit ERP sidebar navigation to the on-screen target session and stop an open that was superseded or timed out.
 - Require Node.js 24.22.3 or later in the 24.x series, or 26.13.1 or later.

@@ -6,16 +6,16 @@
 
 标准安装写入的是包 `@guosheng_047/dsh-erp`。桌面客户端挂在这一行上。宿主入口与 `./native` 导出的是同一个：复用 DSH 工具、会话、审批、附件和 Skill。已有 Browser Use 提供方时直接复用，否则加载官方 Playwright MCP。
 
-1. 调用 `erp_system_status`、`erp_native_status`，打开配置入口，由你登录。
-2. 获取原生快照，随即调用 `erp_native_observation_save`。只接受同一 Agent 最近成功的快照；其他操作会使它失效。
+1. 从 ERP 助手打开站点会话。单站点 profile 也可在当前会话调用 `erp_system_status` 建立关联。用 `erp_native_status` 查看作用域与快照工具，再打开配置入口并手动登录。
+2. 使用 `browserSnapshotTool` 获取快照，随即调用 `erp_native_observation_save`。证据只来自同一 Agent、同一站点作用域和当前提供方。后续原生操作会使旧快照失效。
 3. 保存的快照会转成可导入的 `browser-learning-v1` 证据。用 `erp_learning_begin` 把前沿交给控制器；用 `erp_knowledge_record` 记录本地修订，并引用观察 ID 和原文。
 4. 操作后重新获取快照，核对结果。已保存的观察是历史证据，元素引用不能复用。
 
-Playwright 工具保留上游名称与参数，当前点击工具使用 `target`。浏览器提供方管理会话和元素引用；结束附加会话会释放连接，保留外部浏览器。
+ERP 浏览器快照支持官方 Playwright MCP 和 Chrome DevTools MCP。Stagehand 和其他未适配的提供方可按 DSH 自身规则运行，`browserSnapshotTool` 显示为 `null`，ERP 探索会提示当前提供方缺少快照工具。Playwright 保留上游工具名称与参数，点击工具使用 `target`。结束 Playwright 附加会话会释放连接，保留外部浏览器。
 
-原生浏览器和桌面调用逐次请求 DSH 确认。打开页面和 ERP 业务写入都需要这次确认；本地知识修订不会改变 ERP。ERP 的 URL 校验限制证据入库，原生工具仍有宿主级访问能力。截图和工具结果沿用 DSH 附件处理，可能包含私人信息。
+ERP 为已关联站点会话内的 Playwright MCP、Chrome DevTools MCP、Stagehand 和 Cua Driver Native 工具调用加上逐次确认。其他会话沿用宿主的审批策略。宿主拒绝或取消时，ERP 保留该结果。打开页面与 ERP 写入都需要确认，本地知识修订只写本地索引。ERP 在证据入库时校验浏览器 URL。截图和工具结果沿用 DSH 附件处理，可能包含私人信息。
 
-`computerUse: true` 加载官方 Cua Driver Native，需要可选依赖和操作系统权限；已有提供方时直接复用。权限检查可用 `cua_driver_native__check_permissions` 的 `prompt: false`；保存窗口证据还需确认该窗口属于配置的 ERP。
+`computerUse: true` 加载官方 Cua Driver Native，需要可选依赖和操作系统权限。用 `desktopSnapshotTool` 查看窗口快照工具。权限状态检查可用 `cua_driver_native__check_permissions` 的 `prompt: false`。保存窗口证据还需单独确认该次快照属于配置的 ERP。若确认期间快照变化，需按新的快照确认。
 
 ## 分享包
 

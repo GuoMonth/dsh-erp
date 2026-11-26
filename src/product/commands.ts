@@ -61,12 +61,17 @@ export async function runExploreCommand(
   const site = workspaceSite(catalog, hint)
   if (!site) return { kind: 'error', text: NEEDS_WORKSPACE }
   const client = catalog.client(site.id)
-  const snapshot = takeObservation?.(invocation.agent, site.profile)
-  const observation = snapshot && loggedInUiVisible(snapshot.text)
-    ? await client.call('observe', snapshot, invocation.signal)
+  const evidence = takeObservation?.(invocation.agent, site.profile)
+  const observation = evidence?.kind === 'snapshot' && loggedInUiVisible(evidence.observation.text)
+    ? await client.call('observe', evidence.observation, invocation.signal)
     : undefined
   const outcome = await startExplore(new LearningRuntime(client), site.profile.scope, invocation.signal, observation, replace)
-  if (outcome.pausedUntilLogin) return { kind: 'success', text: replace ? `${REPLACED}\n${PAUSED}` : PAUSED }
+  if (outcome.pausedUntilLogin) {
+    const paused = evidence?.kind === 'unsupported-provider'
+      ? `探索已暂停。当前浏览器提供方 ${evidence.provider} 没有 ERP 支持的快照工具。请用 erp_native_status 查看。\nExploration is paused. ${evidence.provider} has no ERP snapshot tool. Check erp_native_status.`
+      : PAUSED
+    return { kind: 'success', text: replace ? `${REPLACED}\n${paused}` : paused }
+  }
   const text = outcome.complete ? COMPLETE : STARTED
   return { kind: 'success', text: replace ? `${REPLACED}\n${text}` : text }
 }

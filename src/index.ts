@@ -161,7 +161,7 @@ function applyEngine(ctx: Context, config: Config): void {
   const openui = () => openUiHost(ctx)
   const render = (title: string, lines: string[]) => (_args: unknown, value: unknown) => markdown(title, lines, value, openui())
   const takeObservation = config.browserMode === 'native'
-    ? registerNativeLearning(ctx, storage, () => runtime.catalog.statusSite(sessionHint())?.profile)
+    ? registerNativeLearning(ctx, storage, agent => runtime.catalog.associated(sessionHint({ agent }))?.profile)
     : undefined
   if (config.browserMode !== 'native') registerBrowserTools(ctx, runtime.browser)
   registerErpCommands(ctx, runtime.catalog, takeObservation)
@@ -186,7 +186,7 @@ function applyEngine(ctx: Context, config: Config): void {
           next: 'Add a site in ERP 助手 with its URL, or set system.url in the erp row. No password is stored. Legacy local knowledge remains accessible by its original scope until a site is bound.' }
       return { state: 'configured', ...site.profile, catalogId: site.id, workspaceDir: site.workspaceDir, knowledgeAvailableWithoutLogin: true, interaction,
         next: config.browserMode === 'native'
-          ? 'Stay on this site. The bookmark is the entry URL. The user signs in manually in the sidebar browser; do not ask for a password, an account label, or a separate application root. Native operations require approval. erp_explore starts the controller-owned depth-3 walk and pauses when the logged-in page is not visible. Opening a page needs approval. erp_index_read is the default read after a level summary. erp_knowledge_record is a local revision and does not change the ERP. Another ERP site is another conversation. The primary share is erp_share_export; reobserve before applying it.'
+          ? 'Stay on this site. The bookmark is the entry URL. The user signs in manually in the sidebar browser; do not ask for a password, an account label, or a separate application root. Native operations require approval. Check erp_native_status for this conversation’s browser snapshot tool. erp_explore starts the controller-owned depth-3 walk and pauses when the logged-in page is not visible. Opening a page needs approval. erp_index_read is the default read after a level summary. erp_knowledge_record is a local revision and does not change the ERP. Another ERP site is another conversation. The primary share is erp_share_export; reobserve before applying it.'
           : 'Stay on this site and use the returned scope. The bookmark is the entry URL. The user signs in manually; do not ask for a password or an account label. For fresh browser evidence call erp_connect, wait for manual login, then request erp_browser_resume and erp_browser_snapshot. erp_explore starts a depth-3 frontier and pauses on a login page. Opening a page uses erp_browser_action with effect navigate and needs approval. effect mutate is an ERP write. Another ERP site is another conversation.' }
     },
   }))

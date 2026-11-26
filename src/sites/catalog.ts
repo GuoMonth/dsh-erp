@@ -125,6 +125,17 @@ export class SiteCatalog {
     return this.sole()?.profile.directory ?? this.root
   }
 
+  private siteInWorkspace(cwd: string | undefined): Site | undefined {
+    return cwd ? this.list().find(site => owns(site.workspaceDir, cwd)) : undefined
+  }
+
+  /** Resolve an existing association or workspace without creating a binding for unrelated tool calls. */
+  associated(session: SessionHint | undefined): Site | undefined {
+    if (!session?.id) return undefined
+    const bound = this.sessions.get(session.id)
+    return bound === undefined ? this.siteInWorkspace(session.cwd) : this.sites.get(bound)
+  }
+
   /** The site this conversation may read. A second site never falls through to the first. */
   select(session: SessionHint | undefined): Site | undefined {
     if (!session?.id) return undefined
@@ -137,11 +148,8 @@ export class SiteCatalog {
       this.save()
       return undefined
     }
-    const cwd = session.cwd
-    if (cwd) {
-      const match = this.list().find(site => owns(site.workspaceDir, cwd))
-      if (match) { this.remember(session.id, match.id); return match }
-    }
+    const match = this.siteInWorkspace(session.cwd)
+    if (match) { this.remember(session.id, match.id); return match }
     const only = this.sole()
     if (only) {
       this.remember(session.id, only.id)
